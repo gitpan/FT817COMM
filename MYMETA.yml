@@ -19,5 +19,6 @@ no_index:
     - t
     - inc
 requires:
+  Device::SerialPort: 0
   perl: 5.006
 version: 0.9.0_01

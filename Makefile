@@ -19,7 +19,7 @@
 #     MIN_PERL_VERSION => q[5.006]
 #     NAME => q[Ham::Device::FT817COMM]
 #     PL_FILES => {  }
-#     PREREQ_PM => { Test::More=>q[0] }
+#     PREREQ_PM => { Test::More=>q[0], Device::SerialPort=>q[0] }
 #     VERSION_FROM => q[lib/Ham/Device/FT817COMM.pm]
 #     clean => { FILES=>q[Ham-Device-FT817COMM-*] }
 #     dist => { COMPRESS=>q[gzip -9f], SUFFIX=>q[gz] }
@@ -492,7 +492,8 @@ metafile : create_distdir
 	$(NOECHO) $(ECHO) 'build_requires:' >> META_new.yml
 	$(NOECHO) $(ECHO) '    Test::More:  0' >> META_new.yml
 	$(NOECHO) $(ECHO) 'requires:' >> META_new.yml
-	$(NOECHO) $(ECHO) '    perl:  5.006' >> META_new.yml
+	$(NOECHO) $(ECHO) '    Device::SerialPort:  0' >> META_new.yml
+	$(NOECHO) $(ECHO) '    perl:                5.006' >> META_new.yml
 	$(NOECHO) $(ECHO) 'no_index:' >> META_new.yml
 	$(NOECHO) $(ECHO) '    directory:' >> META_new.yml
 	$(NOECHO) $(ECHO) '        - t' >> META_new.yml
@@ -773,6 +774,7 @@ ppd :
 	$(NOECHO) $(ECHO) '    <AUTHOR>Jordan Rubin &lt;jrubin@cpan.org&gt;</AUTHOR>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <IMPLEMENTATION>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <PERLCORE VERSION="5,006,0,0" />' >> $(DISTNAME).ppd
+	$(NOECHO) $(ECHO) '        <REQUIRE NAME="Device::SerialPort" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <ARCHITECTURE NAME="i686-linux-gnu-thread-multi-64int-5.14" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <CODEBASE HREF="" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    </IMPLEMENTATION>' >> $(DISTNAME).ppd
