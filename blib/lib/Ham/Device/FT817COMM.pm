@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 313 2014-03-10 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-12 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -13,93 +13,7 @@ package Ham::Device::FT817COMM;
 
 use strict;
 use 5.006;
-
-=head1 NAME
-Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
-=head1 VERSION
-Version 0.9.0_01
-=cut
-our $VERSION = '0.9.0_01';
-=head1 SYNOPSIS
-Creates an instance of the FT817 in an object oriented fashion and allows calls to the serial interface
-$self->{'port'}->command(chr($data1).chr($data2).chr($data3).chr($data4).chr($command));
-This allows for complete control of the rig through the sub routines
-all done through the cat interface
-
-        $output = $self->eepromDecode(00,57);
-
-
-=head1 AUTHOR
-Jordan Rubin, C<< <jrubin at cpan.org> >>
-
-=head1 BUGS
-Please report any bugs or feature requests to C<bug-ham-device-ft817comm at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Ham-Device-FT817COMM>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-=head1 SUPPORT
-You can find documentation for this module with the perldoc command.
-    perldoc Ham::Device::FT817COMM
-
-You can also look for information at:
-
-=over 4
-=item * RT: CPAN's request tracker (report bugs here)
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Ham-Device-FT817COMM>
-=item * AnnoCPAN: Annotated CPAN documentation
-L<http://annocpan.org/dist/Ham-Device-FT817COMM>
-=item * CPAN Ratings
-L<http://cpanratings.perl.org/d/Ham-Device-FT817COMM>
-=item * Search CPAN
-L<http://search.cpan.org/dist/Ham-Device-FT817COMM/>
-=back
-
-=head1 ACKNOWLEDGEMENTS
-Thank you to Clint Turner KA7OEI for his research on the FT817 and discovering the mysteries of the EEprom
-FT817 and Yaesu are a registered trademark of Vertex standard Inc.
-
-
-=head1 LICENSE AND COPYRIGHT
-
-Copyright 2014 Jordan Rubin.
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
-
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-=cut
-
+our $VERSION = '0.9.0_03';
 
 
 
@@ -313,8 +227,10 @@ return $output;
 
 #### Writes data to the eeprom MSB,LSB,BIT# and VALUE,  REWRITES NEXT MEMORY ADDRESS
 sub writeEeprom {
+#podpod
         my $self=shift;
-	my ($MSB, $LSB, $BIT, $VALUE,$writestatus) = @_;
+#	my ($MSB, $LSB, $BIT, $VALUE,$writestatus) = @_;
+	my ($writestatus) = @_;
 	my $MSB=shift;
 	my $LSB=shift;
 	my $BIT=shift;
@@ -411,7 +327,9 @@ return $writestatus;
 
 #### ENABLE/DISABLE LOCK VIA CAT
 sub setLock {
-	my ($lock,$data) = @_;
+#podpod
+#	my ($lock,$data) = @_;
+        my ($data) = @_;
 	my $self=shift;
 	my $lock = shift;
         $data = undef;
@@ -429,7 +347,9 @@ return $catoutput;
 
 #### ENABLE/DISABLE PTT VIA CAT
 sub setPtt {
-	my ($ptt,$data) = @_;
+#podpod
+#	my ($ptt,$data) = @_;
+        my ($data) = @_;
 	my $self=shift;
 	my $ptt = shift;
 	$data = undef;
@@ -447,7 +367,9 @@ return $catoutput;
 
 #### SET CURRENT FREQ USING CAT
 sub setFrequency {
-	my ($newfrequency,$badf,$f1,$f2,$f3,$f4) = @_;
+#podpod
+#	my ($newfrequency,$badf,$f1,$f2,$f3,$f4) = @_;
+	my ($badf,$f1,$f2,$f3,$f4) = @_;
 	my $self=shift;
 	my $newfrequency = shift;
 
@@ -473,7 +395,8 @@ return $catoutput;
 
 #### SET MODE VIA CAT
 sub setMode {
-	my ($newmode) = @_;
+#podpod
+#	my ($newmode) = @_;
 	my $self=shift;
 	my $newmode = shift;
 	my %newhash = reverse %OPMODES;
@@ -489,7 +412,9 @@ return $catoutput;
 
 #### ENABLE/DISABLE CLARIFIER VIA CAT
 sub setClarifier {
-	my ($clarifier,$data) = @_;
+#podpod
+#       my ($clarifier,$data) = @_;
+	my ($data) = @_;
 	my $self=shift;
 	my $clarifier = shift;
 	$data = undef;
@@ -507,7 +432,9 @@ return $catoutput;
 
 #### SET CLARIFIER FREQ AND POLARITY USING CAT
 sub setClarifierfreq {
-	my ($polarity,$frequency,$badf,$f1,$f2,$p) = @_;
+#podpod
+#       my ($polarity,$frequency,$badf,$f1,$f2,$p) = @_;
+	my ($badf,$f1,$f2,$p) = @_;
 	my $self=shift;
 	my $polarity = shift;
 	my $frequency = shift;
@@ -548,7 +475,9 @@ return $catoutput;
 
 #### ENABLE/DISABLE SPLIT FREQUENCY VIA CAT
 sub setSplitfreq {
-	my ($split,$data) = @_;
+#podpod
+#       my ($split,$data) = @_;
+	my ($data) = @_;
 	my $self=shift;
 	my $split = shift;
 	$data = undef;
@@ -566,7 +495,9 @@ return $catoutput;
 
 #### POS/NEG/SIMPLEX REPEATER OFFSET MODE VIA CAT
 sub setOffsetmode {
-	my ($offsetmode,$datablock) = @_;
+#podpod
+#       my ($offsetmode,$datablock) = @_;
+	my ($datablock) = @_;
 	my $self=shift;
 	my $offsetmode = shift;
 	$datablock = undef;
@@ -584,7 +515,9 @@ return $catoutput;
 
 #### SET REPEATER OFFSET FREQ USING CAT
 sub setOffsetfreq {
-	my ($frequency,$badf,$f1,$f2,$f3,$f4) = @_;
+#podpod
+#       my ($frequency,$badf,$f1,$f2,$f3,$f4) = @_;
+	my ($badf,$f1,$f2,$f3,$f4) = @_;
         my $self=shift;
         my $frequency = shift;
         if ($frequency!~ /\D/ && length($frequency)=='8') {
@@ -628,7 +561,9 @@ return $catoutput;
 
 #### SETS CTCSS TONE FREQUENCY
 sub setCtcsstone {
-	my ($tonefreq,$badf,$f1,$f2) = @_;
+#podpod
+#        my ($tonefreq,$badf,$f1,$f2) = @_;
+	my ($badf,$f1,$f2) = @_;
 	my $self=shift;
 	my $tonefreq = shift;
         if ($tonefreq!~ /\D/ && length($tonefreq)=='4') {
@@ -651,7 +586,9 @@ return $catoutput;
 
 #### SET DCS CODE USING CAT######
 sub setDcscode {
-	my ($code,$badf,$f1,$f2) = @_;
+#podpod
+#       my ($code,$badf,$f1,$f2) = @_;
+	my ($badf,$f1,$f2) = @_;
         my $self=shift;
         my $code = shift;
         if ($code!~ /\D/ && length($code)=='4') {
@@ -674,7 +611,9 @@ return $catoutput;
 
 #### GET MULTIPLE VALUES OF RX STATUS RETURN AS variables OR hash
 sub getRxstatus {
-        my ($option,$match,$desc) = @_;
+#podpod
+        my ($match,$desc) = @_;
+#       my ($option,$match,$desc) = @_;
         my $self=shift;
         my $option = shift;
 	if (!$option){$option = 'hash';} 
@@ -708,7 +647,9 @@ return %rxstatus;
 
 #### GET MULTIPLE VALUES OF TX STATUS RETURN AS variables OR hash
 sub getTxstatus {
-        my ($option,$match,$desc,$ptt,$highswr,$split) = @_;
+#podpod
+#       my ($option,$match,$desc,$ptt,$highswr,$split) = @_;
+        my ($match,$desc,$ptt,$highswr,$split) = @_;
         my $self=shift;
         my $option = shift;
         if (!$option){$option = 'hash';}
@@ -741,7 +682,9 @@ return %txstatus;
 
 #### GET CURRENT FREQ USING CAT######
 sub getFrequency {
-	my ($freq, $formatted) = @_;
+#podpod
+#       my ($freq, $formatted) = @_;
+	my ($freq) = @_;
 	my $self=shift;
 	my $formatted = shift;
 	$catoutput = $self->sendCat('00','00','00','00','0x03',5);
@@ -774,10 +717,21 @@ return $catoutput;
 
 #### SETS RADIO POWER ON OR OFF VIA CAT
 sub setPower {
-	my ($powerset,$data) = @_;
+#podpod
+#	my ($powerset,$data) = @_;
+        my ($data) = @_;
 	my $self=shift;
 	my $powerset = shift;
 	$data = undef;
+        if ($verbose){
+                if (!$powerset) {print "Option ON / OFF Missing.\n"; return 1;}
+                if (($powerset) && ($powerset ne 'ON') && ($powerset ne 'OFF')) 
+				 {
+				print "Syntax Error.\n"; return 'error';
+	                         }
+			
+		    }
+
 	if ($powerset eq 'ON'){$data = "0x0f";}
 	if ($powerset eq 'OFF') {$data = "0x8f";}
 	if($data) {
@@ -809,14 +763,18 @@ return $catoutput;
 # X ################################# GET VALUES OF EEPROM ADDRESS VIA EEPROMDECODE
 ###################################### READ ADDRESS GIVEN
 sub getEeprom {
-        my ($address,$address2) = @_;
+#podpod
+#       my ($address,$address2) = @_;
         my $self=shift;
 	my $address =shift;
 	my $address2 = shift;
 
 
         if ($verbose){
-                print "Get EEPROM ($address) Failed. Must contain  hex value 0-9 a-f.\n"; return 1 if (! $address);
+		if (!$address) {
+                print "Get EEPROM ($address) Failed. Must contain  hex value 0-9 a-f.\n"; 
+return 1;
+			       }
                      }
 
                print "\n";
@@ -834,7 +792,9 @@ return $address;
 # 4-5 ################################# GET RADIO VERSION VIA EEPROMDECODE
 ###################################### READ ADDRESS 0X4 AND 0X5
 sub getConfig {
-        my ($type,$confighex4,$confighex5,$output4,$output5) = @_;
+#podpod
+#       my ($type,$confighex4,$confighex5,$output4,$output5) = @_;
+        my ($confighex4,$confighex5,$output4,$output5) = @_;
         my $self=shift;
 	my $type=shift;
         $output4 = $self->eepromDecode(00,04);
@@ -1036,7 +996,7 @@ return $fasttuning;
 
 
 
-# 5f ################################# GET RFGAIN/SQUELCF ######
+# 5f ################################# GET RFGAIN/SQUELCH ######
 ###################################### READ BIT 0-1 FROM 0X5f
 
 sub getRfgain {
@@ -1110,6 +1070,337 @@ sub toggleRfgain {
 	  	    }
 return $writestatus;
                       }
+
+
+
+
+
+
+=head1 NAME
+
+Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
+
+=head1 VERSION
+
+Version 0.9.0_03
+
+=head1 SYNOPSIS
+
+use HAM::Device::FT817COMM;
+
+=head2 Constructor and Port Configurations
+
+
+	my $FT817 = new Ham::Device::FT817COMM (
+	serialport => '/dev/ttyUSB0',
+	baud => '38400',
+	lockfile => '/var/lock/ft817'
+				               );
+
+	my $port = $FT817->{'serialport'};
+	my $baud = $FT817->{'baud'};
+	my $lockfile = $FT817->{'lockfile'};
+	my $version = $FT817->moduleVersion;
+
+=head2 Destructor
+
+	$FT817->closePort;
+
+=head2 Initialization
+
+The instance of the device and options are created with the constructor and port configurations shown above.
+The variable which is an instance of the device may be named at that point. In this case B<$FT817>.
+The serialport must be a valid port and not locked.  You must consider that your login must have 
+permission to access the port either being added to the group or giving the user suffucient privilages.
+The baudrate 'baud' must match the baudrate of the radio B<CAT RATE> which is menu item B<14>.
+
+Finally B<lockfile> is recommended to ensure that no other software may access the port at the same time.
+The lockfile is removed as part of the invocation of the destructor method.
+
+
+=head1 METHODS
+
+=head2 1. Using Return Data From a Module
+
+This allows for complete control of the rig through the sub routines
+all done through the cat interface
+
+        $output = 'rigname'->'command'('value');
+
+an example is a follows
+
+	$output = $FT817->setLock('ENABLE');
+
+Using this method, the output which is collected in the varible B<$output> is designed to be minimal for
+use in applications that provide an already formatted output.
+
+For example:
+	
+	$output = $FT817->setLock('ENABLE');
+	print "$output";
+
+Would simply return B<F0> if the command failed and B<00> if the command was sucessfull. The outputs vary
+from module to module, depending on the function
+
+=head2 2. Using setVerbose(#)
+
+The module already has pre-formatted outputs for each subroutine.  Using the same example in a different form
+and setting B<setVerbose(1)> we have the following
+
+	setVerbose(1);
+	$FT817->setLock('ENABLE');
+
+The output would be, for example:
+	
+	Set Lock (ENABLE) Sucessfull.
+
+Other verbose outputs exist to catch errors.
+
+	setVerbose(1);
+	$FT817->setLock('blabla');
+
+The output would be:
+
+	Set Lock (blabla) Failed. Option:blabla invalid.
+
+The B<setVerbose(2)> flag is similar to the setVerbose(1) flag but also provides the bit value of the function at
+the specified memory address.
+
+An example of all 3 is show below for the command getHome()
+
+	As return data: Y
+	As verbose(1) : At Home Frequency
+	As verbose(2) : getHome: bit is (1) Home is Y
+
+We see that return data will be suitable for a program which needs just a boolean value, verbose(1) is suitable
+for a front-end app response, and verbose(2) for internal testing of module.
+
+=head2 3. Build a sub-routine into a condition
+
+Another use can be to use a subrouting as a value in a condition statment to test
+
+	if (gethome() eq 'Y') {
+		warn "I guess we're home";
+			      }
+
+Call all of the modules, one at a time and look at the outputs, from which you can decide how the data can be used.
+At this time I have completed a command line front end for this module that makes testing all of the functionality easy.
+
+=head1 DEBUGGER
+
+FT817COMM has a built in robust debugger that makes available to the user all transactions between the software and the rig.
+Where verbose gave the outputs to user initiated subroutines, the debugger does very much the same but with internal functions
+not designed to be called directly in the userspace.  That being said, you should never directly call these system functions
+or you will quickly turn your 817 into a paperweight or door stop. You have been warned.
+
+Feel free to use the debugger to get an idea as to how the module and the radio communicate.
+
+	setDebug(1); # Turns on the debugger
+
+The first output of which is:
+
+	DEBUGGER IS ON
+
+Two distinct type of transactions happen with the debugger, they are:
+
+	CAT commands   :	Commands which use the Yaesu CAT protocol
+	EPROMM commands:	Commands which read and write to the EEPROM
+
+With the command: B<getMode()> we get the regular output expected, with B<verbose(1)>
+
+	Mode is FM
+
+However with the B<setDebug(1)> we will see the following output to the same command:
+
+	sendcat:debug - DATA OUT ----> 00 00 00 00 0x03
+	sendcat:debug - DATA IN <----- 1471200008
+	Mode is FM
+
+The sendcat:debug shows the request of B<00 00 00 00 0x03> sent to the rig, and the rig
+returning B<1471200008>. What were looking at is the last two digits 08 which is parsed from
+the block of data.  08 is mode FM.  FT817COMM does all of the parsing and conversion for you.
+
+As you might have guessed, the first 8 digits are the current frequency, which in this case
+is 147.120 MHZ.  The getFrequency() module would pull the exact same data, but parse it differently
+
+The debugger works differently on read/write to the eeprom. The next example shown below used the function
+B<getNb()>, the noiseblocker status.
+
+	eepromdecode:debug - Output from MSB:0 LSB:57 : 11000010
+	Noise Blocker is OFF
+
+The output shows that the status of noise blocker lives at B<0x57> it happens to be bit B<5> of this data B<(0)> that
+indicates that the noiseblocker is B<OFF>.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+=head1 Modules
+
+=over
+
+=item agreewithwarning()
+=item closeport()
+=item dec2bin()
+=item closePort()
+=item eepromDecode()
+=item getAgc()
+=item getConfig()
+=item getDsp()
+=item getEeprom()
+=item getFasttuning()
+=item getFlags()
+=item getFrequency()
+=item getHome()
+=item getLock()
+=item getMode()
+=item getNb()
+=item getRfgain()
+=item getRxstatus()
+=item getSoftcal()
+=item getTuner()
+=item getTxpower()
+=item getTxstatus()
+=item getVfo()
+=item hex2bin()
+=item moduleVersion()
+=item new()
+=item restoreEeprom()
+=item sendCat()
+=item setClarifier()
+=item setClarifierfreq()
+=item setCtcssdcs()
+=item setCtcsstone()
+=item setDcscode()
+=item setDebug()
+=item setFrequency()
+=item setLock()
+=item setMode()
+=item setOffsetfreq()
+=item setOffsetmode()
+=item setPower()
+=item setPtt()
+=item setSplitfreq()
+=item setWriteallow()
+=item toggleRfgain()
+=item vfoToggle()
+=item writeEeprom()
+
+=back
+
+
+
+
+=head1 AUTHOR
+
+Jordan Rubin KJ4TLB, C<< <jrubin at cpan.org> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-ham-device-ft817comm at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Ham-Device-FT817COMM>.  I will be notified, and then you'll
+automatically be notified of progress on your bug as I make changes.
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+    perldoc Ham::Device::FT817COMM
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Ham-Device-FT817COMM>
+=item * AnnoCPAN: Annotated CPAN documentation
+L<http://annocpan.org/dist/Ham-Device-FT817COMM>
+=item * CPAN Ratings
+L<http://cpanratings.perl.org/d/Ham-Device-FT817COMM>
+=item * Search CPAN
+L<http://search.cpan.org/dist/Ham-Device-FT817COMM/>
+
+=back
+
+=head1 ACKNOWLEDGEMENTS
+
+Thank you to Clint Turner KA7OEI for his research on the FT817 and discovering the mysteries of the EEprom
+FT817 and Yaesu are a registered trademark of Vertex standard Inc.
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014 Jordan Rubin.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=cut
+
+
 
 
 
