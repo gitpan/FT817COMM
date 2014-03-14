@@ -13,7 +13,7 @@ package Ham::Device::FT817COMM;
 
 use strict;
 use 5.006;
-our $VERSION = '0.9.0_03';
+our $VERSION = '0.9.0_04';
 
 
 
@@ -165,7 +165,7 @@ rid of this message and have the ability to write to the eeprom.
 	  
 		 }
 #### sets output of a set command
-sub agreewithwarning {
+sub agreeWithwarning {
         my $self = shift;
         my $agreeflag = shift;
         if($agreeflag == '1') {our $agreewithwarning = $agreeflag;}
@@ -1082,7 +1082,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_03
+Version 0.9.0_04
 
 =head1 SYNOPSIS
 
@@ -1142,7 +1142,7 @@ For example:
 Would simply return B<F0> if the command failed and B<00> if the command was sucessfull. The outputs vary
 from module to module, depending on the function
 
-=head2 2. Using setVerbose(#)
+=head2 2. Using setVerbose()
 
 The module already has pre-formatted outputs for each subroutine.  Using the same example in a different form
 and setting B<setVerbose(1)> we have the following
@@ -1179,7 +1179,7 @@ for a front-end app response, and verbose(2) for internal testing of module.
 
 Another use can be to use a subrouting as a value in a condition statment to test
 
-	if (gethome() eq 'Y') {
+	if ((gethome()) eq 'Y') {
 		warn "I guess we're home";
 			      }
 
@@ -1239,84 +1239,357 @@ indicates that the noiseblocker is B<OFF>.
 
 
 
-
-
-
-
-
-
-
-
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
 =head1 Modules
 
 =over
 
-=item agreewithwarning()
-=item closeport()
-=item dec2bin()
+=item agreeWithwarning()
+
+		$agree = $FT817->agreeWithwarning(#);
+
+	Turns on and off the internal flag that says. You undrstand the risks of writing to the EEPROM
+	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+
+	Returns the argument sent to it on success.
+
 =item closePort()
+
+		$FT817->closePort();
+
+	This function should be executed at the end of the program.  This closes the serial port and removed the lock
+	file if applicable.  If you do not use this, and exit abnormally, you will need to manually remove the lock 
+	file if it was enabled in the settings.
+
+
+=item dec2bin()
+
+	Simple internal function for converting decimal to binary. Has no use to the end user.
+
 =item eepromDecode()
+
+	An internal function to retrieve code from an address of the eeprom and convert the first byte to 
+	binary, dumping the second byte.
+
 =item getAgc()
+
+		$agc = $FT817->getAgc();
+
+	Returns the current setting of the AGC: AUTO / FAST / SLOW / OFF
+
 =item getConfig()
+
+		$config = $FT817->getConfig();
+
+	Returns the two values that make up the Radio configuration.  This is set by the soldier blobs
+	of J4001-J4009 in the radio.
+
 =item getDsp()
+
+		$dsp = $FT817->getDsp();
+
+	Returns the current setting of the Digital Signal Processor (if applicable) : ON / OFF
+
 =item getEeprom()
+
+		$value = $FT817->getEeprom();
+
+	Currently returns just the value you send it. In verbose mode however, it will display a formatted
+	output of the memory address specified.  This was added late and will be update in the next release. 
+
 =item getFasttuning()
+
+		$fasttune = $FT817->getFasttuning();
+
+	Returns the current setting of the Fast Tuning mode : ON / OFF
+
 =item getFlags()
+
+		$flags = $FT817->getFlags();
+
+	Returns the current status of the flags : DEBUG / VERBOSE / WRITE ALLOW / WARNED
+
 =item getFrequency()
+
+		$frequency = $FT817->getFrequency(#);
+
+	Returns the current frequency of the rig eg. B<14712000> with B<getFrequency()>
+	Returns the current frequency of the rig eg. B<147.120.00> MHZ with B<getFrequency(1)>
+
 =item getHome()
+
+		$home = $FT817->getHome();
+
+	Returns the current status of the rig being on the Home Frequency : Y/N
+
 =item getLock()
+
+		$lock = $FT817->getLock();
+
+	Returns the current status of the lock function being enable : Y/N
+
 =item getMode()
+
+		$mode = $FT817->getMode();
+
+	Returns the current Mode of the Radio : AM / FM / USB / CW etc.......
+
+
 =item getNb()
+
+		$nb = $FT817->getNb();
+
+	Returns the current Status of the Noise Blocker : ON / OFF
+
 =item getRfgain()
+
+		$rfgainknob = $FT817->getRfgain();
+
+	Returns the current Functionality of the RF-GAIN Knob : RFGAIN / SQUELCH
+
 =item getRxstatus()
+
+		$rxstatus = $FT817->getRxstatus({variables/hash});
+
+	Retrieves the status of SQUELCH / S-METER / TONEMATCH / DESCRIMINATOR in one
+	command and posts the information when verbose(1).  
+
+	Returns with variables as argument $squelch $smeter $smeterlin $desc $match
+	Returns with hash as argument %rxstatus
+
 =item getSoftcal()
+
+		$softcal = $FT817->getSoftcal({console/file filename.txt});
+
+	This command currently works with verbose and write to file.  Currently there is no
+	usefull return information.  With no argument, it defaults to console and dumps the
+	entire 76 software calibration memory areas to the screen.  Using file along with a 
+	file name writes the output to a file.  It's a good idea to keep a copy of this
+	in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
+	this information, you will have to send the radio back to the company for recalibration.
+
 =item getTuner()
+
+		$tuner = $FT817->getTuner();
+
+	Returns the current tuner setting : VFO / MEMORY
+
 =item getTxpower()
+
+		$txpower = $FT817->getTxpower();
+
+	Returns the current Transmit power level : HIGH / LOW3 / LOW2 / LOW1
+
 =item getTxstatus()
+
+		$txstatus = $FT817->getTxstatus({variables/hash});
+
+	Retrieves the status of POWERMETER / PTT / HIGHSWR / SPLIT in one
+	command and posts the information when verbose(1).  
+
+	Returns with variables as argument $pometer $ptt $highswr $split
+	Returns with hash as argument %txstatus
+
 =item getVfo()
+
+		$vfo = $FT817->getVfo();
+
+	Returns the current VFO : A / B
+
 =item hex2bin()
+
+	Simple internal function for convrting hex to binary. Has no use to the end user.
+
 =item moduleVersion()
+
+		$version = $FT817->moduleVersion();
+
+	Returns the version of FT817COMM.pm to the software calling it.
+
 =item new()
+
+		my $FT817 = new Ham::Device::FT817COMM (
+		serialport => '/dev/ttyUSB0',
+		baud => '38400',
+		lockfile => '/var/lock/ft817'
+					               );
+
+	Creates an instance of the device that is the Radio.  Called at the begining of the program.
+	See the Constructors section for more info.
+
+
 =item restoreEeprom()
+
+		$restorearea = $FT817->restoreEeprom();
+
+	This restores a specific memory area of the EEPROM back to a known good default value.
+	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
+	to be set to 1.
+	This command does not allow for an arbitrary address to be written. Currently only 5f is allowed
+
+	restoreEeprom(5f); 
+
+	Returns 'OK' on success. Any other optput an error.
+
 =item sendCat()
+
+	Internal function, if you try to call it, you may very well end up with a broken radio.
+	You have been warned.
+
 =item setClarifier()
+
+		$setclar = $FT817->setClarifier({enable/disable});
+
+	Enables or disables the clarifier
+
+	Returns '00' on success or 'f0' on failure
+
 =item setClarifierfreq()
+
+		$setclarfreq = $FT817->setClarifierfreq(####);
+
+	Uses 4 digits as an argument to set the Clarifier frequency.  Leading and trailing zeros required where applicable
+	 1.234 KHZ would be 1234
+
+	Returns '00' on success or 'f0' on failure
+
 =item setCtcssdcs()
+
+		$ctcssdcs = $FT817->setCtcssdcs({DCS/CTCSS/ENCODER/OFF});
+
+	Sets the CTCSS DCS mode of the radio
+
+	Returns 'OK' on success or something else on failure
+
 =item setCtcsstone()
+
+		$ctcsstone = $FT817->setCtcsstone(####);
+
+	Uses 4 digits as an argument to set the CTCSS tone.  Leading and trailing zeros required where applicable
+	 192.8 would be 1928 as an argument
+
+	Returns '00' on success or 'f0' on failure
+
 =item setDcscode()
+
+		$dcscode = $FT817->setDcscode(####);
+
+	Uses 4 digits as an argument to set the DCS code.  Leading and trailing zeros required where applicable
+	 0546 would be 546 as an argument
+
+	Returns '00' on success or 'f0' on failure
+
 =item setDebug()
+
+		$debug = $FT817->setDebug(#);
+
+	Turns on and off the internal debugger. Provides information on all serial transactions when on.
+	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+
+	Returns the argument sent to it on success.
+
 =item setFrequency()
+
+		$setfreq = $FT817->setFrequency(########);
+
+	Uses 8 digits as an argument to set the frequency.  Leading and trailing zeros required where applicable
+	147.120 MHZ would be 14712000
+	 14.070 MHZ would be 01407000
+
+	Returns '00' on success or 'f0' on failure
+
 =item setLock()
+
+		$setlock = $FT817->setLock({enable/disable});
+
+	Enables or disables the radio lock.
+
+	Returns '00' on success or 'f0' on failure
+
 =item setMode()
+
+		$setmode = $FT817->setMode({LSB/USB/CW/CWR/AM/FM/DIG/PKT/FMN/WFM});
+
+	Sets the mode of the radio with one of the valid modes.
+
+	Returns '00' on success or 'f0' on failure
+
 =item setOffsetfreq()
+
+		$offsetfreq = $FT817->setOffsetfreq(########);
+
+	Uses 8 digits as an argument to set the offset frequency.  Leading and trailing zeros required where applicable
+	1.230 MHZ would be 00123000
+
+	Returns '00' on success or 'f0' on failure
+
 =item setOffsetmode()
+
+		$setoffsetmode = $FT817->setOffsetmode({POS/NEG/SIMPLEX});
+
+	Sets the mode of the radio with one of the valid modes.
+
+	Returns '00' on success or 'f0' on failure
+
 =item setPower()
+
+		$setPower = $FT817->setPower({ON/OFF});
+
+	Sets the power of the radio on or off. Note that this function, as stated in the manual only works
+	Correctly when connected to DC power and NO Battery installed 
+
+	Returns '00' on success or 'null' on failure
+
 =item setPtt()
+
+		$setptt = $FT817->setPtt({ON/OFF});
+
+	Sets the Push to talk of the radio on or off.  
+
+	Returns '00' on success or 'f0' on failure
+
 =item setSplitfreq()
+
+		$setsplit = $FT817->setSplitfreq({enable/disable});
+
+	Sets the radio to split the transmit and receive frequencies
+
+	Returns '00' on success or 'f0' on failure
+
 =item setWriteallow()
+
+		$writeallow = $FT817->setWriteallow(#);
+
+	Turns on and off the write Flag. Provides a warning about writing to the EEPROM and
+	requires the agreeWithwarning()  to also be set to 1 after reading the warning
+	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+
+	Returns the argument sent to it on success.
+
 =item toggleRfgain()
+
+		$togglerf = $FT817->toggleRfgain();
+
+	Toggles the RF-GAIN knob between RFGAIN or SQLELCH.  This is a WRITEEEPROM based
+	function and requires both setWriteallow() and agreeWithwarning() to be set to 1.
+	In the event of a failure, the memory area can be restored with. The following
+	command that also requires both flags previously mentioned set to 1.
+
+	restoreEeprom(5f); 
+
+	Returns 'OK' on success. Any other optput an error.
+
 =item vfoToggle()
+
+		$vfotoggle = $FT817->vfotoggle();
+
+	Togles the VFO between A and B
+
+	Returns '00' on success or 'f0' on failure
+
 =item writeEeprom()
+
+	Internal function, if you try to call it, you may very well end up with a broken radio.
+	You have been warned.
 
 =back
 
