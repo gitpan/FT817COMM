@@ -20,5 +20,6 @@ no_index:
     - inc
 requires:
   Device::SerialPort: 0
+  Digest::MD5: 0
   perl: 5.006
-version: 0.9.0_01
+version: 0.9.0_05

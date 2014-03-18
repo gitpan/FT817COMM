@@ -3,3 +3,20 @@ Revision history for Ham-Device-FT817COMM
 0.9.0_01    12MARCH2014/1200
             First version, released on an unsuspecting world.
 
+0.9.0_02    13MARCH2014/1200
+            Added missing dependancy Device::Serialport to Makefile
+
+0.9.0_03    13MARCH2014/1600
+            Added POD documentation
+
+0.9.0_04    13MARCH2014/2000
+            Corrected POD documentation Pod documentation
+
+0.9.0_05    17MARCH2014/1200
+	    Cleaned up POD remarks
+	    Added digest option to getSoftcal
+	    Added 62 and 7b option to restoreEeprom  
+	    Added function getCharger
+	    Added function setCharger
+	    Added function setChargetime
+	    Added internal function writeBlock

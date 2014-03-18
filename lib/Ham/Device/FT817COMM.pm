@@ -2,32 +2,25 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-13 18:32:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-17 16:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
-
 
 
 package Ham::Device::FT817COMM;
 
 use strict;
 use 5.006;
-our $VERSION = '0.9.0_04';
-
-
-
-
+use Digest::MD5 qw(md5);
+our $VERSION = '0.9.0_05';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES $catoutput $output 
 		$squelch $currentmode $out $vfo $home $tuneselect $nb $lock $txpow 
-		$toggled $writestatus $testbyte $dsp $fasttuning);
-
-
-
+		$toggled $writestatus $testbyte $dsp $fasttuning $charger);
 
 my $ft817;
 my $catoutput;
@@ -133,8 +126,6 @@ sub setVerbose {
 	if($verboseflag == '1') {our $verbose = $verboseflag;}
         if($verboseflag == '2') {our $verbose = $verboseflag;}
 	if($verboseflag == '0') {$verbose = undef;}
-        if($verbose){print "VERBOSE IS ON - LEVEL($verbose)\n";}
-	if(!$verbose){print "VERBOSE IS OFF\n";}
 return $verbose;
                }
 
@@ -144,8 +135,8 @@ sub setWriteallow {
         my $writeflag = shift;
         if($writeflag == '1') {our $writeallow = $writeflag;}
         if($writeflag == '0') {our $writeallow = undef;}
-if ($writeallow){print "WRITING TO EEPROM ACTIVATED";}
-if (!$writeallow){print "WRITING TO EEPROM DEACTIVATED";}
+if ($writeallow){print "WRITING TO EEPROM ACTIVATED\n";}
+if (!$writeallow){print "WRITING TO EEPROM DEACTIVATED\n";}
 if (!$agreewithwarning and $writeallow){print "
 \n*****NOTICE****** *****NOTICE****** *****NOTICE****** *****NOTICE****** *****NOTICE******
 \nYou have enabled the option setWriteallow!!!!\n 
@@ -227,9 +218,7 @@ return $output;
 
 #### Writes data to the eeprom MSB,LSB,BIT# and VALUE,  REWRITES NEXT MEMORY ADDRESS
 sub writeEeprom {
-#podpod
         my $self=shift;
-#	my ($MSB, $LSB, $BIT, $VALUE,$writestatus) = @_;
 	my ($writestatus) = @_;
 	my $MSB=shift;
 	my $LSB=shift;
@@ -277,10 +266,51 @@ return $writestatus;
 		$writestatus = "ERROR, Run restoreEeprom($addressname) to return memory area to default";
 		if($debug){print "Values did not match\n";}}
 return $writestatus;
-}
+               }
+
+
+#### Writes an entire byte of data to the eeprom, MSB LSB VALUE
+sub writeBlock {
+        my $self=shift;
+        my ($writestatus) = @_;
+        my $MSB=shift;
+        my $LSB=shift;
+        my $VALUE=shift;
+
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+                if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
+                $writestatus = "Write Disabled";
+return $writestatus;
+				                             }
+	my $addressname = $LSB;
+        $MSB = hex($MSB);
+        $LSB = hex($LSB);
+	$VALUE = hex($VALUE);
+        $self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
+        my $output = $self->{'port'}->read(2);
+        my $BYTE2 = unpack("H*", substr($output,1,1));
+	$BYTE2 = hex($BYTE2);
+	if($debug){print "MSB: $MSB   LSB: $LSB     1:$VALUE 2:$BYTE2 \n";}
+        $self->{'port'}->write(chr($MSB).chr($LSB).chr($VALUE).chr($BYTE2).chr(0xBC));
+	
+	if($debug){print "READING NEW VALUES AT $MSB, $LSB\n";}
+        $self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
+	my $output2 = $self->{'port'}->read(2);
+        if ($debug){print "Should be: ($VALUE) ($BYTE2)\n\n";}
+        if ($output2 == $output) {
+                $writestatus = "OK";
+                if($debug){print "Values match\n";}}
+        else {
+                $writestatus = "ERROR, Run restoreEeprom($addressname) to return memory area to default";
+                if($debug){print "Values did not match\n";}}
+return $writestatus;
+               }
+
+
 
 #### Restores eprom memory address to pre written default value in case there was an error
-# Currently supports address (5f)
+# Currently supports address (5f 62 7b)
 sub restoreEeprom {
         my $self=shift;
         if ($writeallow != '1' and $agreewithwarning != '1') {
@@ -290,32 +320,30 @@ sub restoreEeprom {
 return $writestatus;
                           }
         my ($area,$MSB,$LSB,$writestatus,$testbyte1,$testbyte2) = @_;
-	if ($area ne '5f'){
+	if (($area ne '5f') && ($area ne '62') && ($area ne '7b')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
 			  }
 
 	if ($area eq '5f'){
-		$self->{'port'}->write(chr(0).chr(95).chr(101).chr(25).chr(0xBC));
+		$self->{'port'}->write(chr(0).chr(95).chr(229).chr(25).chr(0xBC));
 		$MSB = hex('00');
 	       	$LSB = hex('5f');
 			  }
-	if($debug){print "Rewrote default memory values to 0x$area\n";}
-	$self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
-	my $output = $self->{'port'}->read(2);
-	if($debug){print "Checking new value in 0x$area\n";}
-	if ($area eq '5f'){$testbyte = 'e';} 
-	if ($testbyte eq 'e') {
-	        $writestatus = "OK";
-	       	if($debug){print "Restore area $area sucessfull!\n";}
-		if($verbose){print "Restore of (65) (19) to 0x$area sucessfull!\n";}
-							       }
-	else {
-		$writestatus = "ERROR, Run restoreEeprom(\'$area\') to return memory area to default";
-	    	if($debug){print "Restore failed!\n";}
-		if($verbose){print "Restore of (65) (19) to 0x$area failed!\n";}
-             }
+
+        if ($area eq '62'){
+                $self->{'port'}->write(chr(0).chr(98).chr(72).chr(178).chr(0xBC));
+                $MSB = hex('00');
+                $LSB = hex('62');
+                          }
+
+        if ($area eq '7b'){
+                $self->{'port'}->write(chr(0).chr(123).chr(6).chr(0).chr(0xBC));
+                $MSB = hex('00');
+                $LSB = hex('7b');
+                          }
+
 return $writestatus;
 		  }
 
@@ -327,8 +355,6 @@ return $writestatus;
 
 #### ENABLE/DISABLE LOCK VIA CAT
 sub setLock {
-#podpod
-#	my ($lock,$data) = @_;
         my ($data) = @_;
 	my $self=shift;
 	my $lock = shift;
@@ -347,8 +373,6 @@ return $catoutput;
 
 #### ENABLE/DISABLE PTT VIA CAT
 sub setPtt {
-#podpod
-#	my ($ptt,$data) = @_;
         my ($data) = @_;
 	my $self=shift;
 	my $ptt = shift;
@@ -367,8 +391,6 @@ return $catoutput;
 
 #### SET CURRENT FREQ USING CAT
 sub setFrequency {
-#podpod
-#	my ($newfrequency,$badf,$f1,$f2,$f3,$f4) = @_;
 	my ($badf,$f1,$f2,$f3,$f4) = @_;
 	my $self=shift;
 	my $newfrequency = shift;
@@ -395,8 +417,6 @@ return $catoutput;
 
 #### SET MODE VIA CAT
 sub setMode {
-#podpod
-#	my ($newmode) = @_;
 	my $self=shift;
 	my $newmode = shift;
 	my %newhash = reverse %OPMODES;
@@ -412,8 +432,6 @@ return $catoutput;
 
 #### ENABLE/DISABLE CLARIFIER VIA CAT
 sub setClarifier {
-#podpod
-#       my ($clarifier,$data) = @_;
 	my ($data) = @_;
 	my $self=shift;
 	my $clarifier = shift;
@@ -432,8 +450,6 @@ return $catoutput;
 
 #### SET CLARIFIER FREQ AND POLARITY USING CAT
 sub setClarifierfreq {
-#podpod
-#       my ($polarity,$frequency,$badf,$f1,$f2,$p) = @_;
 	my ($badf,$f1,$f2,$p) = @_;
 	my $self=shift;
 	my $polarity = shift;
@@ -475,8 +491,6 @@ return $catoutput;
 
 #### ENABLE/DISABLE SPLIT FREQUENCY VIA CAT
 sub setSplitfreq {
-#podpod
-#       my ($split,$data) = @_;
 	my ($data) = @_;
 	my $self=shift;
 	my $split = shift;
@@ -495,8 +509,6 @@ return $catoutput;
 
 #### POS/NEG/SIMPLEX REPEATER OFFSET MODE VIA CAT
 sub setOffsetmode {
-#podpod
-#       my ($offsetmode,$datablock) = @_;
 	my ($datablock) = @_;
 	my $self=shift;
 	my $offsetmode = shift;
@@ -515,8 +527,6 @@ return $catoutput;
 
 #### SET REPEATER OFFSET FREQ USING CAT
 sub setOffsetfreq {
-#podpod
-#       my ($frequency,$badf,$f1,$f2,$f3,$f4) = @_;
 	my ($badf,$f1,$f2,$f3,$f4) = @_;
         my $self=shift;
         my $frequency = shift;
@@ -561,8 +571,6 @@ return $catoutput;
 
 #### SETS CTCSS TONE FREQUENCY
 sub setCtcsstone {
-#podpod
-#        my ($tonefreq,$badf,$f1,$f2) = @_;
 	my ($badf,$f1,$f2) = @_;
 	my $self=shift;
 	my $tonefreq = shift;
@@ -586,8 +594,6 @@ return $catoutput;
 
 #### SET DCS CODE USING CAT######
 sub setDcscode {
-#podpod
-#       my ($code,$badf,$f1,$f2) = @_;
 	my ($badf,$f1,$f2) = @_;
         my $self=shift;
         my $code = shift;
@@ -611,9 +617,7 @@ return $catoutput;
 
 #### GET MULTIPLE VALUES OF RX STATUS RETURN AS variables OR hash
 sub getRxstatus {
-#podpod
         my ($match,$desc) = @_;
-#       my ($option,$match,$desc) = @_;
         my $self=shift;
         my $option = shift;
 	if (!$option){$option = 'hash';} 
@@ -647,8 +651,6 @@ return %rxstatus;
 
 #### GET MULTIPLE VALUES OF TX STATUS RETURN AS variables OR hash
 sub getTxstatus {
-#podpod
-#       my ($option,$match,$desc,$ptt,$highswr,$split) = @_;
         my ($match,$desc,$ptt,$highswr,$split) = @_;
         my $self=shift;
         my $option = shift;
@@ -682,8 +684,6 @@ return %txstatus;
 
 #### GET CURRENT FREQ USING CAT######
 sub getFrequency {
-#podpod
-#       my ($freq, $formatted) = @_;
 	my ($freq) = @_;
 	my $self=shift;
 	my $formatted = shift;
@@ -717,8 +717,6 @@ return $catoutput;
 
 #### SETS RADIO POWER ON OR OFF VIA CAT
 sub setPower {
-#podpod
-#	my ($powerset,$data) = @_;
         my ($data) = @_;
 	my $self=shift;
 	my $powerset = shift;
@@ -763,8 +761,6 @@ return $catoutput;
 # X ################################# GET VALUES OF EEPROM ADDRESS VIA EEPROMDECODE
 ###################################### READ ADDRESS GIVEN
 sub getEeprom {
-#podpod
-#       my ($address,$address2) = @_;
         my $self=shift;
 	my $address =shift;
 	my $address2 = shift;
@@ -792,8 +788,6 @@ return $address;
 # 4-5 ################################# GET RADIO VERSION VIA EEPROMDECODE
 ###################################### READ ADDRESS 0X4 AND 0X5
 sub getConfig {
-#podpod
-#       my ($type,$confighex4,$confighex5,$output4,$output5) = @_;
         my ($confighex4,$confighex5,$output4,$output5) = @_;
         my $self=shift;
 	my $type=shift;
@@ -801,11 +795,12 @@ sub getConfig {
 	$confighex4 = sprintf("%x", oct( "0b$output4" ) );
         $output5 = $self->eepromDecode(00,05);
         $confighex5 = sprintf("%x", oct( "0b$output5" ) );
+	my $configoutput = "[$confighex4][$confighex5]";
         $out = "\nHardware Jumpers created value of\n0x04[$output4]($confighex4)\n0x05[$output5]($confighex5)\n\n";
         if($verbose){
                 print "$out";
 	            }
-return $out;
+return $configoutput;
            }
 
 
@@ -821,11 +816,21 @@ sub getSoftcal {
 	if (!$option){$option = 'console';}
 	my $block = 1;
 	my $startaddress = '7';
-	if ($option eq 'console' || $verbose){
+	my $digestdata = undef;
+
+	if ($option eq 'console') {
+		if ($verbose){
 		print "\n";
 		printf "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
 		print "___________________________________________________\n";
-				 }
+			     }
+	                          }
+
+
+        if ($verbose){
+                print "Generated an MD5 hash from software calibration values ";
+                     }
+
 
         if ($option eq 'file'){
 		if (!$filename) {print"\nFilename required.     eg. /home/user/softcal.txt\n";return 0;}
@@ -835,14 +840,43 @@ sub getSoftcal {
 				  }
 		else {
 			$buildfile = '1';
-			print "\nCreating calibration backup to $filename........\n";
-			open  $filename, ">>", "$filename" or print"Can't open $filename. error\n";
-			print $filename "FT817 Software Calibration Backup\nUsing FT817COMM.pm version $VERSION\n";
-			print $filename "Created $localtime\n\n";
-			printf $filename "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
-                	print $filename "___________________________________________________\n";
+			if ($verbose){print "\nCreating calibration backup to $filename........\n";}
+			open  FILE , ">>", "$filename" or print"Can't open $filename. error\n";
+			print FILE "FT817 Software Calibration Backup\nUsing FT817COMM.pm version $VERSION\n";
+			print FILE "Created $localtime\n\n";
+			printf FILE "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
+                	print FILE "___________________________________________________\n";
 		     }
                               }
+
+
+###################
+
+	if ($option eq 'digest') {
+
+        do {
+                my $memoryaddress = sprintf("0x%x",$startaddress);
+                my $valuebin = $self->eepromDecode(00,"$memoryaddress");
+                my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
+
+		$digestdata .="$valuehex";
+
+                $block++;
+                $startaddress ++;
+           }
+        while ($block < '77');
+
+		my $digest = md5($digestdata);
+		if ($verbose) {print "DIGEST: $digest\n";}
+		return $digest;
+      			 }
+
+
+##################
+
+#################
+
+	else {
 
 	do {
 		my $memoryaddress = sprintf("0x%x",$startaddress);
@@ -853,7 +887,7 @@ sub getSoftcal {
 		printf "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
 				  }
 	if ($buildfile == '1'){
-               printf $filename "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
+               printf FILE "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
 			      }
 
 		$block++;
@@ -861,11 +895,17 @@ sub getSoftcal {
 	   }
 	while ($block < '77');
 
+
+            }
+##################
+
+
         if ($buildfile == '1'){
-                print $filename "\n\n---END OF Software Calibration Settings---\n";
-                close $filename;
+                print FILE "\n\n---END OF Software Calibration Settings---\n";
+                close FILE;
 		return 0;
                               }
+
 return $output;
                 }
 
@@ -894,8 +934,8 @@ sub getHome {
 	if ($block55[3] == '1') {$home = "Y";}
 	if ($block55[3] == '0') {$home = "N";}
         if($verbose == '1'){
-		if($home eq'Y'){print "At Home Frequency.";}
-		if($home eq 'N'){print "Not at Home Frequency";}
+		if($home eq'Y'){print "At Home Frequency.\n";}
+		if($home eq 'N'){print "Not at Home Frequency\n";}
                            }
         if($verbose == '2'){
                 print "getHome: bit is ($block55[3]) HOME is $home\n";
@@ -942,9 +982,12 @@ sub getDsp {
         my @block55 = split("",$output);
         if ($block55[5] == '0') {$dsp = "OFF";}
         if ($block55[5] == '1') {$dsp = "ON";}
-        if($verbose){
+        if($verbose == '1'){
+                print "DSP is $dsp\n";
+                           }
+        if($verbose == '2'){ 
                 print "getDsp: bit is ($block55[5]) DSP is $dsp\n";
-                    }
+	                   }
 return $dsp;
            }
 
@@ -986,10 +1029,10 @@ sub getFasttuning {
         if ($block55[0] == '0') {$fasttuning = "OFF";}
         if ($block55[0] == '1') {$fasttuning = "ON";}
         if($verbose == '1'){
-                print "Fast Tuning  is $fasttuning\n";
+                print "Fast Tuning is $fasttuning\n";
                            }
         if($verbose == '2'){
-                print "getFasttuning: bit is ($block55[0]) Fast Tuning  is $fasttuning\n";
+                print "getFasttuning: bit is ($block55[0]) Fast Tuning is $fasttuning\n";
                            }
 return $fasttuning;
            }
@@ -1016,6 +1059,7 @@ return $value;
            }
 
 
+
 # 79 ################################# GET TX POWER ######
 ###################################### READ BIT 0-1 FROM 0X79
 
@@ -1034,7 +1078,40 @@ return $txpow;
                }
 
 
+# 7b ################################# GET BATTERY CHARGE STATUS ######
+###################################### READ BIT 0-3 and 4 FROM 0X7B
 
+sub getCharger {
+        my $self=shift;
+        $output = $self->eepromDecode(00,'7b');
+	my $test = substr($output,3,1);
+	my $time = substr($output,4,4);
+        my $timehex = sprintf("%x", oct( "0b$time" ) );
+	$time = hex($timehex);
+
+        if ($test == '0') {$charger = "OFF";}
+        if ($test == '1') {$charger = "ON";}
+
+	if ($charger eq 'OFF'){
+        if($verbose == '1'){
+                print "Charger is $charger\n";
+                           }
+        if($verbose == '2'){
+                print "getCharger: bit is (4) Charger is $charger\n";
+                           }
+			      }
+
+	        if ($charger eq 'ON'){
+        if($verbose == '1'){
+                print "Charging is $charger: Set for $time hours\n";
+                           }
+        if($verbose == '2'){
+                print "getCharger: bit is (4) Charging is $charger: Set for $time hours\n";
+                           }
+                                    }
+return $charger;
+           
+	       }
 
 
 #################################
@@ -1072,6 +1149,107 @@ return $writestatus;
                       }
 
 
+# 62 ################################# SET CHARGETIME
+###################################### CHANGE BITS 6-7 FROM ADDRESS 0X62
+
+sub setChargetime {
+        my ($chargebits, $writestatus1, $writestatus2, $writestatus3, $writestatus4, $writestatus5, $writestatus6, $changebits, $change7bbit) = @_;
+        my $self=shift;
+	my $value=shift;
+        $output = $self->eepromDecode(00,'62');
+        $chargebits = substr($output,0,2);
+	print "Checking : ";
+	my $chargerstatus = $self->getCharger();
+        if ($chargerstatus eq 'ON'){
+                if($verbose){print "Charger is running: You must disable it first before setting an new chargetime.\n\n"; }
+return 1;
+                                                       }
+        if($debug){print "Currently set at value ($chargebits) at 0x62\n";}
+	if ($value != 10 && $value != 6 && $value != 8){
+	        if($verbose){print "Time invalid: Use 6 or 8 or 10.\n\n"; }
+
+return 1;
+	 					       }
+	else {
+		my $six = '00'; my $eight = '01'; my $ten = '10';
+			if (($value == 6 && $chargebits == $six) || 
+		   	    ($value == 8 && $chargebits == $eight) ||
+			    ($value == 10 && $chargebits == $ten)) {
+				print "Current charge time $value already set.\n";
+return 1;
+								 }
+	     }
+
+        if($debug){print "Writing New BYTES to 0x62\n";}
+
+	my $BYTE1 = $self->eepromDecode('0','62');
+	if ($value == '6'){substr ($BYTE1, 0, 2, '00');}
+        if ($value == '8'){substr ($BYTE1, 0, 2, '01');}
+        if ($value == '10'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );
+	$writestatus = $self->writeBlock('00','62',"$NEWHEX");
+
+        if($debug){print "Writing New BYTES to 0x62\n";}
+
+        if($debug){print "Writing New BYTES to 0x7b\n";}
+
+        $BYTE1 = $self->eepromDecode('0','7b');
+        if ($value == '6'){substr ($BYTE1, 4, 4, '0110');}
+        if ($value == '8'){substr ($BYTE1, 4, 4, '1000');}
+        if ($value == '10'){substr ($BYTE1, 4, 4, '1010');}
+        $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );	
+         $writestatus2 = $self->writeBlock('00','7b',"$NEWHEX");
+
+
+        if($verbose){
+                if (($writestatus eq 'OK' && $writestatus2 eq 'OK')) {print"Chargetime Set to $value sucessfull!\n";}
+                else {print"Chargetime set failed: $writestatus\n";}
+		$writestatus = 'ERROR';
+                    }
+
+return $writestatus;
+                      }
+
+
+# 7b ################################# SET CHARGER ON/OFF
+###################################### CHANGE BITS 6-7 FROM ADDRESS 0X7b
+
+sub setCharger {
+        my $self=shift;
+        my $value=shift;
+	my $chargerstatus = $self->getCharger();
+
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Use ON or OFF.\n\n"; }
+
+return 1;
+                                              }
+
+	if ($chargerstatus eq $value){
+		print "Staying $value\n";
+return 1;
+				     }
+
+	else {
+                print "Turning $value\n";
+###### WORK HERE
+        if ($value eq 'OFF'){$writestatus = $self->writeEeprom(00,'7b','3','0');}
+	if ($value eq 'ON'){$writestatus = $self->writeEeprom(00,'7b','3','1');}
+return 0;
+	     }
+
+
+
+
+return 1;
+#        my $test = substr($output,3,1);
+
+
+
+
+               }
+
+
 
 
 
@@ -1082,7 +1260,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_04
+Version 0.9.0_05
 
 =head1 SYNOPSIS
 
@@ -1233,12 +1411,6 @@ The output shows that the status of noise blocker lives at B<0x57> it happens to
 indicates that the noiseblocker is B<OFF>.
 
 
-
-
-
-
-
-
 =head1 Modules
 
 =over
@@ -1275,6 +1447,15 @@ indicates that the noiseblocker is B<OFF>.
 		$agc = $FT817->getAgc();
 
 	Returns the current setting of the AGC: AUTO / FAST / SLOW / OFF
+
+
+=item getCharger()
+
+                $charger = $FT817->getCharger();
+
+        Returns the status of the battery charger.  Verbose will show the status and if the
+	status is on, how many hours the battery is set to charge for.
+
 
 =item getConfig()
 
@@ -1358,13 +1539,14 @@ indicates that the noiseblocker is B<OFF>.
 
 =item getSoftcal()
 
-		$softcal = $FT817->getSoftcal({console/file filename.txt});
+		$softcal = $FT817->getSoftcal({console/digest/file filename.txt});
 
 	This command currently works with verbose and write to file.  Currently there is no
-	usefull return information.  With no argument, it defaults to console and dumps the
-	entire 76 software calibration memory areas to the screen.  Using file along with a 
-	file name writes the output to a file.  It's a good idea to keep a copy of this
-	in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
+	usefull return information Except for digest.  With no argument, it defaults to 
+	console and dumps the entire 76 software calibration memory areas to the screen. 
+	Using digest will return an md5 hash of the calibration settings. Using file along
+	with a file name writes the output to a file.  It's a good idea to keep a copy of 
+	this in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
 	this information, you will have to send the radio back to the company for recalibration.
 
 =item getTuner()
@@ -1424,16 +1606,51 @@ indicates that the noiseblocker is B<OFF>.
 	This restores a specific memory area of the EEPROM back to a known good default value.
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
-	This command does not allow for an arbitrary address to be written. Currently only 5f is allowed
+	This command does not allow for an arbitrary address to be written. Currently only 5f, 62 
+	and 7b are allowed
 
-	restoreEeprom(5f); 
+	restoreEeprom('5f'); 
 
-	Returns 'OK' on success. Any other optput an error.
+	Returns 'OK' on success. Any other output an error.
 
 =item sendCat()
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
+
+
+=item setCharger()
+
+                $charger = $FT817->setCharger([ON/OFF]);
+
+        Turns the battery Charger on or off
+	This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('7b');
+
+
+
+=item setChargetime()
+
+                $chargetime = $FT817->setChargetime([6/8/10]);
+
+        Sets the Battery charge time to 6, 8 or 10 hours.  If the charger is currently
+	on, it will return an error and not allow the change. Charger must be off.
+	This is a WRITEEEPROM based function and requires both setWriteallow() and
+	agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        commands that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('62');
+	restoreEeprom('7b');
+
+        Returns 'OK' on success. Any other optput an error.
+
 
 =item setClarifier()
 
@@ -1574,7 +1791,7 @@ indicates that the noiseblocker is B<OFF>.
 	In the event of a failure, the memory area can be restored with. The following
 	command that also requires both flags previously mentioned set to 1.
 
-	restoreEeprom(5f); 
+	restoreEeprom('5f'); 
 
 	Returns 'OK' on success. Any other optput an error.
 
@@ -1586,15 +1803,19 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
+=item writeBlock()
+
+	Internal function, if you try to call it, you may very well end up with a broken radio.
+        You have been warned.
+
+
 =item writeEeprom()
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
 
 =back
-
-
-
 
 =head1 AUTHOR
 
@@ -1672,11 +1893,6 @@ CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
-
-
-
-
-
 
 
 1;  # End of Ham::Device::FT817COMM

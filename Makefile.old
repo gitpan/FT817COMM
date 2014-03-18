@@ -19,7 +19,7 @@
 #     MIN_PERL_VERSION => q[5.006]
 #     NAME => q[Ham::Device::FT817COMM]
 #     PL_FILES => {  }
-#     PREREQ_PM => { Test::More=>q[0], Device::SerialPort=>q[0], Digest::MD5=>q[0] }
+#     PREREQ_PM => { Test::More=>q[0], Device::SerialPort=>q[0] }
 #     VERSION_FROM => q[lib/Ham/Device/FT817COMM.pm]
 #     clean => { FILES=>q[Ham-Device-FT817COMM-*] }
 #     dist => { COMPRESS=>q[gzip -9f], SUFFIX=>q[gz] }
@@ -61,11 +61,11 @@ DIRFILESEP = /
 DFSEP = $(DIRFILESEP)
 NAME = Ham::Device::FT817COMM
 NAME_SYM = Ham_Device_FT817COMM
-VERSION = 0.9.0_05
+VERSION = 0.9.0_01
 VERSION_MACRO = VERSION
-VERSION_SYM = 0_9_0_05
+VERSION_SYM = 0_9_0_01
 DEFINE_VERSION = -D$(VERSION_MACRO)=\"$(VERSION)\"
-XS_VERSION = 0.9.0_05
+XS_VERSION = 0.9.0_01
 XS_VERSION_MACRO = XS_VERSION
 XS_DEFINE_VERSION = -D$(XS_VERSION_MACRO)=\"$(XS_VERSION)\"
 INST_ARCHLIB = blib/arch
@@ -259,7 +259,7 @@ RCS_LABEL = rcs -Nv$(VERSION_SYM): -q
 DIST_CP = best
 DIST_DEFAULT = tardist
 DISTNAME = Ham-Device-FT817COMM
-DISTVNAME = Ham-Device-FT817COMM-0.9.0_05
+DISTVNAME = Ham-Device-FT817COMM-0.9.0_01
 
 
 # --- MakeMaker macro section:
@@ -481,7 +481,7 @@ metafile : create_distdir
 	$(NOECHO) $(ECHO) Generating META.yml
 	$(NOECHO) $(ECHO) '--- #YAML:1.0' > META_new.yml
 	$(NOECHO) $(ECHO) 'name:               Ham-Device-FT817COMM' >> META_new.yml
-	$(NOECHO) $(ECHO) 'version:            0.9.0_05' >> META_new.yml
+	$(NOECHO) $(ECHO) 'version:            0.9.0_01' >> META_new.yml
 	$(NOECHO) $(ECHO) 'abstract:           Library to control the Yaesu FT817 Ham Radio' >> META_new.yml
 	$(NOECHO) $(ECHO) 'author:' >> META_new.yml
 	$(NOECHO) $(ECHO) '    - Jordan Rubin <jrubin@cpan.org>' >> META_new.yml
@@ -493,7 +493,6 @@ metafile : create_distdir
 	$(NOECHO) $(ECHO) '    Test::More:  0' >> META_new.yml
 	$(NOECHO) $(ECHO) 'requires:' >> META_new.yml
 	$(NOECHO) $(ECHO) '    Device::SerialPort:  0' >> META_new.yml
-	$(NOECHO) $(ECHO) '    Digest::MD5:         0' >> META_new.yml
 	$(NOECHO) $(ECHO) '    perl:                5.006' >> META_new.yml
 	$(NOECHO) $(ECHO) 'no_index:' >> META_new.yml
 	$(NOECHO) $(ECHO) '    directory:' >> META_new.yml
@@ -770,13 +769,12 @@ testdb_static :: testdb_dynamic
 # --- MakeMaker ppd section:
 # Creates a PPD (Perl Package Description) for a binary distribution.
 ppd :
-	$(NOECHO) $(ECHO) '<SOFTPKG NAME="$(DISTNAME)" VERSION="0.9.0_05">' > $(DISTNAME).ppd
+	$(NOECHO) $(ECHO) '<SOFTPKG NAME="$(DISTNAME)" VERSION="0.9.0_01">' > $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <ABSTRACT>Library to control the Yaesu FT817 Ham Radio</ABSTRACT>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <AUTHOR>Jordan Rubin &lt;jrubin@cpan.org&gt;</AUTHOR>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <IMPLEMENTATION>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <PERLCORE VERSION="5,006,0,0" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <REQUIRE NAME="Device::SerialPort" />' >> $(DISTNAME).ppd
-	$(NOECHO) $(ECHO) '        <REQUIRE NAME="Digest::MD5" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <ARCHITECTURE NAME="i686-linux-gnu-thread-multi-64int-5.14" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <CODEBASE HREF="" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    </IMPLEMENTATION>' >> $(DISTNAME).ppd

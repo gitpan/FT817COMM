@@ -19,6 +19,7 @@ WriteMakefile(
     },
     PREREQ_PM => {
 	'Device::SerialPort'	=> '0', # or a minimum working version
+	'Digest::MD5'    => '0', # or a minimum working version
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'Ham-Device-FT817COMM-*' },
