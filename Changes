@@ -20,3 +20,16 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setCharger
 	    Added function setChargetime
 	    Added internal function writeBlock
+	    Added Digest::MD5 to Makefile		
+
+0.9.0_06    18MARCH2014/1800
+            More POD fixes
+	    Added 7a and 5d option to restoreEeprom	
+	    Added function getAntenna
+	    Added function setAntenna
+	    Added function getArts
+	    Added function setArts
+	    Added function getArtsmode
+	    Added function setArtsmode
+	    Added internal function eepromDecodenext 
+	    Function restoreEeprom completely re-written

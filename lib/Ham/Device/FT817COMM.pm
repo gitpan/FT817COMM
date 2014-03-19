@@ -13,7 +13,8 @@ package Ham::Device::FT817COMM;
 use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
-our $VERSION = '0.9.0_05';
+use Data::Dumper;
+our $VERSION = '0.9.0_06';
 
 BEGIN {
 	use Exporter ();
@@ -216,6 +217,26 @@ return $output;
                  }
 
 
+
+#### Decodes eeprom values from a given address and stips off second byte
+sub eepromDecodenext {
+        my $self  = shift;
+        my ($MSB, $LSB) = @_;
+        if ($debug){print "\neepromdecode:debug - Output from MSB:$MSB LSB:$LSB";}
+        $MSB = hex($MSB);
+        $LSB = hex($LSB);
+        $self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
+        $output = $self->{'port'}->read(2);
+        $output = unpack("H*", substr($output,1,1));
+	$output = hex($output);
+        if ($debug){print " : $output\n";}
+return $output;
+                     }
+
+
+
+
+
 #### Writes data to the eeprom MSB,LSB,BIT# and VALUE,  REWRITES NEXT MEMORY ADDRESS
 sub writeEeprom {
         my $self=shift;
@@ -255,6 +276,7 @@ return $writestatus;
 	my $NEWHEX2 = hex($BYTE2);
 	if ($debug){print "Numeric values Byte1: ($NEWHEX1) Byte2: ($NEWHEX2)\n";}
 	$self->{'port'}->write(chr($MSB).chr($LSB).chr($NEWHEX1).chr($NEWHEX2).chr(0xBC));
+        $output = $self->{'port'}->read(2);
 	if ($debug){print "New values written. checking them...\n\n";}
         $self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
         my $output2 = $self->{'port'}->read(2);
@@ -293,7 +315,7 @@ return $writestatus;
 	$BYTE2 = hex($BYTE2);
 	if($debug){print "MSB: $MSB   LSB: $LSB     1:$VALUE 2:$BYTE2 \n";}
         $self->{'port'}->write(chr($MSB).chr($LSB).chr($VALUE).chr($BYTE2).chr(0xBC));
-	
+	$output = $self->{'port'}->read(2);
 	if($debug){print "READING NEW VALUES AT $MSB, $LSB\n";}
         $self->{'port'}->write(chr($MSB).chr($LSB).chr(0).chr(0).chr(0xBB));
 	my $output2 = $self->{'port'}->read(2);
@@ -319,30 +341,70 @@ sub restoreEeprom {
                 $writestatus = "Write Disabled";
 return $writestatus;
                           }
-        my ($area,$MSB,$LSB,$writestatus,$testbyte1,$testbyte2) = @_;
-	if (($area ne '5f') && ($area ne '62') && ($area ne '7b')){
+        my ($area,$MSB,$LSB,$writestatus,$testbyte1,$testbyte2,$test,$restorevalue,$address) = @_;
+	if (($area ne '5f') && ($area ne '62') && ($area ne '7b') && ($area ne '7a') && ($area ne '79') && ($area ne '5d')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
 			  }
 
-	if ($area eq '5f'){
-		$self->{'port'}->write(chr(0).chr(95).chr(229).chr(25).chr(0xBC));
-		$MSB = hex('00');
-	       	$LSB = hex('5f');
-			  }
+
+        if ($area eq '5d'){
+                $address = '93'; $restorevalue = '66';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x5D\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Resume Scan','OFF', 'PKT Rate','1200', 'Scope','CONT', 'CW-ID', 'OFF', 'Main STEP','FINE', 'ARTS','RANGE';
+                             }
+                          }
+
+        if ($area eq '5f'){
+		$address = '95'; $restorevalue = '229';
+		if ($verbose){
+			print "\nDEFAULTS LOADED FOR 0x5F\n";
+			print "________________________\n";
+			printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Weight','1:3', '430 ARS','ON', '144 ARS','ON', 'SQL-RFG', 'SQUELCH';
+			     }			
+			  } 
 
         if ($area eq '62'){
-                $self->{'port'}->write(chr(0).chr(98).chr(72).chr(178).chr(0xBC));
-                $MSB = hex('00');
-                $LSB = hex('62');
-                          }
+		$address = '98'; $restorevalue = '72';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x62\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Speed','12wpm', 'Chargetime','8hrs';
+                             }
+		  	  }
 
+        if ($area eq '79'){
+                $address = '121'; $restorevalue = '3';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x79\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'TX Power','LOW1', 'PRI','OFF', 'DUAL-WATCH', 'OFF', 'SCAN', 'OFF', 'ARTS', 'OFF';
+                             }
+			  }
+
+        if ($area eq '7a'){
+		$address = '122'; $restorevalue = '15';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x7A\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Antennas','All Rear except VHF and UHF', 'SPL','OFF';
+                             }
+			  }
         if ($area eq '7b'){
-                $self->{'port'}->write(chr(0).chr(123).chr(6).chr(0).chr(0xBC));
-                $MSB = hex('00');
-                $LSB = hex('7b');
-                          }
+	$address = '123'; $restorevalue = '8';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x7B\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Chargetime','8hrs', 'Charger','OFF';
+                             }
+			  }
+
+	my $nextvalue = $self->eepromDecodenext('00',"$area");
+        $self->{'port'}->write(chr(0).chr("$address").chr("$restorevalue").chr("$nextvalue").chr(0xBC));
+        $writestatus = $self->{'port'}->read(2);
 
 return $writestatus;
 		  }
@@ -827,7 +889,7 @@ sub getSoftcal {
 	                          }
 
 
-        if ($verbose){
+        if ($verbose && $option eq 'digest'){
                 print "Generated an MD5 hash from software calibration values ";
                      }
 
@@ -864,10 +926,10 @@ sub getSoftcal {
                 $block++;
                 $startaddress ++;
            }
-        while ($block < '77');
+        while ($block < '78');
 
 		my $digest = md5($digestdata);
-		if ($verbose) {print "DIGEST: $digest\n";}
+		if ($verbose) {print "DIGEST: ---->$digest<----\n";}
 		return $digest;
       			 }
 
@@ -884,7 +946,7 @@ sub getSoftcal {
 		my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
 		my $valuedec = hex($valuehex);
 	if ($option eq 'console' || $verbose) {
-		printf "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
+		printf "\n%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
 				  }
 	if ($buildfile == '1'){
                printf FILE "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
@@ -893,7 +955,7 @@ sub getSoftcal {
 		$block++;
 		$startaddress ++;
 	   }
-	while ($block < '77');
+	while ($block < '78');
 
 
             }
@@ -1038,6 +1100,23 @@ return $fasttuning;
            }
 
 
+# 5d ################################# GET ARTS BEEP MODE ######
+###################################### READ BIT 6-7 FROM 0X5d
+
+sub getArtsmode {
+        my ($artsmode) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode(00,'5d');
+        $artsmode = substr($output,0,2);
+        if ($artsmode == '00'){$artsmode = 'OFF'};
+        if ($artsmode == '01'){$artsmode = 'RANGE'};
+        if ($artsmode == '10'){$artsmode = 'ALL'};
+        if($verbose){
+                print "ARTS BEEP is ($artsmode)\n";
+                    }
+return $artsmode;
+
+		}
 
 # 5f ################################# GET RFGAIN/SQUELCH ######
 ###################################### READ BIT 0-1 FROM 0X5f
@@ -1060,8 +1139,8 @@ return $value;
 
 
 
-# 79 ################################# GET TX POWER ######
-###################################### READ BIT 0-1 FROM 0X79
+# 79 ################################# GET TX POWER AND ARTS ######
+###################################### READ BIT 0-1 AND 7 FROM 0X79
 
 sub getTxpower {
 	my $self=shift;
@@ -1075,6 +1154,77 @@ sub getTxpower {
                 print "getTxpower: bits are ($txpower) Tx power is $txpow\n";
                            }
 return $txpow;
+               }
+
+
+sub getArts {
+        my ($artsis) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode(00,79);
+        my $arts = substr($output,0,1);
+	if ($arts == '0'){$artsis = 'OFF'};
+        if ($arts == '1'){$artsis = 'ON'};
+
+        if($verbose == '1'){
+                print "ARTS is $artsis\n";
+                           }
+        if($verbose == '2'){
+                print "getArts: bits are ($arts) ARTS is $artsis\n";
+                           }
+return $artsis;
+               }
+
+
+
+# 7a ################################# GET ANTENNA STATUS ######
+###################################### READ 0-5 BITS FROM 0X7A
+
+sub getAntenna {
+        my ($antenna, %antennas, %returnant) = @_;
+        my $self=shift;
+	my $value=shift;
+	my $ant;
+        $output = $self->eepromDecode(00,'7a');
+
+        if ($value eq 'HF'){$antenna = substr($output,7,1);}
+        if ($value eq '6M'){$antenna = substr($output,6,1);}
+        if ($value eq 'FMBCB'){$antenna = substr($output,5,1);}
+        if ($value eq 'AIR'){$antenna = substr($output,4,1);}
+        if ($value eq 'VHF'){$antenna = substr($output,3,1);}
+        if ($value eq 'UHF'){$antenna = substr($output,2,1);}
+
+
+	if ($antenna == 0){$ant = 'FRONT';}
+        if ($antenna == 1){$ant = 'BACK';}
+	
+	if ($value && $value ne 'ALL'){
+        if($verbose == '1'){
+                print "\nAntenna [$value] is set to $ant\n\n";
+                           }
+        if($verbose == '2'){
+                print "\ngetAntenna: bits are ($antenna) Antenna [$value] is set to $ant\n\n";
+                           }
+			    }
+
+	if (!$value || $value eq 'ALL'){
+
+	%antennas = ('HF', 7, '6M', 6, 'FMBCB', 5, 'AIR', 4, 'VHF', 3, 'UHF', 2);
+	my $key;
+	print "\n";
+foreach $key (sort keys %antennas) {
+	$antenna = substr($output,$antennas{$key},1);
+        if ($antenna == 0){$ant = 'FRONT';}
+        if ($antenna == 1){$ant = 'BACK';}
+	printf "%-11s %-11s %-11s %-11s\n", 'Antenna', "$key", "set to", "$ant";
+	$returnant{$key} = $ant;
+
+ 				   }
+	print "\n";
+return %returnant;
+
+				       }
+
+return $ant;
                }
 
 
@@ -1093,22 +1243,16 @@ sub getCharger {
         if ($test == '1') {$charger = "ON";}
 
 	if ($charger eq 'OFF'){
-        if($verbose == '1'){
-                print "Charger is $charger\n";
-                           }
-        if($verbose == '2'){
-                print "getCharger: bit is (4) Charger is $charger\n";
-                           }
+        if($verbose){
+                print "Charger is $charger: Timer configured for $time hours\n";
+                    }
 			      }
 
 	        if ($charger eq 'ON'){
-        if($verbose == '1'){
+        if($verbose){
                 print "Charging is $charger: Set for $time hours\n";
-                           }
-        if($verbose == '2'){
-                print "getCharger: bit is (4) Charging is $charger: Set for $time hours\n";
-                           }
-                                    }
+                    }
+                                     }
 return $charger;
            
 	       }
@@ -1118,6 +1262,44 @@ return $charger;
 # WRITE VALUES FROM EEPROM ADDR #
 #################################
 
+
+# 5d ################################# SET ARTS MODE BIT
+###################################### TOGGLE BIT 0 FROM ADDRESS 0X5D
+
+sub setArtsmode {
+        my ($chargebits, $currentartsmode) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'OFF' && $value ne 'ALL' && $value ne 'RANGE'){
+                if($verbose){print "Value invalid: Choose OFF/ALL/RANGE\n\n"; }
+return 1;
+								    }
+
+
+        $self->setVerbose(0);
+        $currentartsmode = $self->getArtsmode();
+        $self->setVerbose(1);
+
+        if ($value eq $currentartsmode){
+                if($verbose){print "Value $currentartsmode already selected.\n\n"; }
+return 1;
+                                       }
+
+        my $BYTE1 = $self->eepromDecode('0','5d');
+        if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq 'RANGE'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq 'ALL'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('00','5d',"$NEWHEX");
+
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"ARTS Mode Set to $value sucessfull!\n";}
+                else {print"ARTS Mode set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+		 }
 
 
 # 5f ################################# TOGGLES RFGAIN/SQUENCH BIT
@@ -1190,7 +1372,6 @@ return 1;
 	$writestatus = $self->writeBlock('00','62',"$NEWHEX");
 
         if($debug){print "Writing New BYTES to 0x62\n";}
-
         if($debug){print "Writing New BYTES to 0x7b\n";}
 
         $BYTE1 = $self->eepromDecode('0','7b');
@@ -1209,6 +1390,86 @@ return 1;
 
 return $writestatus;
                       }
+
+
+# 79 ################################# SET ARTS ON/OFF
+###################################### CHANGE BITS 7 FROM ADDRESS 0X79
+
+sub setArts {
+       my ($currentarts, $writestatus) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+					      }
+        $self->setVerbose(0);
+        $currentarts = $self->getArts();
+        $self->setVerbose(1);
+
+        if ($value eq $currentarts){
+                if($verbose){print "Value $currentarts already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom(00,'79','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom(00,'79','0','0');}
+
+	if ($verbose){
+                if ($writestatus eq 'OK') {print"ARTS set to $value sucessfull!\n";}
+                else {print"ARTS set to $value failed!!!\n";}
+		     }
+
+return $writestatus;
+            }
+
+
+
+# 7a ################################# SET ANTENNA FRONT/BACK
+###################################### CHANGE BITS 0-5 FROM ADDRESS 0X7A
+
+sub setAntenna {
+       my ($currentantenna, $antennabit) = @_;
+        my $self=shift;
+        my $value=shift;
+        my $value2=shift;
+
+        if ($value ne 'HF' && $value ne '6M' && $value ne 'FMBCB' && $value ne 'AIR' && $value ne 'VHF' && $value ne 'UHF'){
+                if($verbose){print "Value invalid: Choose HF/6M/FMBCB/AIR/VHF/UHV\n\n"; }
+return 1;															  
+															   }
+
+        if ($value2 ne 'FRONT' && $value2 ne 'BACK'){
+                if($verbose){print "Value invalid: Choose FRONT/BACK\n\n"; }
+return 1;
+                                                                                                                           }
+        $self->setVerbose(0);
+	$currentantenna = $self->getAntenna("$value");
+	$self->setVerbose(1);
+
+	if ($currentantenna eq $value2) {
+                if($verbose){print "\nAntenna for $value is already set to $value2\n\n"; }
+return 1;
+					}
+
+	my $valuelabel = $value2;
+
+	if ($value2 eq 'BACK'){$value2 = 1;}
+        if ($value2 eq 'FRONT'){$value2 = 0;}
+	if ($value eq 'HF'){$antennabit = 7;}
+        if ($value eq '6M'){$antennabit = 6;}
+        if ($value eq 'FMBCB'){$antennabit = 5;}
+        if ($value eq 'AIR'){$antennabit = 4;}
+        if ($value eq 'VHF'){$antennabit = 3;}
+        if ($value eq 'UHF'){$antennabit = 2;}
+
+        $writestatus = $self->writeEeprom(00,'7a',"$antennabit","$value2");
+
+                if($verbose && $writestatus eq 'OK'){print "\nAntenna for $value set to $valuelabel: $writestatus\n\n"; }
+                if($verbose && $writestatus ne 'OK'){print "\nError setting antenna: $writestatus\n\n"; }
+return $writestatus;
+ 	       }
 
 
 # 7b ################################# SET CHARGER ON/OFF
@@ -1242,10 +1503,6 @@ return 0;
 
 
 return 1;
-#        my $test = substr($output,3,1);
-
-
-
 
                }
 
@@ -1260,7 +1517,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_05
+Version 0.9.0_06
 
 =head1 SYNOPSIS
 
@@ -1442,12 +1699,43 @@ indicates that the noiseblocker is B<OFF>.
 	An internal function to retrieve code from an address of the eeprom and convert the first byte to 
 	binary, dumping the second byte.
 
+
+=item eepromDecodenext()
+
+        An internal function to retrieve code from an address of the eeprom  returning hex value of the next
+	memory address up.
+
+
 =item getAgc()
 
 		$agc = $FT817->getAgc();
 
 	Returns the current setting of the AGC: AUTO / FAST / SLOW / OFF
 
+=item getAntenna ()
+
+                $antenna = $FT817->getAntenna({HF/6M/FMBCB/AIR/VHF/UHF});
+                %antenna = $FT817->getAntenna({ALL});
+		%antenna = $FT817->getAntenna();
+
+	Returns the FRONT/BACK configuration of the antenna for the different types of
+	bands.  Returns one value when an argument is used.  If the argument ALL or no
+	argument is used will print a list of the configurations or all bands and returns
+	a hash or the configuration
+
+
+=item getArts ()
+
+		$arts = $FT817->getArts();
+
+	Returns the status of ARTS: ON / OFF
+
+
+=item getArtsmode ()
+
+                $artsmode = $FT817->getArtsmode();
+
+        Returns the status of ARTS BEEP: OFF / RANGE /ALL
 
 =item getCharger()
 
@@ -1606,7 +1894,7 @@ indicates that the noiseblocker is B<OFF>.
 	This restores a specific memory area of the EEPROM back to a known good default value.
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
-	This command does not allow for an arbitrary address to be written. Currently only 5f, 62 
+	This command does not allow for an arbitrary address to be written. Currently 5d, 5f, 62, 79, 7a 
 	and 7b are allowed
 
 	restoreEeprom('5f'); 
@@ -1618,6 +1906,49 @@ indicates that the noiseblocker is B<OFF>.
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
 
+=item setAntenna()
+
+                $status = $FT817->setAntenna([HF/6M/FMBCB/AIR/VHF/UHF][FRONT/BACK]);
+
+	Sets the antenna for the given band as connected on the FRONT or REAR of the radio
+
+	This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('7a');
+
+
+=item setArts()
+
+                $arts = $FT817->setArts([ON/OFF]);
+
+	Sets the ARTS function of the radio to ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('79');
+
+
+=item setArtsmode()
+
+                $artsmode = $FT817->setArts([OFF/RANGE/BEEP]);
+
+        Sets the ARTS function of the radio when ARTS is enables
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('5d');
 
 =item setCharger()
 
@@ -1838,10 +2169,13 @@ You can also look for information at:
 
 =item * RT: CPAN's request tracker (report bugs here)
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Ham-Device-FT817COMM>
+
 =item * AnnoCPAN: Annotated CPAN documentation
 L<http://annocpan.org/dist/Ham-Device-FT817COMM>
+
 =item * CPAN Ratings
 L<http://cpanratings.perl.org/d/Ham-Device-FT817COMM>
+
 =item * Search CPAN
 L<http://search.cpan.org/dist/Ham-Device-FT817COMM/>
 
