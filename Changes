@@ -33,3 +33,14 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setArtsmode
 	    Added internal function eepromDecodenext 
 	    Function restoreEeprom completely re-written
+
+0.9.0_07    20MARCH2014/1800
+            More POD fixes
+	    Added hashes of VFO A/B base addresses
+	    Added 58 and 59 option to restoreEeprom
+	    Added function getVox
+	    Added function SetVox
+	    Added function getVfoband
+	    Added function setVfoband
+	    Added better prechecking to all functions before sending to CAT
+
