@@ -15,7 +15,7 @@ Revision history for Ham-Device-FT817COMM
 0.9.0_05    17MARCH2014/1200
 	    Cleaned up POD remarks
 	    Added digest option to getSoftcal
-	    Added 62 and 7b option to restoreEeprom  
+	    Added [00 62] and [00 7B] option to restoreEeprom  
 	    Added function getCharger
 	    Added function setCharger
 	    Added function setChargetime
@@ -24,7 +24,7 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.0_06    18MARCH2014/1800
             More POD fixes
-	    Added 7a and 5d option to restoreEeprom	
+	    Added [00 7A] and [00 5D] option to restoreEeprom	
 	    Added function getAntenna
 	    Added function setAntenna
 	    Added function getArts
@@ -36,11 +36,15 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.0_07    20MARCH2014/1800
             More POD fixes
+	    Internal functions rewritten, no more unicode sent to the port.  Builds 
+	    	Data backets within the functions and sends them off.  Old method only
+		supported an epprom address up to 0x99, new one supports full MSB/LSB
+		16 bits.
 	    Added hashes of VFO A/B base addresses
-	    Added 58 and 59 option to restoreEeprom
+	    Added [00 58] and [00 59] option to restoreEeprom
 	    Added function getVox
 	    Added function SetVox
 	    Added function getVfoband
 	    Added function setVfoband
 	    Added better prechecking to all functions before sending to CAT
-
+	    Includes beginning of first radio memory function readMemvfo. Not finished.
