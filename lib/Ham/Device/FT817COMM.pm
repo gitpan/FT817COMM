@@ -13,15 +13,16 @@ package Ham::Device::FT817COMM;
 use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
-use Data::Dumper;
-our $VERSION = '0.9.0_08';
+#use Data::Dumper;
+our $VERSION = '0.9.0_09';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
-		%HOMEBASE %MEMMODES $catoutput $output $squelch $currentmode $out $vfo $home 
-		$tuneselect $nb $lock $txpow $toggled $writestatus $testbyte $dsp $fasttuning $charger);
+		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES $catoutput $output $squelch
+		$currentmode $out $vfo $home $tuneselect $nb $lock $txpow $toggled $writestatus
+		$testbyte $dsp $fasttuning $charger);
 
 my $ft817;
 my $catoutput;
@@ -35,6 +36,55 @@ our %AGCMODES = (AUTO => '00', FAST => '01', SLOW => '10', OFF => '11');
 our %MEMMODES = (LSB => '000', USB => '001', CW => '010', CWR => '011', AM => '100', 
 		FM => '101', DIG => '110', PKT => '111');
 
+our %FMSTEP = ('5.0' => '000', '6.25' => '001', '10.0' => '010', '12.5' => '011', '15.0' => '100',
+               '20.0' => '101', '25.0' => '110', '50.0' => '111');
+
+our %AMSTEP = ('2.5' => '000', '5.0' => '001', '9.0' => '010', '10.0' => '011', '12.5' => '100',
+               '25.0' => '101');
+
+our %CTCSSTONES = ('000000' => '67.0', '000001' => '69.3', '000010' => '71.9', '000011' => '74.4',
+                   '000100' => '77.0', '000101' => '79.7', '000110' => '82.5', '000111' => '85.4',
+                   '001000' => '88.5', '001001' => '91.5', '001010' => '94.8', '001011' => '97.4',
+                   '001100' => '100.0', '001101' => '103.5', '001110' => '107.2', '001111' => '110.9', 
+	           '010000' => '114.8', '010001' => '118.8', '010010' => '123.0', '010011' => '127.3',
+	           '010100' => '131.8', '010101' => '136.5', '010110' => '141.3', '010111' => '146.2', 
+	           '011000' => '151.4', '011001' => '156.7', '011010' => '159.8', '011011' => '162.2', 
+                   '011100' => '165.5', '011101' => '167.9', '011110' => '171.3', '011111' => '173.8',
+	           '100000' => '177.3', '100001' => '179.9', '100010' => '183.5', '100011' => '186.2',
+                   '100100' => '189.6', '100101' => '192.8', '100110' => '196.6', '100111' => '199.5',
+                   '101000' => '203.5', '101001' => '206.5', '101010' => '210.7', '101011' => '218.1',
+                   '101100' => '225.7', '101101' => '229.1', '101110' => '233.6', '101111' => '241.8',
+                   '110000' => '250.3', '110001' => '254.1',);
+
+
+our %DCSCODES = ('0000000' => '023', '0000001' => '025', '0000010' => '026', '0000011' => '031',
+                   '0000100' => '032', '0000101' => '036', '0000110' => '043', '0000111' => '047',
+                   '0001000' => '051', '0001001' => '053', '0001010' => '054', '0001011' => '065',
+                   '0001100' => '071', '0001101' => '072', '0001110' => '073', '0001111' => '074',
+                   '0010000' => '114', '0010001' => '115', '0010010' => '116', '0010011' => '122',
+                   '0010100' => '125', '0010101' => '131', '0010110' => '132', '0010111' => '134',
+                   '0011000' => '143', '0011001' => '145', '0011010' => '152', '0011011' => '155',
+                   '0011100' => '156', '0011101' => '162', '0011110' => '165', '0011111' => '172',
+                   '0100000' => '174', '0100001' => '205', '0100010' => '212', '0100011' => '223',
+                   '0100100' => '225', '0100101' => '226', '0100110' => '243', '0100111' => '244',
+                   '0101000' => '245', '0101001' => '246', '0101010' => '251', '0101011' => '252',
+                   '0101100' => '255', '0101101' => '261', '0101110' => '263', '0101111' => '265',
+                   '0110000' => '266', '0110001' => '271', '0110010' => '274', '0110011' => '306',
+		   '0110100' => '311', '0110101' => '315', '0110110' => '325', '0110111' => '331',
+		   '0111000' => '332', '0111001' => '343', '0111010' => '346', '0111011' => '351',
+		   '0111100' => '356', '0111101' => '364', '0111110' => '365', '0111111' => '371',
+		   '1000000' => '411', '1000001' => '412', '1000010' => '413', '1000011' => '423',
+		   '1000100' => '431', '1000101' => '432', '1000110' => '445', '1000111' => '446',
+		   '1001000' => '452', '1001001' => '454', '1001010' => '455', '1001011' => '462',
+		   '1001100' => '464', '1001101' => '465', '1001110' => '466', '1001111' => '503',
+		   '1010000' => '506', '1010001' => '516', '1010010' => '523', '1010011' => '526',
+		   '1010100' => '532', '1010101' => '546', '1010110' => '565', '1010111' => '606',
+		   '1011000' => '612', '1011001' => '624', '1011010' => '627', '1011011' => '631',
+		   '1011100' => '632', '1011101' => '654', '1011110' => '662', '1011111' => '664',
+		   '1100000' => '703', '1100001' => '712', '1100010' => '723', '1100011' => '731',
+		   '1100100' => '732', '1100101' => '734', '1100110' => '743', '1100111' => '754',);
+
+
 our %TXPWR = (HIGH => '00', LOW3 => '01', LOW2 => '10', LOW1 => '11');
 
 our %VFOBANDS = ('160M' => '0000', '75M' => '0001', '40M' => '0010', '30M' => '0011',
@@ -43,17 +93,17 @@ our %VFOBANDS = ('160M' => '0000', '75M' => '0001', '40M' => '0010', '30M' => '0
              '2M' => '1100', '70CM' => '1101', 'PHAN' => '1110');
 
 
-our %VFOABASE = ('160M' => '7D', '75M' => '97', '40M' => 'B1', '30M' => 'CB',
-             '20M' => 'E5', '17M' => 'FF', '15M' => '119', '12M' => '133',
-             '10M' => '14D', '6M' => '167', 'FMBC' => '181', 'AIR' => '19B',
-             '2M' => '1B5', '70CM' => '1CF', 'PHAN' => '1E9');
+our %VFOABASE = ('160M' => '007D', '75M' => '0097', '40M' => '00B1', '30M' => '00CB',
+             '20M' => '00E5', '17M' => '00FF', '15M' => '0119', '12M' => '0133',
+             '10M' => '014D', '6M' => '0167', 'FMBC' => '0181', 'AIR' => '019B',
+             '2M' => '01B5', '70CM' => '01CF', 'PHAN' => '01E9');
 
-our %VFOBBASE = ('160M' => '203', '75M' => '21D', '40M' => '237', '30M' => '251',
-             '20M' => '26B', '17M' => '285', '15M' => '29F', '12M' => '2B9',
-             '10M' => '2D3', '6M' => '2ED', 'FMBC' => '307', 'AIR' => '321',
-             '2M' => '33B', '70CM' => '355', 'PHAN' => '36F');
+our %VFOBBASE = ('160M' => '0203', '75M' => '021D', '40M' => '0237', '30M' => '0251',
+             '20M' => '026B', '17M' => '0285', '15M' => '029F', '12M' => '02B9',
+             '10M' => '02D3', '6M' => '02ED', 'FMBC' => '0307', 'AIR' => '0321',
+             '2M' => '033B', '70CM' => '0355', 'PHAN' => '036F');
 
-our %HOMEBASE = ('HF' => '389', '6M' => '3A3', '2M' => '3BD', 'UHF' => '3D7');
+our %HOMEBASE = ('HF' => '0389', '6M' => '03A3', '2M' => '03BD', 'UHF' => '03D7');
 
 our %OPMODES =  (LSB => '00', USB => '01', CW => '02',
              CWR => '03', AM => '04', FM => '08',
@@ -205,6 +255,26 @@ sub hex2bin {
 return unpack("B$blen", pack("H$hlen", $h));
             }
 
+
+#### Add a HEX VALUE AND RETURN MSB/LSB
+sub hexAdder {
+        my $self  = shift;
+        my $offset = shift;
+	my $base = shift;
+        if ($debug){print "\n(hexAdder:DEBUG) - RECEIVED BASE [$base] AND OFFSET [$offset]\n";}
+        my $basehex = join("",'0x',"$base");
+        if ($debug){print "\n(hexAdder:DEBUG) - CONVERT  BASE [$basehex]\n";}
+        $basehex = hex($basehex);
+        if ($debug){print "\n(hexAdder:DEBUG) - OCT   BASEHEX [$basehex]\n";}
+        my $startaddress = sprintf("0%X",$basehex + $offset);
+        if(length($startaddress) < 4) {$startaddress = join("",'0',"$startaddress");}
+        if ($debug){print "\n(hexAdder:DEBUG) - ADDED OFFSET  [$startaddress]\n";}
+        my $MSB = substr($startaddress,0,2);
+        my $LSB = substr($startaddress,2,2);
+        if ($debug){print "\n(hexAdder:DEBUG) - PRODUCED  MSB[$MSB] LSB[$LSB]\n\n";}
+return ("$MSB","$LSB");
+	     }
+
 #### Send a CAT command and set the return byte size
 sub sendCat {
 	my $self  = shift;
@@ -232,9 +302,9 @@ sub eepromDecode {
 	$self->{'port'}->write($data);
 	$output = $self->{'port'}->read(2);
 	$output = unpack("H*", substr($output,0,1));
-        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT HEX  ------> [$output]\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT HEX  -------> [$output]\n";}
 	$output = hex2bin($output);
-        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT BIN  ------> [$output]\n\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT BIN  -------> [$output]\n\n";}
 return $output;
                  }
 
@@ -1129,8 +1199,8 @@ sub getTuner {
 	my $self=shift;
 	$output = $self->eepromDecode('00','55');
 	my @block55 = split("",$output);
-	if ($block55[0] == '0') {$tuneselect = "VFO";}
-	if ($block55[0] == '1') {$tuneselect = "MEMORY";}
+	if ($block55[0] == '1') {$tuneselect = "VFO";}
+	if ($block55[0] == '0') {$tuneselect = "MEMORY";}
         if($verbose){
                 print "Tuner is $tuneselect\n";
                     }
@@ -1391,7 +1461,7 @@ return $charger;
 ###################################### 
 
 sub readMemvfo {
-        my ($testvfoband, $base, %baseaddress, $offset) = @_;
+        my ($testvfoband, $base, %baseaddress, $offset, $startaddress, $fmstep, $amstep, $ctcsstone, $dcscode) = @_;
         my $self=shift;
         my $vfo=shift;
         my $band=shift;
@@ -1405,47 +1475,170 @@ return 1;
 
         my %newhash = reverse %VFOBANDS;
         ($testvfoband) = grep { $newhash{$_} eq $band } keys %newhash;
-
         if ($testvfoband eq'') {
                 if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
 return 1;
                                }
 
-	if ($vfo eq 'A'){%baseaddress = reverse %VFOABASE;print "A\n";}
-        if ($vfo eq 'B'){%baseaddress = reverse %VFOBBASE;print "B\n";}
+	if ($vfo eq 'A'){%baseaddress = reverse %VFOABASE;}
+        if ($vfo eq 'B'){%baseaddress = reverse %VFOBBASE;}
 
 ($base) = grep { $baseaddress{$_} eq $band } keys %baseaddress;
-my $basedec = hex($base);
+
 
 
 if ($value eq 'MODE'){
-	$offset='0';
-	my $newdec = $basedec + $offset;
-	my $newhex = sprintf("%x",$newdec);
-	$output = $self->eepromDecode(00,"$newhex");
-print "O: $output\n";
+	my $offset=0x00;
+	my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $mode;
+        $output = $self->eepromDecode("$MSB","$LSB");
         $output = substr($output,5,3);
-print "N: $newhex O: $output\n";
-
-#        ($testvfoband) = grep { $newhash{$_} eq $band } keys %newhash;
-
-	   	     }
-
+        ($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
+	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n [this is broken]\n"};
+return $mode;
+                     }
 
 
+if ($value eq 'NARFM'){
+	my $offset=0x01;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $narfm;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,4,1);
+        if ($output == '0') {$narfm = "OFF";}
+        if ($output == '1') {$narfm = "ON";}
+        if($verbose){print "VFO $vfo\[$band\] - NARROW FM is $narfm\n"};
+return $narfm;
+		      }
 
-if ($value eq 'NARFM'){$offset='1';}
-if ($value eq 'NARCW'){$offset='1';}
-if ($value eq 'RPTOFFSET'){$offset='1';}
-if ($value eq 'TONEDCS'){$offset='2';}
-if ($value eq 'ATT'){$offset='2';}
-if ($value eq 'IPO'){$offset='2';}
-if ($value eq 'FMSTEP'){$offset='3';}
-if ($value eq 'AMSTEP'){$offset='3';}
-if ($value eq 'SSBSTEP'){$offset='3';}
-if ($value eq 'CTCSSTONE'){$offset='6';}
-if ($value eq 'DCSCODE'){$offset='7';}
+if ($value eq 'NARCWDIG'){
+        my $offset=0x01;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $narcw;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,3,1);
+        if ($output == '0') {$narcw = "OFF";}
+        if ($output == '1') {$narcw = "ON";}
+        if($verbose){print "VFO $vfo\[$band\] - NARROW CW/DIG is $narcw\n"};
+return $narcw;
+                      }
 
+
+if ($value eq 'RPTOFFSET'){
+        my $offset=0x01;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $rptoffset;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,0,2);
+        if ($output == '00') {$rptoffset = "SIMPLEX";}
+        if ($output == '01') {$rptoffset = "MINUS";}
+        if ($output == '10') {$rptoffset = "PLUS";}
+        if ($output == '11') {$rptoffset = "NON-STANDARD";}
+        if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $rptoffset\n"};
+return $rptoffset;
+                      }
+
+if ($value eq 'TONEDCS'){
+        my $offset=0x04;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $tonedcs;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,6,2);
+        if ($output == '00') {$tonedcs = "OFF";}
+        if ($output == '01') {$tonedcs = "TONE(TX)";}
+        if ($output == '10') {$tonedcs = "TONE(TX) \+ TSQ";}
+        if ($output == '11') {$tonedcs = "DCS";}
+        if($verbose){print "VFO $vfo\[$band\] - TONE/DCS SELECT is $tonedcs\n"};
+return $tonedcs;
+                      }
+
+if ($value eq 'ATT'){
+        my $offset=0x02;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $att;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,3,1);
+        if ($output == '0') {$att = "OFF";}
+        if ($output == '1') {$att = "ON";}
+        if($verbose){print "VFO $vfo\[$band\] - ATT is $att\n"};
+return $att;
+                      }
+
+
+if ($value eq 'IPO'){
+        my $offset=0x02;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $ipo;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,2,1);
+        if ($output == '0') {$ipo = "OFF";}
+        if ($output == '1') {$ipo = "ON";}
+        if($verbose){print "VFO $vfo\[$band\] - IPO is $ipo\n"};
+return $ipo;
+                      }
+
+
+if ($value eq 'FMSTEP'){
+        my $offset=0x03;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,5,3);
+        ($fmstep) = grep { $FMSTEP{$_} eq $output } keys %FMSTEP;
+        if($verbose){print "VFO $vfo\[$band\] - FM STEP is $fmstep\n"};
+return $fmstep;
+                      }
+
+
+
+if ($value eq 'AMSTEP'){
+        my $offset=0x03;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,2,3);
+        ($amstep) = grep { $AMSTEP{$_} eq $output } keys %AMSTEP;
+        if($verbose){print "VFO $vfo\[$band\] - AM STEP is $amstep\n"};
+return $amstep;
+                      }
+
+
+
+if ($value eq 'SSBSTEP'){
+        my $offset=0x03;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $ssbstep;
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,0,2);
+        if ($output == '00') {$ssbstep = '1.0';}
+        if ($output == '01') {$ssbstep = '2.5';}
+	if ($output == '10') {$ssbstep = '5.0';}
+        if($verbose){print "VFO $vfo\[$band\] - SSB STEP is $ssbstep\n"};
+return $ssbstep;
+                      }
+
+
+if ($value eq 'CTCSSTONE'){
+        my $offset=0x06;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,2,6);
+        my %newhash = reverse %CTCSSTONES;
+        ($ctcsstone) = grep { $newhash{$_} eq $output } keys %newhash;
+        if($verbose){print "VFO $vfo\[$band\] - CTCSS TONE is $ctcsstone\n"};
+return $ctcsstone;
+                           }
+
+
+
+if ($value eq 'DCSCODE'){
+        my $offset=0x07;
+        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = substr($output,1,7);
+        my %newhash = reverse %DCSCODES;
+        ($dcscode) = grep { $newhash{$_} eq $output } keys %newhash;
+        if($verbose){print "VFO $vfo\[$band\] - DCSCODE is $dcscode\n"};
+return $dcscode;
+                           }
 
 
                }
@@ -1795,7 +1988,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_08
+Version 0.9.0_09
 
 =head1 SYNOPSIS
 
@@ -2162,6 +2355,13 @@ indicates that the noiseblocker is B<OFF>.
 
 	Simple internal function for convrting hex to binary. Has no use to the end user.
 
+
+
+=item hexAdder()
+
+	Internal function to incriment a given hex value off a base address
+
+
 =item moduleVersion()
 
 		$version = $FT817->moduleVersion();
@@ -2182,7 +2382,25 @@ indicates that the noiseblocker is B<OFF>.
 
 =item readMemvfo ()
 
-	Under construction
+		my $option = $FT817->readMemvfo('[A/B]', '[BAND]', '[OPTION]');
+
+	Reads and returns information from the VFO memory given a VFO [A/B] and a BAND [20M/40M/70CM] etc..
+	This is only for VFO memory's and not the Stored Memories nor Home Memories
+
+	Returns information based on one of the valid options:
+
+	MODE      - Returns the mode in memory - update only appears after toggling the VFO
+	NARFM     - Returns if Narrow FM os ON or OFF
+	NARCWDIG  - Returns if the CW or Digital Mode is on Narrow
+	RPTOFFSET - Returns the Repeater offset
+	TONEDCS   - Returns type type of tone being used
+	ATT       - Returns if ATT is on if applicable, if not shows OFF
+	IPO       - Returns if IPO is on if applicable, if not shows OFF
+	FMSTEP    - Returns the setting for FM STEP in KHZ
+	AMSTEP    - Returns the setting for AM STEP in KHZ
+        SSBSTEP   - Returns the setting for SSB STEP in KHZ
+	CTCSSTONE - Returns the currently set CTCSS Tone
+	DCSCODE   - Returns the currently set DCS Code
 
 =item restoreEeprom()
 

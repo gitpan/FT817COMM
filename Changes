@@ -48,3 +48,12 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setVfoband
 	    Added better prechecking to all functions before sending to CAT
 	    Includes beginning of first radio memory function readMemvfo. Not finished.
+
+0.9.0_08    21MARCH2014/2000
+	    More POD fixes
+	    Added internal function hexAdder
+	    Added hashes for DCS codes, CTCSS Tones, AM STEP, FM STEP and MEMMODES
+	    Fixed flipped bit in vfoToggle
+	    readMemvfo completed for testing
+
+
