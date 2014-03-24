@@ -15,7 +15,7 @@ Revision history for Ham-Device-FT817COMM
 0.9.0_05    17MARCH2014/1200
 	    Cleaned up POD remarks
 	    Added digest option to getSoftcal
-	    Added [00 62] and [00 7B] option to restoreEeprom  
+	    Added [0062] and [007B] option to restoreEeprom  
 	    Added function getCharger
 	    Added function setCharger
 	    Added function setChargetime
@@ -24,7 +24,7 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.0_06    18MARCH2014/1800
             More POD fixes
-	    Added [00 7A] and [00 5D] option to restoreEeprom	
+	    Added [007A] and [005D] option to restoreEeprom	
 	    Added function getAntenna
 	    Added function setAntenna
 	    Added function getArts
@@ -41,19 +41,42 @@ Revision history for Ham-Device-FT817COMM
 		supported an epprom address up to 0x99, new one supports full MSB/LSB
 		16 bits.
 	    Added hashes of VFO A/B base addresses
-	    Added [00 58] and [00 59] option to restoreEeprom
+	    Added [0058] and [0059] option to restoreEeprom
 	    Added function getVox
-	    Added function SetVox
+	    Added function setVox
 	    Added function getVfoband
 	    Added function setVfoband
+
+0.9.0_08    20MARCH2014/2300
 	    Added better prechecking to all functions before sending to CAT
 	    Includes beginning of first radio memory function readMemvfo. Not finished.
 
-0.9.0_08    21MARCH2014/2000
+0.9.0_09    21MARCH2014/1200
 	    More POD fixes
 	    Added internal function hexAdder
 	    Added hashes for DCS codes, CTCSS Tones, AM STEP, FM STEP and MEMMODES
 	    Fixed flipped bit in vfoToggle
 	    readMemvfo completed for testing
 
-
+0.9.0_10    24MARCH2014/1200
+	    No more MSB LSB, Uses 4 character hex address instead of pair or 2 char hex address
+	    setCtcsstone displays all valid tones on verbose(1) when tone entered doesn't exist
+            setDcscode displays all valid codes on verbose(1) when code entered doesn't exist
+	    restoreEeprom now uses the writeBlock method instead of an internal one
+            Added [0057] option to restoreEeprom
+	    Fixed spelling error in eepromDecode
+	    writeBlock checks to pad one digit hex values with leading zero
+	    writeEeprom checks to pad one digit hex values with leading zero
+	    Added function setAgc
+	    Added function setNb
+	    Added function setDsp
+	    Added function getPbt
+	    Added function setPbt
+	    Added function setFasttuning
+	    Removed function toggleRfgain, replaced with setRfknob
+	    Renamed function getRfgain to getrfknob
+	    Added function getChecksum
+            Standardized HEX values using Capital letters only
+	    Fixed wrong variable on writeEeprom debug output
+	    Added internal function hexDiff
+	    getEeprom now supports a range of addresses using second argument

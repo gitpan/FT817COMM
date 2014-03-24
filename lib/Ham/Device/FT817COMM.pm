@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-21 16:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-23 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -14,7 +14,7 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 #use Data::Dumper;
-our $VERSION = '0.9.0_09';
+our $VERSION = '0.9.0_10';
 
 BEGIN {
 	use Exporter ();
@@ -107,7 +107,7 @@ our %HOMEBASE = ('HF' => '0389', '6M' => '03A3', '2M' => '03BD', 'UHF' => '03D7'
 
 our %OPMODES =  (LSB => '00', USB => '01', CW => '02',
              CWR => '03', AM => '04', FM => '08',
-             DIG => '0a', PKT => '0c', FMN => '88',
+             DIG => '0A', PKT => '0C', FMN => '88',
              WFM => '06');
 
 our %SMETER = ('S0' => '0000', 'S1' => '0001', 'S2' => '0010', 'S3' => '0011',
@@ -268,12 +268,24 @@ sub hexAdder {
         if ($debug){print "\n(hexAdder:DEBUG) - OCT   BASEHEX [$basehex]\n";}
         my $startaddress = sprintf("0%X",$basehex + $offset);
         if(length($startaddress) < 4) {$startaddress = join("",'0',"$startaddress");}
-        if ($debug){print "\n(hexAdder:DEBUG) - ADDED OFFSET  [$startaddress]\n";}
-        my $MSB = substr($startaddress,0,2);
-        my $LSB = substr($startaddress,2,2);
-        if ($debug){print "\n(hexAdder:DEBUG) - PRODUCED  MSB[$MSB] LSB[$LSB]\n\n";}
-return ("$MSB","$LSB");
+        if ($debug){print "\n(hexAdder:DEBUG) - ADDED OFFSET [$startaddress]\n";}
+        if ($debug){print "\n(hexAdder:DEBUG) - PRODUCED [$startaddress]\n\n";}
+return $startaddress;
 	     }
+
+sub hexDiff {
+        my $self  = shift;
+        my $ADDRESS1 = shift;
+	my $ADDRESS2 = shift;
+        if ($debug){print "\n(hexDiff:DEBUG) - RECEIVED HEX1 [$ADDRESS1] AND HEX2 [$ADDRESS2]\n";}
+        if ($debug){print "\n(hexDiff:DEBUG) - COMPUTING DECIMAL DIFFERENCE\n";}
+        $ADDRESS1 = hex($ADDRESS1);
+	$ADDRESS2 = hex($ADDRESS2);
+	my $difference = $ADDRESS2 - $ADDRESS1;
+        if ($debug){print "\n(hexDiff:DEBUG) - GOT $difference\n\n";}
+return $difference;
+             }
+
 
 #### Send a CAT command and set the return byte size
 sub sendCat {
@@ -293,10 +305,9 @@ return $catoutput;
 #### Decodes eeprom values from a given address and stips off second byte
 sub eepromDecode {
 	my $self  = shift;
-	my $MSB = shift;
-	my $LSB = shift;
-	if ($debug){print "\n(eepromDecode:DEBUG) - READING FROM from -> [$MSB".'x'."$LSB]\n";}
-	my $data = join("","$MSB", "$LSB",'0000BB');
+	my $address = shift;
+	if ($debug){print "\n(eepromDecode:DEBUG) - READING FROM ------> [$address]\n";}
+        my $data = join("","$address",'0000BB');
         if ($debug){print "\n(eepromDecode:DEBUG) - PACKET BUILT ------> [$data]\n";}
 	$data = pack( 'H[10]', "$data" );
 	$self->{'port'}->write($data);
@@ -312,15 +323,15 @@ return $output;
 #### Decodes eeprom values from a given address and stips off second byte
 sub eepromDecodenext {
         my $self  = shift;
-        my ($MSB, $LSB) = @_;
-        if ($debug){print "\n(eepromDecodenext:DEBUG) - READING FROM from -> [$MSB".'x'."$LSB]\n";}
-	my $data = join("","$MSB", "$LSB",'0000BB');
+	my $address = shift;
+        if ($debug){print "\n(eepromDecodenext:DEBUG) - READING FROM from -> [$address]\n";}
+        my $data = join("","$address",'0000BB');
 	if ($debug){print "\n(eepromDecodenext:DEBUG) - PACKET BUILT ------> [$data]\n";}
 	$data = pack( 'H[10]', "$data" );
 	$self->{'port'}->write($data);
         $output = $self->{'port'}->read(2);
         $output = unpack("H*", substr($output,1,1));
-	if ($debug){print "\n(eepromDecodenext:DEBUG) - OUTPUT HEX -__-----> [$output]\n\n";}
+	if ($debug){print "\n(eepromDecodenext:DEBUG) - OUTPUT HEX --------> [$output]\n\n";}
 return $output;
                      }
 
@@ -328,9 +339,8 @@ return $output;
 #### Writes data to the eeprom MSB,LSB,BIT# and VALUE,  REWRITES NEXT MEMORY ADDRESS
 sub writeEeprom {
         my $self=shift;
+        my $address = shift;
 	my ($writestatus) = @_;
-	my $MSB=shift;
-	my $LSB=shift;
 	my $BIT=shift;
 	my $VALUE=shift;
 	my $NEWHEX1;
@@ -341,9 +351,8 @@ sub writeEeprom {
 		$writestatus = "Write Disabled";
 return $writestatus;
 			  }
-	if ($debug){print "\n(writeEeprom:DEBUG) - OUTPUT FROM [$MSB".'x'."$LSB]\n";}
-        my $addressname = $LSB;
-        my $data = join("","$MSB", "$LSB",'0000BB');
+	if ($debug){print "\n(writeEeprom:DEBUG) - OUTPUT FROM [$address]\n";}
+        my $data = join("","$address",'0000BB');
         if ($debug){print "\n(writeEeprom:DEBUG) - PACKET BUILT ------> [$data]\n";}
         $data = pack( 'H[10]', "$data" );
         $self->{'port'}->write($data);
@@ -352,17 +361,23 @@ return $writestatus;
 	my $BYTE2 = unpack("H*", substr($output,1,1));
 	my $OLDBYTE1 = $BYTE1;
 	my $OLDBYTE2 = $BYTE2;
-	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1 ($BYTE1) BYTE2 ($BYTE2) from [$MSB".'x'."$LSB]\n";}
+	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1 ($BYTE1) BYTE2 ($BYTE2) from [$address]\n";}
 	$BYTE1 = hex2bin($BYTE1);
-	my $HEX1 = sprintf("%x", oct( "0b$BYTE1" ) );
+	my $HEX1 = sprintf("%X", oct( "0b$BYTE1" ) );
 	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1 BINARY IS [$BYTE1]\n";}
 	if ($debug){print "\n(writeEeprom:DEBUG) - CHANGING BIT($BIT) to ($VALUE)\n";}
 	substr($BYTE1, $BIT, 1) = "$VALUE";
 	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1: BINARY IS [$BYTE1] AFTER CHANGE\n";}
-	$NEWHEX1 = sprintf("%x", oct( "0b$BYTE1" ) );
-	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1 ($NEWHEX1) BYTE2 ($BYTE2) to   [$MSB".'x'."$LSB]\n";}
+	$NEWHEX1 = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($debug){print "\n(writeEeprom:DEBUG) - CHECKING IF [$NEWHEX1] needs padding\n";}
+        if (length($NEWHEX1) < 2) {
+                   $NEWHEX1 = join("",'0', "$NEWHEX1");
+                if ($debug){print "\n(writeEeprom:DEBUG) - Padded to [$NEWHEX1]\n";}
+                                }
+        else {if ($debug){print "\n(writeEeprom:DEBUG) - No padding of [$NEWHEX1] needed\n";}}
+	if ($debug){print "\n(writeEeprom:DEBUG) - BYTE1 ($NEWHEX1) BYTE2 ($BYTE2) to [$address]\n";}
 	if ($debug){print "\n(writeEeprom:DEBUG) - WRITING  ----------> ($NEWHEX1) ($BYTE2)\n";}
-        my $data2 = join("","$MSB", "$LSB","$NEWHEX1","$BYTE2",'BC');
+        my $data2 = join("","$address","$NEWHEX1","$BYTE2",'BC');
 	if ($debug){print "\n(writeEeprom:DEBUG) - PACKET BUILT ------> [$data2]\n";}
 	$data2 = pack( 'H[10]', "$data2" );
         $self->{'port'}->write($data2);
@@ -372,7 +387,7 @@ return $writestatus;
         my $output2 = $self->{'port'}->read(2);
         $BYTE1 = unpack("H*", substr($output2,0,1));
         $BYTE2 = unpack("H*", substr($output2,1,1));
-        if ($debug){print "\n(writeEeprom:DEBUG) - SHOULD BE: ($OLDBYTE1) ($OLDBYTE2)\n";}
+        if ($debug){print "\n(writeEeprom:DEBUG) - SHOULD BE: ($NEWHEX1) ($OLDBYTE2)\n";}
         if ($debug){print "\n(writeEeprom:DEBUG) - IS: -----> ($BYTE1) ($BYTE2)\n";}
 	if ($output2 == $output) {
 		$writestatus = "OK";
@@ -390,8 +405,7 @@ return $writestatus;
 sub writeBlock {
         my $self=shift;
         my ($writestatus) = @_;
-        my $MSB=shift;
-        my $LSB=shift;
+	my $address=shift;
         my $VALUE=shift;
 
         if ($writeallow != '1' and $agreewithwarning != '1') {
@@ -401,20 +415,24 @@ sub writeBlock {
 return $writestatus;
 				                             }
 
-
-if ($debug){print "\n(writeBlock:DEBUG) - OUTPUT FROM [$MSB".'x'."$LSB]\n";}
-        my $addressname = $LSB;
-        my $data = join("","$MSB", "$LSB",'0000BB');
+if ($debug){print "\n(writeBlock:DEBUG) - OUTPUT FROM [$address]\n";}
+        my $data = join("","$address",'0000BB');
         if ($debug){print "\n(writeBlock:DEBUG) - PACKET BUILT ------> [$data]\n";}
         $data = pack( 'H[10]', "$data" );
         $self->{'port'}->write($data);
         my $output = $self->{'port'}->read(2);
         my $BYTE2 = unpack("H*", substr($output,1,1));
         my $OLDBYTE2 = $BYTE2;
-        if ($debug){print "\n(writeBlock:DEBUG) - BYTE2 ($BYTE2) from [$MSB".'x'."$LSB]\n";}
-        if ($debug){print "\n(writeBlock:DEBUG) - BYTE1 ($VALUE) BYTE2 ($BYTE2) to   [$MSB".'x'."$LSB]\n";}
-        if ($debug){print "\n(writeBlock:DEBUG) - WRITING  ----------> ($VALUE) ($BYTE2)\n";}
-        my $data2 = join("","$MSB", "$LSB","$VALUE","$BYTE2",'BC');
+        if ($debug){print "\n(writeBlock:DEBUG) - BYTE2 ($BYTE2) from [$address]\n";}
+        if ($debug){print "\n(writeBlock:DEBUG) - BYTE1 ($VALUE) BYTE2 ($BYTE2) to   [$address]\n";}
+	if ($debug){print "\n(writeBlock:DEBUG) - CHECKING IF [$VALUE] needs padding\n";}
+	if (length($VALUE) < 2) {
+		   $VALUE = join("",'0', "$VALUE");
+		if ($debug){print "\n(writeBlock:DEBUG) - Padded to [$VALUE]\n";}
+			        }
+	else {if ($debug){print "\n(writeBlock:DEBUG) - No padding of [$VALUE] needed\n";}}
+        if ($debug){print "\n(writeBlock:DEBUG) - WRITING  ----------> [$VALUE] [$BYTE2]\n";}
+        my $data2 = join("","$address","$VALUE","$BYTE2",'BC');
         if ($debug){print "\n(writeBlock:DEBUG) - PACKET BUILT ------> [$data2]\n";}
         $data2 = pack( 'H[10]', "$data2" );
         $self->{'port'}->write($data2);
@@ -443,10 +461,8 @@ return $writestatus;
 
 sub restoreEeprom {
         my $self=shift;
-	my $MSB=shift;
-	my $LSB=shift;
-        my ($area,$writestatus,$test,$restorevalue,$address) = @_;
-	$area = join("","$MSB", "$LSB");
+	my $area=shift;
+        my ($writestatus,$test,$restorevalue,$address) = @_;
         if ($writeallow != '1' and $agreewithwarning != '1') {
                 if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
                 if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
@@ -456,11 +472,21 @@ return $writestatus;
 
 
 
-	if (($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
+	if (($area ne '0057') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
 			  }
+
+
+        if ($area eq '0057'){
+                $restorevalue = '00';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x57\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'AGC','AUTO', 'DSP','OFF', 'PBT','OFF', 'NB', 'OFF', 'LOCK','OFF', 'FASTTUNE','OFF';
+                             }
+                          }
 
 
         if ($area eq '0058'){
@@ -536,11 +562,8 @@ return $writestatus;
                              }
 			  }
 
-	my $nextvalue = $self->eepromDecodenext("$MSB","$LSB");
-	my $data = join("","$MSB", "$LSB","$restorevalue","$nextvalue",'BC');
-        $data = pack( 'H[10]', "$data" );
-        $self->{'port'}->write($data);
-        $writestatus = $self->{'port'}->read(2);
+        $writestatus = $self->writeBlock("$area","$restorevalue");
+
 
 return $writestatus;
 		  }
@@ -789,7 +812,7 @@ sub setOffsetfreq {
                 $badf = $frequency;
                 $frequency = undef;
              }
-	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'f9',1);
+	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'F9',1);
         if($verbose){
                 print "Set Offset Frequency ($badf) Failed. Must contain 8 digits 0-9.\n" if (! $frequency);
                 print "Set Offset Frequency ($frequency) Sucessfull.\n" if ($catoutput eq '00');
@@ -810,11 +833,11 @@ sub setCtcssdcs {
 return 1;
                                                                                                         }
 
-	if ($ctcssdcs eq 'DCS'){$data = "0a";}
-	if ($ctcssdcs eq 'CTCSS'){$data = "2a";}
-	if ($ctcssdcs eq 'ENCODER'){$data = "4a";}
-	if ($ctcssdcs eq 'OFF'){$data = "8a";}
-        $catoutput = $self->sendCat("$data",'00','00','00','0a',1);
+	if ($ctcssdcs eq 'DCS'){$data = "0A";}
+	if ($ctcssdcs eq 'CTCSS'){$data = "2A";}
+	if ($ctcssdcs eq 'ENCODER'){$data = "4A";}
+	if ($ctcssdcs eq 'OFF'){$data = "8A";}
+        $catoutput = $self->sendCat("$data",'00','00','00','0A',1);
         if ($verbose){
                 print "Set Encoder Type ($ctcssdcs) Sucessfull.\n" if ($data);
                 print "Set Encoder Type ($ctcssdcs) Failed. Option:$ctcssdcs invalid\.\n" if (! $data);
@@ -836,11 +859,21 @@ sub setCtcsstone {
 		$tonefreq = undef;
 return 1;
 	      }
-	if($tonefreq){$catoutput = $self->sendCat("$f1","$f2",'00','00','0b',1);}
+	if($tonefreq){$catoutput = $self->sendCat("$f1","$f2",'00','00','0B',1);}
         if ($verbose){
                 print "Set CTCSS Tone ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $tonefreq);
                 print "Set CTCSS Tone ($tonefreq) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set CTCSS ($tonefreq) Failed. $tonefreq is not a valid tone frequency\.\n" if ($catoutput eq 'f0');
+
+	if ($catoutput eq 'f0'){
+		print "Set CTCSS ($tonefreq) Failed. $tonefreq is not a valid tone frequency\.\n\n";
+		my $columns = 1;
+		foreach my $tones (sort keys %CTCSSTONES) {
+    		printf "%-15s %s",$CTCSSTONES{$tones};
+		$columns++;
+		if ($columns == 7){print "\n\n"; $columns = 1;}
+ 			  			          }
+		print "\n\n";	       
+				}
                      }
 return $catoutput;
                  }
@@ -859,11 +892,21 @@ sub setDcscode {
                 $code = undef;
 return 1;
               }
-	if($code){$catoutput = $self->sendCat("$f1","$f2",'00','00','0c',1);}
+	if($code){$catoutput = $self->sendCat("$f1","$f2",'00','00','0C',1);}
         if ($verbose){
                 print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $code);
                 print "Set DCS Code ($code) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set DCS Code ($code) Failed. $code is not a valid DCS Code\.\n" if ($catoutput eq 'f0');
+	if ($catoutput eq 'f0') {
+                print "Set DCS Code ($code) Failed. $code is not a valid DCS Code\.\n\n";
+		my $columns = 1;
+                foreach my $codes (sort keys %DCSCODES) {
+                printf "%-15s %s",$DCSCODES{$codes};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                          }
+                print "\n\n";
+
+				}
                      }
 return $catoutput;
                  }
@@ -874,7 +917,7 @@ sub getRxstatus {
         my $self=shift;
         my $option = shift;
 	if (!$option){$option = 'HASH';} 
-        $catoutput = $self->sendCat('00','00','00','00','e7',1);
+        $catoutput = $self->sendCat('00','00','00','00','E7',1);
 	my $values = hex2bin($catoutput);
 	my $sq = substr($values,0,1);
 	my $smeter = substr($values,4,4);
@@ -911,7 +954,7 @@ sub getTxstatus {
         my $self=shift;
         my $option = shift;
         if (!$option){$option = 'HASH';}
-        $catoutput = $self->sendCat('00','00','00','00','f7',1);
+        $catoutput = $self->sendCat('00','00','00','00','F7',1);
         my $values = hex2bin($catoutput);
         my $pttvalue = substr($values,0,1);
         my $pometer = substr($values,4,4);
@@ -986,8 +1029,8 @@ return 1;
                                                      }
 		    
 
-	if ($powerset eq 'ON'){$data = "0f";}
-	if ($powerset eq 'OFF') {$data = "8f";}
+	if ($powerset eq 'ON'){$data = "0F";}
+	if ($powerset eq 'OFF') {$data = "8F";}
 	$self->sendCat('00','00','00','00','00',1);
 	$catoutput = $self->sendCat('00','00','00','00',"$data",1);
 	if($verbose){
@@ -1014,33 +1057,75 @@ return $catoutput;
 # X ################################# GET VALUES OF EEPROM ADDRESS VIA EEPROMDECODE
 ###################################### READ ADDRESS GIVEN
 sub getEeprom {
+        my ($times,$valuehex) = @_;
         my $self=shift;
-	my $address =shift;
+	my $address1 =shift;
 	my $address2 = shift;
-
+	my $base = $address1;
+	if (!$address2) {$address2 = $address1;}
 
         if ($verbose){
-		if (!$address) {
-                print "Get EEPROM ($address) Failed. Must contain  hex value 0-9 a-f. i.e. 00 5F\n"; 
+		if (!$address1) {
+                print "Get EEPROM ($address1 $address2) Failed. Must contain  hex value 0-9 a-f. i.e. [005F] or  [005F 006A] for a range\n"; 
 return 1;
-			       }
-                if (!$address2){
-                print "Get EEPROM ($address) Failed. Must contain  hex value 0-9 a-f.  i.e. 00 5F\n";
+			        }
+                 
+
+
+		$times=$self->hexDiff("$address1","$address2");
+                if ($times < 0) {
+                print "The Secondary value [$address2] must be greater than the first [$address1]";
 return 1;
-			       }
+                                }
                      }
 
-               print "\n";
+
+                print "\n";
                 printf "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
                 print "___________________________________________________\n";
-		my $valuebin = $self->eepromDecode("$address","$address2");
-                my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
+
+		$times++;
+		my $cycles = 0;
+
+
+	do {
+		my $valuebin = $self->eepromDecode("$address1");
+                my $valuehex = sprintf("%X", oct( "0b$valuebin" ) );
                 my $valuedec = hex($valuehex);
-                printf "%-11s %-15s %-11s %-11s\n", "$address$address2", "$valuebin", "$valuedec", "$valuehex";
+                printf "%-11s %-15s %-11s %-11s\n", "$address1", "$valuebin", "$valuedec", "$valuehex";
+		$cycles++;
+                $address1 = $self->hexAdder("$cycles","$base");
+
+  	   }
+	        while ($cycles < $times);
+
 		print "\n";
 return $valuehex;
               }
 
+# 0-3 ################################# GET EEPROM CHECKSUM
+###################################### READ ADDRESS 0X0 AND 0X3
+sub getChecksum {
+        my ($checksumhex0,$checksumhex1,$checksumhex2,$checksumhex3) = @_;
+        my $self=shift;
+        my $type=shift;
+        my $output0 = $self->eepromDecode('0000');
+        my $output1 = $self->eepromDecode('0001');
+        my $output2 = $self->eepromDecode('0002');
+        my $output3 = $self->eepromDecode('0003');
+        $checksumhex0 = sprintf("%X", oct( "0b$output0" ) );
+        $checksumhex1 = sprintf("%X", oct( "0b$output1" ) );
+        $checksumhex2 = sprintf("%X", oct( "0b$output2" ) );
+        $checksumhex3 = sprintf("%X", oct( "0b$output3" ) );
+        my $configoutput = "[$checksumhex0][$checksumhex1][$checksumhex2][$checksumhex3]";
+        if($verbose){
+                print "\nCHECKSUM VALUES ARE:\n\n";
+                printf "%-11s %-11s\n", 'ADDRESS','HEX';
+                print "_______________";
+                printf "\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", '0x00', "$checksumhex0", '0x01', "$checksumhex1", '0x02', "$checksumhex2", '0x03', "$checksumhex3";
+                    }
+return $configoutput;
+           }
 
 # 4-5 ################################# GET RADIO VERSION VIA EEPROMDECODE
 ###################################### READ ADDRESS 0X4 AND 0X5
@@ -1048,9 +1133,9 @@ sub getConfig {
         my ($confighex4,$confighex5,$output4,$output5) = @_;
         my $self=shift;
 	my $type=shift;
-        $output4 = $self->eepromDecode('00','04');
+        $output4 = $self->eepromDecode('0004');
 	$confighex4 = sprintf("%x", oct( "0b$output4" ) );
-        $output5 = $self->eepromDecode('00','05');
+        $output5 = $self->eepromDecode('0005');
         $confighex5 = sprintf("%x", oct( "0b$output5" ) );
 	my $configoutput = "[$confighex4][$confighex5]";
         $out = "\nHardware Jumpers created value of\n0x04[$output4]($confighex4)\n0x05[$output5]($confighex5)\n\n";
@@ -1116,7 +1201,8 @@ sub getSoftcal {
                 $memoryaddress = sprintf("%x",$startaddress);
                 my $size = length($memoryaddress);
                 if ($size < 2){$memoryaddress = join("",'0',"$memoryaddress");}
-                my $valuebin = $self->eepromDecode('00',"$memoryaddress");
+		$memoryaddress = join("",'00',"$memoryaddress");
+                my $valuebin = $self->eepromDecode("$memoryaddress");
                 my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
 		$digestdata .="$valuehex";
                 $block++;
@@ -1138,7 +1224,8 @@ return $digest;
 		$memoryaddress = sprintf("%x",$startaddress);
 		my $size = length($memoryaddress);
 		if ($size < 2){$memoryaddress = join("",'0',"$memoryaddress");}	
-		my $valuebin = $self->eepromDecode('00',"$memoryaddress");
+                $memoryaddress = join("",'00',"$memoryaddress");
+		my $valuebin = $self->eepromDecode("$memoryaddress");
 		my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
 		my $valuedec = hex($valuehex);
 	if ($option eq 'CONSOLE' || $verbose) {
@@ -1172,7 +1259,7 @@ return $output;
 ###################################### READ BIT 0 4 AND 8 FROM ADDRESS 0X55
 sub getVfo {
 	my $self=shift;
-	$output = $self->eepromDecode('00','55');
+	$output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
 	if ($block55[7] == '0') {$vfo = "A";}
 	if ($block55[7] == '1') {$vfo = "B";}
@@ -1184,7 +1271,7 @@ return $vfo;
 
 sub getHome {
         my $self=shift;
-        $output = $self->eepromDecode('00','55');
+        $output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
 	if ($block55[3] == '1') {$home = "Y";}
 	if ($block55[3] == '0') {$home = "N";}
@@ -1197,7 +1284,7 @@ return $home;
 
 sub getTuner {
 	my $self=shift;
-	$output = $self->eepromDecode('00','55');
+	$output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
 	if ($block55[0] == '1') {$tuneselect = "VFO";}
 	if ($block55[0] == '0') {$tuneselect = "MEMORY";}
@@ -1207,12 +1294,12 @@ sub getTuner {
 return $tuneselect;
              }
 
-# 57 ################################# GET AGC MODE, NOISE BLOCK, FASTTUNE , DSP AND LOCK ######
-###################################### READ BITS 0-1 , 2, 5 AND 6 FROM 0X57
+# 57 ################################# GET AGC MODE, NOISE BLOCK, FASTTUNE ,PASSBAND Tuning, DSP AND LOCK ######
+###################################### READ BITS 0-1 , 2, 4 ,5 AND 6 FROM 0X57
 
 sub getAgc {
 	my $self=shift;
-	$output = $self->eepromDecode('00','57');
+	$output = $self->eepromDecode('0057');
 	my $agcvalue = substr($output,6,2);
 	my ($agc) = grep { $AGCMODES{$_} eq $agcvalue } keys %AGCMODES;
         if($verbose){
@@ -1224,7 +1311,7 @@ return $agc;
 
 sub getDsp {
         my $self=shift;
-        $output = $self->eepromDecode('00','57');
+        $output = $self->eepromDecode('0057');
         my @block55 = split("",$output);
         if ($block55[5] == '0') {$dsp = "OFF";}
         if ($block55[5] == '1') {$dsp = "ON";}
@@ -1234,10 +1321,23 @@ sub getDsp {
 return $dsp;
            }
 
+sub getPbt {
+        my $self=shift;
+	my $pbt;
+        $output = $self->eepromDecode('0057');
+        my @block55 = split("",$output);
+        if ($block55[3] == '0') {$pbt = "OFF";}
+        if ($block55[3] == '1') {$pbt = "ON";}
+        if($verbose){
+                print "Passband Tuning is $pbt\n";
+                    }
+return $pbt;
+           }
+
 
 sub getNb    {
 	my $self=shift;
-	$output = $self->eepromDecode('00','57');
+	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[2] == '0') {$nb = "OFF";}
 	if ($block55[2] == '1') {$nb = "ON";}
@@ -1249,7 +1349,7 @@ return $nb;
 
 sub getLock    {
 	my $self=shift;
-	$output = $self->eepromDecode('00','57');
+	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[1] == '1') {$lock = "OFF";}
 	if ($block55[1] == '0') {$lock = "ON";}
@@ -1261,10 +1361,10 @@ return $lock;
 
 sub getFasttuning {
         my $self=shift;
-        $output = $self->eepromDecode('00','57');
+        $output = $self->eepromDecode('0057');
         my @block55 = split("",$output);
-        if ($block55[0] == '0') {$fasttuning = "OFF";}
-        if ($block55[0] == '1') {$fasttuning = "ON";}
+        if ($block55[0] == '1') {$fasttuning = "OFF";}
+        if ($block55[0] == '0') {$fasttuning = "ON";}
         if($verbose){
                 print "Fast Tuning is $fasttuning\n";
                     }
@@ -1280,7 +1380,7 @@ return $fasttuning;
 sub getVox {
         my ($vox) = @_;
         my $self=shift;
-        $output = $self->eepromDecode('00','58');
+        $output = $self->eepromDecode('0058');
         my @block55 = split("",$output);
         if ($block55[0] == '0') {$vox = "OFF";}
         if ($block55[0] == '1') {$vox = "ON";}
@@ -1303,7 +1403,7 @@ sub getVfoband {
                 if($verbose){print "Value invalid: Choose A/B\n\n"; }
 return 1;
                                                                     }
-        $output = $self->eepromDecode('00','59');
+        $output = $self->eepromDecode('0059');
 	if ($value eq 'A'){$vfobandvalue = substr($output,4,4);}
 	if ($value eq 'B'){$vfobandvalue = substr($output,0,4);}
         ($vfoband) = grep { $VFOBANDS{$_} eq $vfobandvalue } keys %VFOBANDS;
@@ -1320,7 +1420,7 @@ return $vfoband;
 sub getArtsmode {
         my ($artsmode) = @_;
         my $self=shift;
-        $output = $self->eepromDecode('00','5d');
+        $output = $self->eepromDecode('005D');
         $artsmode = substr($output,0,2);
         if ($artsmode == '00'){$artsmode = 'OFF'};
         if ($artsmode == '01'){$artsmode = 'RANGE'};
@@ -1334,15 +1434,15 @@ return $artsmode;
 # 5f ################################# GET RFGAIN/SQUELCH ######
 ###################################### READ BIT 0-1 FROM 0X5f
 
-sub getRfgain {
+sub getRfknob {
         my ($sqlbit,$value) = @_;
 	my $self=shift;
-        $output = $self->eepromDecode('00','5f');
+        $output = $self->eepromDecode('005F');
 	$sqlbit = substr($output,0,1);
         if($sqlbit == '0'){$value = 'RFGAIN';}
         else {$value = 'SQUELCH';}
         if($verbose){
-                print "RFGAIN Knob is set to $value\n";
+                print "RF-KNOB is set to $value\n";
                     }
 return $value; 
            }
@@ -1354,7 +1454,7 @@ return $value;
 
 sub getTxpower {
 	my $self=shift;
-	$output = $self->eepromDecode('00','79');
+	$output = $self->eepromDecode('0079');
 	my $txpower = substr($output,6,2);
 	($txpow) = grep { $TXPWR{$_} eq $txpower } keys %TXPWR;
         if($verbose){
@@ -1366,7 +1466,7 @@ return $txpow;
 sub getArts {
         my ($artsis) = @_;
         my $self=shift;
-        $output = $self->eepromDecode('00','79');
+        $output = $self->eepromDecode('0079');
         my $arts = substr($output,0,1);
 	if ($arts == '0'){$artsis = 'OFF'};
         if ($arts == '1'){$artsis = 'ON'};
@@ -1386,7 +1486,7 @@ sub getAntenna {
         my $self=shift;
 	my $value=shift;
 	my $ant;
-        $output = $self->eepromDecode('00','7a');
+        $output = $self->eepromDecode('007A');
 
         if ($value eq 'HF'){$antenna = substr($output,7,1);}
         if ($value eq '6M'){$antenna = substr($output,6,1);}
@@ -1431,10 +1531,10 @@ return $ant;
 
 sub getCharger {
         my $self=shift;
-        $output = $self->eepromDecode('00','7b');
+        $output = $self->eepromDecode('007B');
 	my $test = substr($output,3,1);
 	my $time = substr($output,4,4);
-        my $timehex = sprintf("%x", oct( "0b$time" ) );
+        my $timehex = sprintf("%X", oct( "0b$time" ) );
 	$time = hex($timehex);
 
         if ($test == '0') {$charger = "OFF";}
@@ -1489,9 +1589,9 @@ return 1;
 
 if ($value eq 'MODE'){
 	my $offset=0x00;
-	my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+	my $address = $self->hexAdder("$offset","$base");
         my $mode;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,5,3);
         ($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
 	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n [this is broken]\n"};
@@ -1501,9 +1601,9 @@ return $mode;
 
 if ($value eq 'NARFM'){
 	my $offset=0x01;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $narfm;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,4,1);
         if ($output == '0') {$narfm = "OFF";}
         if ($output == '1') {$narfm = "ON";}
@@ -1513,9 +1613,9 @@ return $narfm;
 
 if ($value eq 'NARCWDIG'){
         my $offset=0x01;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $narcw;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,3,1);
         if ($output == '0') {$narcw = "OFF";}
         if ($output == '1') {$narcw = "ON";}
@@ -1526,9 +1626,9 @@ return $narcw;
 
 if ($value eq 'RPTOFFSET'){
         my $offset=0x01;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $rptoffset;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,0,2);
         if ($output == '00') {$rptoffset = "SIMPLEX";}
         if ($output == '01') {$rptoffset = "MINUS";}
@@ -1540,9 +1640,9 @@ return $rptoffset;
 
 if ($value eq 'TONEDCS'){
         my $offset=0x04;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $tonedcs;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,6,2);
         if ($output == '00') {$tonedcs = "OFF";}
         if ($output == '01') {$tonedcs = "TONE(TX)";}
@@ -1554,9 +1654,9 @@ return $tonedcs;
 
 if ($value eq 'ATT'){
         my $offset=0x02;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $att;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,3,1);
         if ($output == '0') {$att = "OFF";}
         if ($output == '1') {$att = "ON";}
@@ -1567,9 +1667,9 @@ return $att;
 
 if ($value eq 'IPO'){
         my $offset=0x02;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $ipo;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,2,1);
         if ($output == '0') {$ipo = "OFF";}
         if ($output == '1') {$ipo = "ON";}
@@ -1580,8 +1680,8 @@ return $ipo;
 
 if ($value eq 'FMSTEP'){
         my $offset=0x03;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
-        $output = $self->eepromDecode("$MSB","$LSB");
+        my $address = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,5,3);
         ($fmstep) = grep { $FMSTEP{$_} eq $output } keys %FMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - FM STEP is $fmstep\n"};
@@ -1592,8 +1692,8 @@ return $fmstep;
 
 if ($value eq 'AMSTEP'){
         my $offset=0x03;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
-        $output = $self->eepromDecode("$MSB","$LSB");
+        my $address = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,2,3);
         ($amstep) = grep { $AMSTEP{$_} eq $output } keys %AMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - AM STEP is $amstep\n"};
@@ -1604,9 +1704,9 @@ return $amstep;
 
 if ($value eq 'SSBSTEP'){
         my $offset=0x03;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
+        my $address = $self->hexAdder("$offset","$base");
         my $ssbstep;
-        $output = $self->eepromDecode("$MSB","$LSB");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,0,2);
         if ($output == '00') {$ssbstep = '1.0';}
         if ($output == '01') {$ssbstep = '2.5';}
@@ -1631,8 +1731,8 @@ return $ctcsstone;
 
 if ($value eq 'DCSCODE'){
         my $offset=0x07;
-        my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
-        $output = $self->eepromDecode("$MSB","$LSB");
+        my $address = $self->hexAdder("$offset","$base");
+        $output = $self->eepromDecode("$address");
         $output = substr($output,1,7);
         my %newhash = reverse %DCSCODES;
         ($dcscode) = grep { $newhash{$_} eq $output } keys %newhash;
@@ -1647,6 +1747,265 @@ return $dcscode;
 #################################
 # WRITE VALUES FROM EEPROM ADDR #
 #################################
+
+
+# 55 ################################# SET VFO A/B , MEM OR VFO, MTQMB, QMB, HOME ######
+###################################### SET BITS 0,1,2,4,5 AND 7 FROM 0X55
+
+#55	0	VFO A/B	0 = VFO-A, 1 = VFO-B
+#55	1	MTQMB Select	0 = (Not MTQMB), 1 = MTQMB
+#55	2	QMB Select	0 = (Not QMB), 1 = QMB
+#55	3	?	?
+#55	4	Home Select	0 = (Not HOME), 1 = HOME memory
+#55	5	Memory/MTUNE select	0 = Memory, 1 = MTUNE
+#55	6	?	?
+#55	7	MEM/VFO Select	0 = Memory, 1 = VFO (A or B - see bit 0)
+
+
+
+
+
+
+# 57 ################################# SET AGC MODE, NOISE BLOCK, FASTTUNE , DSP AND LOCK ######
+###################################### READ BITS 0-1 , 2, 5 AND 6 FROM 0X57
+
+sub setAgc {
+        my $self=shift;
+	my $value=shift;
+        if ($value ne 'AUTO' && $value ne 'SLOW' && $value ne 'FAST' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose AUTO/SLOW/FAST/OFF\n\n"; }
+return 1;
+                                                                                        }
+        $self->setVerbose(0);
+        my $currentagc = $self->getAgc();
+        $self->setVerbose(1);
+        if ($value eq $currentagc){
+                if($verbose){print "Value $currentagc already selected.\n\n"; }
+return 1;
+                                  }
+
+        my $BYTE1 = $self->eepromDecode('0057');
+        if ($value eq 'OFF'){substr ($BYTE1, 6, 2, '11');}
+        if ($value eq 'SLOW'){substr ($BYTE1, 6, 2, '10');}
+        if ($value eq 'FAST'){substr ($BYTE1, 6, 2, '01');}
+        if ($value eq 'AUTO'){substr ($BYTE1, 6, 2, '00');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0057',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"AGC Set to $value sucessfull!\n";}
+                else {print"AGC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+           }
+
+####################
+
+sub setNb {
+        my ($currentnb) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentnb = $self->getNb();
+        $self->setVerbose(1);
+
+        if ($value eq $currentnb){
+                if($verbose){print "Value $currentnb already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','2','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','2','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Noise Block set to $value sucessfull!\n";}
+                else {print"Noise Block set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+####################
+
+
+sub setDsp {
+        my ($currentdsp) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentdsp = $self->getDsp();
+        $self->setVerbose(1);
+
+        if ($value eq $currentdsp){
+                if($verbose){print "Value $currentdsp already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','5','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','5','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"DSP set to $value sucessfull!\n";}
+                else {print"DSP set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+####################
+
+
+sub setPbt {
+        my ($currentpbt) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentpbt = $self->getPbt();
+        $self->setVerbose(1);
+
+        if ($value eq $currentpbt){
+                if($verbose){print "Value $currentpbt already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','3','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Pass Band Tuning set to $value sucessfull!\n";}
+                else {print"Pass Band Tuning set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+
+####################
+
+
+sub setFasttuning {
+        my ($currenttuning) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currenttuning = $self->getFasttuning();
+        $self->setVerbose(1);
+
+        if ($value eq $currenttuning){
+                if($verbose){print "Value $currenttuning already selected.\n\n"; }
+return 1;
+                                     }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','0','0');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','0','1');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Fast Tuning set to $value sucessfull!\n";}
+                else {print"Fast Tuning set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+
+# 58 ################################# SET VOX ######
+###################################### CHANGE BIT 7 FROM 0X58
+
+sub setVox {
+        my ($currentvox) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+
+        $self->setVerbose(0);
+        $currentvox = $self->getVox();
+        $self->setVerbose(1);
+
+        if ($value eq $currentvox){
+                if($verbose){print "Value $currentvox already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','0','0');}
+
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"VOX set to $value sucessfull!\n";}
+                else {print"VOX set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+
+# 59 ################################# SET VFOBAND ######
+###################################### CHANGE ALL BITS FROM 0X59
+
+sub setVfoband {
+
+       my ($currentband, $writestatus, $vfoband, $testvfoband) = @_;
+        my $self=shift;
+        my $vfo=shift;
+        my $value=shift;
+
+        if ($vfo ne 'A' && $vfo ne 'B'){
+                if($verbose){print "Value invalid: Choose VFO A/B\n\n"; }
+return 1;
+                                      }
+
+        my %newhash = reverse %VFOBANDS;
+        ($testvfoband) = grep { $newhash{$_} eq $value } keys %newhash;
+
+
+        if ($testvfoband eq'') {
+                if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
+return 1;
+                               }
+        $self->setVerbose(0);
+        $currentband = $self->getVfoband("$vfo");
+        $self->setVerbose(1);
+        if ($currentband eq $value) {
+                if($verbose){print "\nBand $currentband already selected for VFO $vfo\n\n"; }
+return 1;
+                                    }
+        my $BYTE1 = $self->eepromDecode('0059');
+        if ($vfo eq 'A'){substr ($BYTE1, 4, 4, "$testvfoband");}
+        if ($vfo eq 'B'){substr ($BYTE1, 0, 4, "$testvfoband");}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+         $writestatus = $self->writeBlock('0059',"$NEWHEX");
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"BAND $currentband on VFO $vfo set sucessfull!\n";}
+                else {print"BAND $currentband on VFO $vfo set failed!!!\n";}
+                     }
+
+return $writestatus;
+               }
 
 
 # 5d ################################# SET ARTS MODE BIT
@@ -1671,16 +2030,13 @@ return 1;
 return 1;
                                        }
 
-        my $BYTE1 = $self->eepromDecode('00','5d');
+        my $BYTE1 = $self->eepromDecode('005D');
         if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
         if ($value eq 'RANGE'){substr ($BYTE1, 0, 2, '01');}
         if ($value eq 'ALL'){substr ($BYTE1, 0, 2, '10');}
-        my $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );
-	if ($NEWHEX == '2'){$NEWHEX = '02';}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
 
-
-        $writestatus = $self->writeBlock('00','5d',"$NEWHEX");
-
+        $writestatus = $self->writeBlock('005D',"$NEWHEX");
 
         if($verbose){
                 if ($writestatus eq 'OK') {print"ARTS Mode Set to $value sucessfull!\n";}
@@ -1691,28 +2047,33 @@ return $writestatus;
 		 }
 
 
-# 5f ################################# TOGGLES RFGAIN/SQUENCH BIT
-###################################### TOGGLE BIT 0 FROM ADDRESS 0X5F
+# 5F ################################# SETS RFKNOB FUNCTION
+###################################### SETS BIT 7 FROM ADDRESS 0X5F
 
-sub toggleRfgain {
-        my ($sqlbit, $writestatus,$value) = @_;
+sub setRfknob {
+        my ($sqlbit, $writestatus,$currentknob) = @_;
         my $self=shift;
-        $output = $self->eepromDecode('00','5f');
-	$sqlbit = substr($output,0,1);
-	if($sqlbit == '0'){$value = 'RFGAIN'}
-	else {$value = 'SQUELCH'}
-        if($sqlbit == 1){
-        $writestatus = $self->writeEeprom('00','5f','0','0');
-                        }
-        if($sqlbit == 0){
-        $writestatus = $self->writeEeprom('00','5f','0','1');
-                        }
-	if($verbose){
-		if ($sqlbit == '0'){$toggled = 'SQUELCH';}
-		else {$toggled = 'RFGAIN';}
-		if ($writestatus eq 'OK') {print"RFGAIN Toggle to $toggled sucessfull!\n";}		    
-		else {print"RFGAIN toggle failed: $writestatus\n";}
-	  	    }
+	my $value=shift;
+        if ($value ne 'RFGAIN' && $value ne 'SQUELCH'){
+                if($verbose){print "Value invalid: Choose RFGAIN/SQUELCH\n\n"; }
+return 1;
+	                                              }
+
+        $self->setVerbose(0);
+        $currentknob = $self->getRfknob();
+        $self->setVerbose(1);
+        if ($currentknob eq $value) {
+                if($verbose){print "\nSetting $currentknob already selected for RFGAIN Knob\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'RFGAIN'){$writestatus = $self->writeEeprom('005F','0','0');}
+        if($value eq 'SQUELCH'){$writestatus = $self->writeEeprom('005F','0','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"RFGAIN Knob set to $value sucessfull!\n";}
+                else {print"RFGAIN Knob set to $value failed!!!\n";}
+                     }
+
 return $writestatus;
                   }
 
@@ -1724,7 +2085,7 @@ sub setChargetime {
         my ($chargebits, $writestatus1, $writestatus2, $writestatus3, $writestatus4, $writestatus5, $writestatus6, $changebits, $change7bbit) = @_;
         my $self=shift;
 	my $value=shift;
-        $output = $self->eepromDecode('00','62');
+        $output = $self->eepromDecode('0062');
         $chargebits = substr($output,0,2);
 	print "Checking : ";
 	my $chargerstatus = $self->getCharger();
@@ -1750,22 +2111,22 @@ return 1;
 
         if($debug){print "Writing New BYTES to 0x62\n";}
 
-	my $BYTE1 = $self->eepromDecode('00','62');
+	my $BYTE1 = $self->eepromDecode('0062');
 	if ($value == '6'){substr ($BYTE1, 0, 2, '00');}
         if ($value == '8'){substr ($BYTE1, 0, 2, '01');}
         if ($value == '10'){substr ($BYTE1, 0, 2, '10');}
-        my $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );
-	$writestatus = $self->writeBlock('00','62',"$NEWHEX");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+	$writestatus = $self->writeBlock('0062',"$NEWHEX");
 
         if($debug){print "Writing New BYTES to 0x62\n";}
         if($debug){print "Writing New BYTES to 0x7b\n";}
 
-        $BYTE1 = $self->eepromDecode('00','7b');
+        $BYTE1 = $self->eepromDecode('007B');
         if ($value == '6'){substr ($BYTE1, 4, 4, '0110');}
         if ($value == '8'){substr ($BYTE1, 4, 4, '1000');}
         if ($value == '10'){substr ($BYTE1, 4, 4, '1010');}
-        $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );	
-         $writestatus2 = $self->writeBlock('00','7b',"$NEWHEX");
+        $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );	
+         $writestatus2 = $self->writeBlock('007B',"$NEWHEX");
 
 
         if($verbose){
@@ -1776,91 +2137,6 @@ return 1;
 
 return $writestatus;
                       }
-
-
-# 58 ################################# SET VOX ######
-###################################### CHANGE BIT 7 FROM 0X58
-
-sub setVox {
-        my ($currentvox) = @_;
-        my $self=shift;
-        my $value=shift;
-        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
-return 1;
-                                              }
-
-        $self->setVerbose(0);
-        $currentvox = $self->getVox();
-        $self->setVerbose(1);
-
-        if ($value eq $currentvox){
-                if($verbose){print "Value $currentvox already selected.\n\n"; }
-return 1;
-                                   }
-
-
-        if($value eq 'ON'){$writestatus = $self->writeEeprom('00','58','0','1');}
-        if($value eq 'OFF'){$writestatus = $self->writeEeprom('00','58','0','0');}
-
-
-        if ($verbose){
-                if ($writestatus eq 'OK') {print"VOX set to $value sucessfull!\n";}
-                else {print"VOX set to $value failed!!!\n";}
-                     }
-
-return $writestatus;
-
-           }
-
-
-# 59 ################################# SET VFOBAND ######
-###################################### CHANGE ALL BITS FROM 0X59
-
-sub setVfoband {
-
-       my ($currentband, $writestatus, $vfoband, $testvfoband) = @_;
-        my $self=shift;
-	my $vfo=shift;
-        my $value=shift;
-
-        if ($vfo ne 'A' && $vfo ne 'B'){
-                if($verbose){print "Value invalid: Choose VFO A/B\n\n"; }
-return 1;
-                                      }
-
-        my %newhash = reverse %VFOBANDS;
-        ($testvfoband) = grep { $newhash{$_} eq $value } keys %newhash;
-
-
-        if ($testvfoband eq'') {
-                if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
-return 1;
-                               }
-
-        $self->setVerbose(0);
-	$currentband = $self->getVfoband("$vfo");
-        $self->setVerbose(1);
-
-	if ($currentband eq $value) {
-                if($verbose){print "\nBand $currentband already selected for VFO $vfo\n\n"; }
-return 1;
-				    }
-
-        my $BYTE1 = $self->eepromDecode('00','59');
-        if ($vfo eq 'A'){substr ($BYTE1, 4, 4, "$testvfoband");}
-        if ($vfo eq 'B'){substr ($BYTE1, 0, 4, "$testvfoband");}
-        my $NEWHEX = sprintf("%x", oct( "0b$BYTE1" ) );
-         $writestatus = $self->writeBlock('00','59',"$NEWHEX");
-
-
-        if ($verbose){
-                if ($writestatus eq 'OK') {print"BAND $currentband on VFO $vfo set sucessfull!\n";}
-                else {print"BAND $currentband on VFO $vfo set failed!!!\n";}
-                     }
-
-return $writestatus;
-	       }
 
 
 # 79 ################################# SET ARTS ON/OFF
@@ -1883,9 +2159,8 @@ return 1;
 return 1;
                                    }
 
-
-        if($value eq 'ON'){$writestatus = $self->writeEeprom('00','79','0','1');}
-        if($value eq 'OFF'){$writestatus = $self->writeEeprom('00','79','0','0');}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','0','0');}
 
 	if ($verbose){
                 if ($writestatus eq 'OK') {print"ARTS set to $value sucessfull!\n";}
@@ -1894,7 +2169,6 @@ return 1;
 
 return $writestatus;
             }
-
 
 
 # 7a ################################# SET ANTENNA FRONT/BACK
@@ -1935,7 +2209,7 @@ return 1;
         if ($value eq 'VHF'){$antennabit = 3;}
         if ($value eq 'UHF'){$antennabit = 2;}
 
-        $writestatus = $self->writeEeprom('00','7a',"$antennabit","$value2");
+        $writestatus = $self->writeEeprom('007A',"$antennabit","$value2");
 
                 if($verbose && $writestatus eq 'OK'){print "\nAntenna for $value set to $valuelabel: $writestatus\n\n"; }
                 if($verbose && $writestatus ne 'OK'){print "\nError setting antenna: $writestatus\n\n"; }
@@ -1964,9 +2238,8 @@ return 1;
 
 	else {
                 print "Turning $value\n";
-###### WORK HERE
-        if ($value eq 'OFF'){$writestatus = $self->writeEeprom('00','7b','3','0');}
-	if ($value eq 'ON'){$writestatus = $self->writeEeprom('00','7b','3','1');}
+        if ($value eq 'OFF'){$writestatus = $self->writeEeprom('007B','3','0');}
+	if ($value eq 'ON'){$writestatus = $self->writeEeprom('007B','3','1');}
 return 0;
 	     }
 
@@ -1988,7 +2261,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_09
+Version 0.9.0_10
 
 =head1 SYNOPSIS
 
@@ -2118,9 +2391,16 @@ With the command: B<getMode()> we get the regular output expected, with B<verbos
 
 However with the B<setDebug(1)> we will see the following output to the same command:
 
-	sendcat:debug - DATA OUT ----> 00 00 00 00 0x03
-	sendcat:debug - DATA IN <----- 1471200008
+	[FT817]@/dev/ttyUSB0$ get mode
+
+	(sendCat:DEBUG) - DATA OUT ------> 00 00 00 00 03
+
+	(sendCat:DEBUG) - BUILT PACKET --> 0000000003
+
+	(sendCat:DEBUG) - DATA IN <------- 1471200008
+
 	Mode is FM
+	[FT817]@/dev/ttyUSB0$ 
 
 The sendcat:debug shows the request of B<00 00 00 00 0x03> sent to the rig, and the rig
 returning B<1471200008>. What were looking at is the last two digits 08 which is parsed from
@@ -2130,13 +2410,53 @@ As you might have guessed, the first 8 digits are the current frequency, which i
 is 147.120 MHZ.  The getFrequency() module would pull the exact same data, but parse it differently
 
 The debugger works differently on read/write to the eeprom. The next example shown below used the function
-B<getNb()>, the noiseblocker status.
+B<setArts('OFF')>, the function which tunrs arts off.
 
-	eepromdecode:debug - Output from MSB:0 LSB:57 : 11000010
-	Noise Blocker is OFF
 
-The output shows that the status of noise blocker lives at B<00x57> it happens to be bit B<5> of this data B<(0)> that
-indicates that the noiseblocker is B<OFF>.
+	[FT817]@/dev/ttyUSB0$ set arts off
+
+	(eepromDecode:DEBUG) - READING FROM ------> [00x79]
+
+	(eepromDecode:DEBUG) - PACKET BUILT ------> [00790000BB]
+
+	(eepromDecode:DEBUG) - OUTPUT HEX  -------> [81]
+
+	(eepromDecode:DEBUG) - OUTPUT BIN  -------> [10000001]
+
+
+	(writeEeprom:DEBUG) - OUTPUT FROM [00x79]
+
+	(writeEeprom:DEBUG) - PACKET BUILT ------> [00790000BB]
+
+	(writeEeprom:DEBUG) - BYTE1 (81) BYTE2 (1F) from [00x79]
+
+	(writeEeprom:DEBUG) - BYTE1 BINARY IS [10000001]
+
+	(writeEeprom:DEBUG) - CHANGING BIT(0) to (0)
+
+	(writeEeprom:DEBUG) - BYTE1: BINARY IS [00000001] AFTER CHANGE
+
+	(writeEeprom:DEBUG) - CHECKING IF [1] needs padding
+
+	(writeEeprom:DEBUG) - Padded to [01]
+
+	(writeEeprom:DEBUG) - BYTE1 (01) BYTE2 (1F) to   [00x79]
+
+	(writeEeprom:DEBUG) - WRITING  ----------> (01) (1F)
+
+	(writeEeprom:DEBUG) - PACKET BUILT ------> [0079011fBC]
+
+	(writeEeprom:DEBUG) - VALUES WRITTEN, CHECKING...
+
+	(writeEeprom:DEBUG) - SHOULD BE: (01) (1F)
+
+	(writeEeprom:DEBUG) - IS: -----> (01) (1F)
+
+	(writeEeprom:DEBUG) - VALUES MATCH!!!
+
+	ARTS set to OFF sucessfull!
+
+The output shows all of the transactions and modifications conducted by the system functions
 
 
 =head1 Modules
@@ -2152,6 +2472,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns the argument sent to it on success.
 
+
 =item closePort()
 
 		$FT817->closePort();
@@ -2164,6 +2485,7 @@ indicates that the noiseblocker is B<OFF>.
 =item dec2bin()
 
 	Simple internal function for converting decimal to binary. Has no use to the end user.
+
 
 =item eepromDecode()
 
@@ -2182,6 +2504,7 @@ indicates that the noiseblocker is B<OFF>.
 		$agc = $FT817->getAgc();
 
 	Returns the current setting of the AGC: AUTO / FAST / SLOW / OFF
+
 
 =item getAntenna ()
 
@@ -2208,12 +2531,20 @@ indicates that the noiseblocker is B<OFF>.
 
         Returns the status of ARTS BEEP: OFF / RANGE /ALL
 
+
 =item getCharger()
 
                 $charger = $FT817->getCharger();
 
         Returns the status of the battery charger.  Verbose will show the status and if the
 	status is on, how many hours the battery is set to charge for.
+
+
+=item getChecksum()
+
+                $checksum = $FT817->getChecksum();
+
+	Returns the checksum bits in EEPROM areas 0x00 through 0x03
 
 
 =item getConfig()
@@ -2223,18 +2554,41 @@ indicates that the noiseblocker is B<OFF>.
 	Returns the two values that make up the Radio configuration.  This is set by the soldier blobs
 	of J4001-J4009 in the radio.
 
+
 =item getDsp()
 
 		$dsp = $FT817->getDsp();
 
 	Returns the current setting of the Digital Signal Processor (if applicable) : ON / OFF
 
+
 =item getEeprom()
 
 		$value = $FT817->getEeprom();
 
 	Currently returns just the value you send it. In verbose mode however, it will display a formatted
-	output of the memory address specified.  This was added late and will be update in the next release. 
+	output of the memory address specified.
+
+With one argument it will display the information about a memory address 
+
+	[FT817]@/dev/ttyUSB0$ get eeprom 005f
+
+	ADDRESS     BINARY          DECIMAL     VALUE      
+	___________________________________________________
+	005F        11100101        229         E5    
+
+
+With two arguments it will display information on a range of addresses
+
+	[FT817]@/dev/ttyUSB0$ get eeprom 005f 0062
+
+	ADDRESS     BINARY          DECIMAL     VALUE      
+	___________________________________________________
+	005F        11100101        229         E5         
+	0060        00011001        25          19         
+	0061        00110010        50          32         
+	0062        10001000        136         88  
+
 
 =item getFasttuning()
 
@@ -2242,11 +2596,13 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns the current setting of the Fast Tuning mode : ON / OFF
 
+
 =item getFlags()
 
 		$flags = $FT817->getFlags();
 
 	Returns the current status of the flags : DEBUG / VERBOSE / WRITE ALLOW / WARNED
+
 
 =item getFrequency()
 
@@ -2255,17 +2611,20 @@ indicates that the noiseblocker is B<OFF>.
 	Returns the current frequency of the rig eg. B<14712000> with B<getFrequency()>
 	Returns the current frequency of the rig eg. B<147.120.00> MHZ with B<getFrequency(1)>
 
+
 =item getHome()
 
 		$home = $FT817->getHome();
 
 	Returns the current status of the rig being on the Home Frequency : Y/N
 
+
 =item getLock()
 
 		$lock = $FT817->getLock();
 
 	Returns the current status of the lock function being enable : Y/N
+
 
 =item getMode()
 
@@ -2280,11 +2639,20 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns the current Status of the Noise Blocker : ON / OFF
 
-=item getRfgain()
 
-		$rfgainknob = $FT817->getRfgain();
+=item getPbt ()
+
+                $pbt = $FT817->getPbt();
+
+        Returns the status of Pass Band Tuning: ON /OFF
+
+
+=item getRfknob()
+
+		$rfknob = $FT817->getRfknob();
 
 	Returns the current Functionality of the RF-GAIN Knob : RFGAIN / SQUELCH
+
 
 =item getRxstatus()
 
@@ -2295,6 +2663,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns with variables as argument $squelch $smeter $smeterlin $desc $match
 	Returns with hash as argument %rxstatus
+
 
 =item getSoftcal()
 
@@ -2308,17 +2677,20 @@ indicates that the noiseblocker is B<OFF>.
 	this in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
 	this information, you will have to send the radio back to the company for recalibration.
 
+
 =item getTuner()
 
 		$tuner = $FT817->getTuner();
 
 	Returns the current tuner setting : VFO / MEMORY
 
+
 =item getTxpower()
 
 		$txpower = $FT817->getTxpower();
 
 	Returns the current Transmit power level : HIGH / LOW3 / LOW2 / LOW1
+
 
 =item getTxstatus()
 
@@ -2329,6 +2701,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns with variables as argument $pometer $ptt $highswr $split
 	Returns with hash as argument %txstatus
+
 
 =item getVfo()
 
@@ -2356,6 +2729,10 @@ indicates that the noiseblocker is B<OFF>.
 	Simple internal function for convrting hex to binary. Has no use to the end user.
 
 
+=item hexDiff()
+
+        Internal function to return decimal value as the difference between two hex numbers
+
 
 =item hexAdder()
 
@@ -2367,6 +2744,7 @@ indicates that the noiseblocker is B<OFF>.
 		$version = $FT817->moduleVersion();
 
 	Returns the version of FT817COMM.pm to the software calling it.
+
 
 =item new()
 
@@ -2402,6 +2780,7 @@ indicates that the noiseblocker is B<OFF>.
 	CTCSSTONE - Returns the currently set CTCSS Tone
 	DCSCODE   - Returns the currently set DCS Code
 
+
 =item restoreEeprom()
 
 		$restorearea = $FT817->restoreEeprom();
@@ -2410,16 +2789,18 @@ indicates that the noiseblocker is B<OFF>.
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
 	This command does not allow for an arbitrary address to be written. 
-	Currently [00 58] [00 59] [00 5D] [00 5F] [00 62] [00 79] [00 7A] and [00 7B] are allowed
+	Currently [0057] [0058] [0059] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
 
-	restoreEeprom('00' '5f'); 
+	restoreEeprom('005F'); 
 
 	Returns 'OK' on success. Any other output an error.
+
 
 =item sendCat()
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
+
 
 =item setAntenna()
 
@@ -2433,7 +2814,22 @@ indicates that the noiseblocker is B<OFF>.
         In the event of a failure, the memory area can be restored with. The following
         command that also requires both flags previously mentioned set to 1.
 
-        restoreEeprom('00' '7a');
+        restoreEeprom('007A');
+
+
+=item setAgc()
+
+                $status = $FT817->setAgc([AUTO/FAST/SLOW/OFF];
+
+        Sets the agc
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
 
 
 =item setArts()
@@ -2448,7 +2844,7 @@ indicates that the noiseblocker is B<OFF>.
         In the event of a failure, the memory area can be restored with. The following
         command that also requires both flags previously mentioned set to 1.
 
-        restoreEeprom('00' '79');
+        restoreEeprom('0079');
 
 
 =item setArtsmode()
@@ -2463,7 +2859,8 @@ indicates that the noiseblocker is B<OFF>.
         In the event of a failure, the memory area can be restored with. The following
         command that also requires both flags previously mentioned set to 1.
 
-        restoreEeprom('00' '5d');
+        restoreEeprom('005D');
+
 
 =item setCharger()
 
@@ -2476,8 +2873,7 @@ indicates that the noiseblocker is B<OFF>.
         In the event of a failure, the memory area can be restored with. The following
         command that also requires both flags previously mentioned set to 1.
 
-        restoreEeprom('00' '7b');
-
+        restoreEeprom('007B');
 
 
 =item setChargetime()
@@ -2492,8 +2888,8 @@ indicates that the noiseblocker is B<OFF>.
         In the event of a failure, the memory area can be restored with. The following
         commands that also requires both flags previously mentioned set to 1.
 
-        restoreEeprom('00' '62');
-	restoreEeprom('00' '7b');
+        restoreEeprom('0062');
+	restoreEeprom('007B');
 
         Returns 'OK' on success. Any other optput an error.
 
@@ -2506,6 +2902,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
 =item setClarifierfreq()
 
 		$setclarfreq = $FT817->setClarifierfreq([####]);
@@ -2515,6 +2912,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
 =item setCtcssdcs()
 
 		$ctcssdcs = $FT817->setCtcssdcs({DCS/CTCSS/ENCODER/OFF});
@@ -2522,6 +2920,7 @@ indicates that the noiseblocker is B<OFF>.
 	Sets the CTCSS DCS mode of the radio
 
 	Returns 'OK' on success or something else on failure
+
 
 =item setCtcsstone()
 
@@ -2531,6 +2930,8 @@ indicates that the noiseblocker is B<OFF>.
 	 192.8 would be 1928 as an argument
 
 	Returns '00' on success or 'f0' on failure
+	On 'f0' verbose(1) displays all valid tones
+
 
 =item setDcscode()
 
@@ -2540,6 +2941,8 @@ indicates that the noiseblocker is B<OFF>.
 	 0546 would be 546 as an argument
 
 	Returns '00' on success or 'f0' on failure
+	On 'f0' verbose(1) displays all valid tones
+
 
 =item setDebug()
 
@@ -2549,6 +2952,37 @@ indicates that the noiseblocker is B<OFF>.
 	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
+
+
+=item setDsp()
+
+                $output = $FT817->setDsp([ON/OFF]);
+
+        Turns the DSP on or off if available
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
+
+
+=item setFasttuning()
+
+                $output = $FT817->setFasttuning([ON/OFF]);
+
+        Sets the Fast Tuning of the radio to ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
+
 
 =item setFrequency()
 
@@ -2560,6 +2994,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
 =item setLock()
 
 		$setlock = $FT817->setLock([ON/OFF]);
@@ -2568,6 +3003,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
 =item setMode()
 
 		$setmode = $FT817->setMode([LSB/USB/CW/CWR/AM/FM/DIG/PKT/FMN/WFM]);
@@ -2575,6 +3011,24 @@ indicates that the noiseblocker is B<OFF>.
 	Sets the mode of the radio with one of the valid modes.
 
 	Returns '00' on success or 'f0' on failure
+
+
+=item setNb()
+
+                $output = $FT817->setNb([ON/OFF]);
+
+	Turns the Noise Blocker on or off
+
+	This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
+
+        Returns 'OK' on success. Any other optput an error.
+
 
 =item setOffsetfreq()
 
@@ -2585,6 +3039,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'f0' on failure
 
+
 =item setOffsetmode()
 
 		$setoffsetmode = $FT817->setOffsetmode([POS/NEG/SIMPLEX]);
@@ -2592,6 +3047,22 @@ indicates that the noiseblocker is B<OFF>.
 	Sets the mode of the radio with one of the valid modes.
 
 	Returns '00' on success or 'f0' on failure
+
+
+=item setPbt()
+
+                $status = $FT817->setPbt([OFF/ON];
+
+        Enables or disables the Pass Band Tuning
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
+
 
 =item setPower()
 
@@ -2602,6 +3073,7 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns '00' on success or 'null' on failure
 
+
 =item setPtt()
 
 		$setptt = $FT817->setPtt([ON/OFF]);
@@ -2609,6 +3081,24 @@ indicates that the noiseblocker is B<OFF>.
 	Sets the Push to talk of the radio on or off.  
 
 	Returns '00' on success or 'f0' on failure
+
+
+=item setRfknob()
+
+                $rfknob = $FT817->setRfknob([RFGAIN/SQUELCH]);
+
+        SETS THE RF-GAIN knob functionality.  
+
+	This is a WRITEEEPROM based function and requires both setWriteallow() and 
+	agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005F');
+
+        Returns 'OK' on success. Any other optput an error.
+
 
 =item setSplitfreq()
 
@@ -2647,19 +3137,6 @@ indicates that the noiseblocker is B<OFF>.
 
 	Returns the argument sent to it on success.
 
-
-=item toggleRfgain()
-
-		$togglerf = $FT817->toggleRfgain();
-
-	Toggles the RF-GAIN knob between RFGAIN or SQLELCH.  This is a WRITEEEPROM based
-	function and requires both setWriteallow() and agreeWithwarning() to be set to 1.
-	In the event of a failure, the memory area can be restored with. The following
-	command that also requires both flags previously mentioned set to 1.
-
-	restoreEeprom('00' '5f'); 
-
-	Returns 'OK' on success. Any other optput an error.
 
 =item vfoToggle()
 
