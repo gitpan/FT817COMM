@@ -13,16 +13,16 @@ package Ham::Device::FT817COMM;
 use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
-#use Data::Dumper;
-our $VERSION = '0.9.0_10';
+use Data::Dumper;
+our $VERSION = '0.9.0_11';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
-		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES $catoutput $output $squelch
-		$currentmode $out $vfo $home $tuneselect $nb $lock $txpow $toggled $writestatus
-		$testbyte $dsp $fasttuning $charger);
+		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS $catoutput
+		$output $squelch $currentmode $out $vfo $home $tuneselect $nb $lock $txpow $toggled
+		$writestatus $testbyte $dsp $fasttuning $charger);
 
 my $ft817;
 my $catoutput;
@@ -35,6 +35,10 @@ our %AGCMODES = (AUTO => '00', FAST => '01', SLOW => '10', OFF => '11');
 
 our %MEMMODES = (LSB => '000', USB => '001', CW => '010', CWR => '011', AM => '100', 
 		FM => '101', DIG => '110', PKT => '111');
+
+our %VFOMEMOPTS =  (MODE => '1', NARFM => '2', NARCWDIG => '3', RPTOFFSET  => '4', TONEDCS => '5',
+                ATT => '6', IPO => '7', FMSTEP => '8', AMSTEP => '9', SSBSTEP => '10', CTCSSTONE => '11',
+		DCSCODE => '12', CLARIFIER => '13', CLAROFFSET => '14', RXFREQ => '15', RPTOFFSETFREQ  => '16');
 
 our %FMSTEP = ('5.0' => '000', '6.25' => '001', '10.0' => '010', '12.5' => '011', '15.0' => '100',
                '20.0' => '101', '25.0' => '110', '50.0' => '111');
@@ -472,11 +476,20 @@ return $writestatus;
 
 
 
-	if (($area ne '0057') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
+	if (($area ne '0055') && ($area ne '0057') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
 			  }
+
+        if ($area eq '0055'){
+                $restorevalue = '00';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x55\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'VFO','A', 'MTQMB','NO', 'QMB','NO', 'MEM/VFO', 'VFO';
+                             }
+                          }
 
 
         if ($area eq '0057'){
@@ -1057,7 +1070,7 @@ return $catoutput;
 # X ################################# GET VALUES OF EEPROM ADDRESS VIA EEPROMDECODE
 ###################################### READ ADDRESS GIVEN
 sub getEeprom {
-        my ($times,$valuehex) = @_;
+        my ($times,$valuehex,%valuehash) = @_;
         my $self=shift;
 	my $address1 =shift;
 	my $address2 = shift;
@@ -1065,11 +1078,16 @@ sub getEeprom {
 	if (!$address2) {$address2 = $address1;}
 
         if ($verbose){
-		if (!$address1) {
+		if (!$address1 || length($address1) != 4) {
                 print "Get EEPROM ($address1 $address2) Failed. Must contain  hex value 0-9 a-f. i.e. [005F] or  [005F 006A] for a range\n"; 
 return 1;
-			        }
+ 			 			          }
                  
+                if ($address2 && length($address2) != 4) {
+                print "Get EEPROM ($address1 $address2) Failed. Must contain  hex value 0-9 a-f. i.e. [005F] or  [005F 006A] for a range\n";
+return 1;
+                                                          }
+
 
 
 		$times=$self->hexDiff("$address1","$address2");
@@ -1091,16 +1109,23 @@ return 1;
 	do {
 		my $valuebin = $self->eepromDecode("$address1");
                 my $valuehex = sprintf("%X", oct( "0b$valuebin" ) );
+                $valuehash{"$address1"} = $valuehex;
                 my $valuedec = hex($valuehex);
                 printf "%-11s %-15s %-11s %-11s\n", "$address1", "$valuebin", "$valuedec", "$valuehex";
 		$cycles++;
                 $address1 = $self->hexAdder("$cycles","$base");
-
   	   }
 	        while ($cycles < $times);
 
 		print "\n";
+	if ($times == 1){
 return $valuehex;
+			}
+
+	else {
+return %valuehash;
+	     }
+
               }
 
 # 0-3 ################################# GET EEPROM CHECKSUM
@@ -1286,8 +1311,8 @@ sub getTuner {
 	my $self=shift;
 	$output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
-	if ($block55[0] == '1') {$tuneselect = "VFO";}
-	if ($block55[0] == '0') {$tuneselect = "MEMORY";}
+	if ($block55[1] == '0') {$tuneselect = "VFO";}
+	if ($block55[1] == '1') {$tuneselect = "MEMORY";}
         if($verbose){
                 print "Tuner is $tuneselect\n";
                     }
@@ -1561,11 +1586,15 @@ return $charger;
 ###################################### 
 
 sub readMemvfo {
-        my ($testvfoband, $base, %baseaddress, $offset, $startaddress, $fmstep, $amstep, $ctcsstone, $dcscode) = @_;
+        my ($testvfoband, $address, $testoptions, $base, %baseaddress, $offset, $startaddress, $fmstep, $amstep, $ctcsstone, $dcscode, $polarity, $newvalue) = @_;
         my $self=shift;
         my $vfo=shift;
         my $band=shift;
         my $value=shift;
+	my %memvfohash = ();
+
+
+	if (!$value) {$value = 'ALL';}
 
         if ($vfo ne 'A' && $vfo ne 'B'){
                 if($verbose){print "Value invalid: Choose A/B\n\n"; }
@@ -1580,6 +1609,25 @@ return 1;
 return 1;
                                }
 
+        my %testhash = reverse %VFOMEMOPTS;
+        ($testoptions) = grep { $testhash{$_} eq $value } keys %testhash;
+
+        if (!$testoptions && $value ne 'ALL'){
+                if($verbose){
+                print "Choose a valid option, or no option for ALL\.\n\n";
+                my $columns = 1;
+                foreach my $options (sort keys %testhash) {
+                printf "%-15s %s",$testhash{$options};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                            }
+                print "\n\n";
+                            }
+
+return 1;
+                                            }
+
+
 	if ($vfo eq 'A'){%baseaddress = reverse %VFOABASE;}
         if ($vfo eq 'B'){%baseaddress = reverse %VFOBBASE;}
 
@@ -1587,46 +1635,61 @@ return 1;
 
 
 
-if ($value eq 'MODE'){
-	my $offset=0x00;
-	my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'MODE' || $value eq 'ALL'){
+	$offset=0x00;
+	$address = $self->hexAdder("$offset","$base");
         my $mode;
         $output = $self->eepromDecode("$address");
         $output = substr($output,5,3);
         ($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
-	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n [this is broken]\n"};
+	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n"};
+
+if ($value eq 'ALL'){$memvfohash{'MODE'} = "$mode";}
+
+else {
 return $mode;
-                     }
+     }
+                                        }
 
 
-if ($value eq 'NARFM'){
-	my $offset=0x01;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'NARFM' || $value eq 'ALL'){
+	$offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
         my $narfm;
         $output = $self->eepromDecode("$address");
         $output = substr($output,4,1);
         if ($output == '0') {$narfm = "OFF";}
         if ($output == '1') {$narfm = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - NARROW FM is $narfm\n"};
-return $narfm;
-		      }
 
-if ($value eq 'NARCWDIG'){
-        my $offset=0x01;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'ALL'){$memvfohash{'NARFM'} = "$narfm";}
+
+else {
+return $narfm;
+     }
+		      			 }
+
+if ($value eq 'NARCWDIG' || $value eq 'ALL'){
+        $offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
         my $narcw;
         $output = $self->eepromDecode("$address");
         $output = substr($output,3,1);
         if ($output == '0') {$narcw = "OFF";}
         if ($output == '1') {$narcw = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - NARROW CW/DIG is $narcw\n"};
+
+if ($value eq 'ALL'){$memvfohash{'NARCWDIG'} = "$narcw";}
+
+else {
 return $narcw;
-                      }
+     }
+                      			    }
 
 
-if ($value eq 'RPTOFFSET'){
-        my $offset=0x01;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'RPTOFFSET' || $value eq 'ALL'){
+        $offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
         my $rptoffset;
         $output = $self->eepromDecode("$address");
         $output = substr($output,0,2);
@@ -1635,12 +1698,17 @@ if ($value eq 'RPTOFFSET'){
         if ($output == '10') {$rptoffset = "PLUS";}
         if ($output == '11') {$rptoffset = "NON-STANDARD";}
         if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $rptoffset\n"};
-return $rptoffset;
-                      }
 
-if ($value eq 'TONEDCS'){
-        my $offset=0x04;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'ALL'){$memvfohash{'RPTOFFSET'} = "$rptoffset";}
+
+else {
+return $rptoffset;
+     }
+                      			    }
+
+if ($value eq 'TONEDCS' || $value eq 'ALL'){
+        $offset=0x04;
+        $address = $self->hexAdder("$offset","$base");
         my $tonedcs;
         $output = $self->eepromDecode("$address");
         $output = substr($output,6,2);
@@ -1649,62 +1717,87 @@ if ($value eq 'TONEDCS'){
         if ($output == '10') {$tonedcs = "TONE(TX) \+ TSQ";}
         if ($output == '11') {$tonedcs = "DCS";}
         if($verbose){print "VFO $vfo\[$band\] - TONE/DCS SELECT is $tonedcs\n"};
-return $tonedcs;
-                      }
 
-if ($value eq 'ATT'){
-        my $offset=0x02;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'ALL'){$memvfohash{'TONEDCS'} = "$tonedcs";}
+
+else {
+return $tonedcs;
+     }
+                      			   }
+
+if ($value eq 'ATT' || $value eq 'ALL'){
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
         my $att;
         $output = $self->eepromDecode("$address");
         $output = substr($output,3,1);
         if ($output == '0') {$att = "OFF";}
         if ($output == '1') {$att = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - ATT is $att\n"};
+
+if ($value eq 'ALL'){$memvfohash{'ATT'} = "$att";}
+
+else {
 return $att;
-                      }
+     }
+                     		      }
 
 
-if ($value eq 'IPO'){
-        my $offset=0x02;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'IPO' || $value eq 'ALL'){
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
         my $ipo;
         $output = $self->eepromDecode("$address");
         $output = substr($output,2,1);
         if ($output == '0') {$ipo = "OFF";}
         if ($output == '1') {$ipo = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - IPO is $ipo\n"};
+
+if ($value eq 'ALL'){$memvfohash{'IPO'} = "$ipo";}
+
+else {
 return $ipo;
-                      }
+     }
+                      		      }
 
 
-if ($value eq 'FMSTEP'){
-        my $offset=0x03;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'FMSTEP' || $value eq 'ALL'){
+        $offset=0x03;
+        $address = $self->hexAdder("$offset","$base");
         $output = $self->eepromDecode("$address");
         $output = substr($output,5,3);
         ($fmstep) = grep { $FMSTEP{$_} eq $output } keys %FMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - FM STEP is $fmstep\n"};
+
+if ($value eq 'ALL'){$memvfohash{'FMSTEP'} = "$fmstep";}
+
+else {
 return $fmstep;
-                      }
+     }
+                      			  }
 
 
 
-if ($value eq 'AMSTEP'){
-        my $offset=0x03;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'AMSTEP' || $value eq 'ALL'){
+        $offset=0x03;
+        $address = $self->hexAdder("$offset","$base");
         $output = $self->eepromDecode("$address");
         $output = substr($output,2,3);
         ($amstep) = grep { $AMSTEP{$_} eq $output } keys %AMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - AM STEP is $amstep\n"};
+
+if ($value eq 'ALL'){$memvfohash{'AMSTEP'} = "$amstep";}
+
+else {
 return $amstep;
-                      }
+     }
+	   			          }
 
 
 
-if ($value eq 'SSBSTEP'){
-        my $offset=0x03;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'SSBSTEP' || $value eq 'ALL'){
+        $offset=0x03;
+        $address = $self->hexAdder("$offset","$base");
         my $ssbstep;
         $output = $self->eepromDecode("$address");
         $output = substr($output,0,2);
@@ -1712,35 +1805,160 @@ if ($value eq 'SSBSTEP'){
         if ($output == '01') {$ssbstep = '2.5';}
 	if ($output == '10') {$ssbstep = '5.0';}
         if($verbose){print "VFO $vfo\[$band\] - SSB STEP is $ssbstep\n"};
+
+if ($value eq 'ALL'){$memvfohash{'SSBSTEP'} = "$ssbstep";}
+
+else {
 return $ssbstep;
-                      }
+     }
+		                           }
 
 
-if ($value eq 'CTCSSTONE'){
-        my $offset=0x06;
+if ($value eq 'CTCSSTONE' || $value eq 'ALL'){
+        $offset=0x06;
         my ($MSB, $LSB) = $self->hexAdder("$offset","$base");
         $output = $self->eepromDecode("$MSB","$LSB");
         $output = substr($output,2,6);
         my %newhash = reverse %CTCSSTONES;
         ($ctcsstone) = grep { $newhash{$_} eq $output } keys %newhash;
         if($verbose){print "VFO $vfo\[$band\] - CTCSS TONE is $ctcsstone\n"};
+
+if ($value eq 'ALL'){$memvfohash{'CTCSSTONE'} = "$ctcsstone";}
+
+else {
 return $ctcsstone;
-                           }
+     }
+		                             }
 
 
 
-if ($value eq 'DCSCODE'){
-        my $offset=0x07;
-        my $address = $self->hexAdder("$offset","$base");
+if ($value eq 'DCSCODE' || $value eq 'ALL'){
+        $offset=0x07;
+        $address = $self->hexAdder("$offset","$base");
         $output = $self->eepromDecode("$address");
         $output = substr($output,1,7);
         my %newhash = reverse %DCSCODES;
         ($dcscode) = grep { $newhash{$_} eq $output } keys %newhash;
         if($verbose){print "VFO $vfo\[$band\] - DCSCODE is $dcscode\n"};
+
+if ($value eq 'ALL'){$memvfohash{'DCSCODE'} = "$dcscode";}
+
+else {
 return $dcscode;
-                           }
+     }
+			                   }
 
 
+if ($value eq 'CLARIFIER' || $value eq 'ALL'){
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
+        my $clarifier;
+        $output = $self->eepromDecode("$address");
+        $output = substr($output,1,1);
+        if ($output == '1') {$clarifier = 'ON';}
+        if ($output == '0') {$clarifier = 'OFF';}
+        if($verbose){print "VFO $vfo\[$band\] - CLARIFIER is $clarifier\n"};
+
+if ($value eq 'ALL'){$memvfohash{'CLARIFIER'} = "$clarifier";}
+
+else {
+return $clarifier;
+     }
+			                     }
+
+
+if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
+
+        $offset=0x08;
+        $address = $self->hexAdder("$offset","$base");
+        my $MSB = $self->eepromDecode("$address");
+	$offset=0x09;
+        $address = $self->hexAdder("$offset","$base");
+        my $LSB = $self->eepromDecode("$address");
+	my $binvalue = join("","$MSB","$LSB");
+	my $decvalue = oct("0b".$binvalue);
+	my $newvalue;
+         if ($decvalue > 999) {$newvalue = 65536 - $decvalue; $polarity = '-';}
+        if ($decvalue >= 0 && $decvalue <= 999) {$newvalue = $decvalue; $polarity = '+';}
+	my $vallength = length($newvalue);
+		if ($vallength == 1) {$newvalue = join("","0.0","$newvalue");}
+                       if ($vallength == 2) {$newvalue = join("","0.","$newvalue");}
+		if ($vallength == 3) {
+       			my $part1 = substr($newvalue,0,1);
+			my $part2 = substr($newvalue,1,2);
+			$newvalue = join("","$part1",".","$part2");
+				     }
+                if ($vallength == 4) {
+                        my $part1 = substr($newvalue,0,2);
+                        my $part2 = substr($newvalue,2,2);
+                        $newvalue = join("","$part1",".","$part2");
+                                     }
+		$newvalue = join("","$polarity","$newvalue");
+
+       if($verbose){print "VFO $vfo\[$band\] - CLARIFIER OFFSET is $newvalue Khz\n";}
+
+if ($value eq 'ALL'){$memvfohash{'CLAROFFSET'} = "$newvalue";}
+
+else {
+return $newvalue;
+     }
+		 		            }                       
+
+
+if ($value eq 'RXFREQ' || $value eq 'ALL'){
+        $offset=0x0A;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD1 = $self->eepromDecode("$address");
+        $offset=0x0B;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD2 = $self->eepromDecode("$address");
+        $offset=0x0C;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD3 = $self->eepromDecode("$address");
+        $offset=0x0D;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD4 = $self->eepromDecode("$address");
+        my $binvalue = join("","$ADD1","$ADD2","$ADD3","$ADD4");
+        my $decvalue = oct("0b".$binvalue);
+	substr($decvalue, -2, 0) = '.';
+        substr($decvalue, -6, 0) = '.';
+       if($verbose){print "VFO $vfo\[$band\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
+
+if ($value eq 'ALL'){$memvfohash{'RXFREQ'} = "$decvalue";}
+
+else {
+return $decvalue;
+     }
+		       }	
+
+if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
+        $offset=0x0F;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD1 = $self->eepromDecode("$address");
+        $offset=0x10;
+        $address = $self->hexAdder("$offset","$base");
+        my $ADD2 = $self->eepromDecode("$address");
+        $offset=0x11;
+        my $address = $self->hexAdder("$offset","$base");
+        my $ADD3 = $self->eepromDecode("$address");
+        my $binvalue = join("","$ADD1","$ADD2","$ADD3");
+        my $decvalue = oct("0b".$binvalue);
+        substr($decvalue, -4, 0) = '.';
+       if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $decvalue Mhz\n";}
+
+if ($value eq 'ALL'){$memvfohash{'RPTOFFSETFREQ'} = "$decvalue";}
+
+else {
+return $decvalue;
+     }
+                       }
+
+
+if ($value eq 'ALL'){ 
+return %memvfohash;
+		    }
+
+	
                }
 
 
@@ -1752,19 +1970,91 @@ return $dcscode;
 # 55 ################################# SET VFO A/B , MEM OR VFO, MTQMB, QMB, HOME ######
 ###################################### SET BITS 0,1,2,4,5 AND 7 FROM 0X55
 
-#55	0	VFO A/B	0 = VFO-A, 1 = VFO-B
 #55	1	MTQMB Select	0 = (Not MTQMB), 1 = MTQMB
 #55	2	QMB Select	0 = (Not QMB), 1 = QMB
 #55	3	?	?
-#55	4	Home Select	0 = (Not HOME), 1 = HOME memory
 #55	5	Memory/MTUNE select	0 = Memory, 1 = MTUNE
-#55	6	?	?
-#55	7	MEM/VFO Select	0 = Memory, 1 = VFO (A or B - see bit 0)
 
 
+sub setHome {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
+return 1;
+                                           }
+        $self->setVerbose(0);
+        my $currenthome = $self->getHome();
+        $self->setVerbose(1);
+        if ($value eq $currenthome){
+                if($verbose){print "Value $currenthome already selected.\n\n"; }
+return 1;
+                                  }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','3','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"HOME set to $value sucessfull!\n";}
+                else {print"HOME set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+	    }
 
 
+sub setVfo {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'A' && $value ne 'B'){
+                if($verbose){print "Value invalid: Choose A/B\n\n";}
+return 1;
+					   }
+        $self->setVerbose(0);
+        my $currentvfo = $self->getVfo();
+        $self->setVerbose(1);
+        if ($value eq $currentvfo){
+                if($verbose){print "Value $currentvfo already selected.\n\n"; }
+return 1;
+				  }
 
+        if($value eq 'A'){$writestatus = $self->writeEeprom('0055','7','0');}
+        if($value eq 'B'){$writestatus = $self->writeEeprom('0055','7','1');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"VFO set to $value sucessfull!\n";}
+                else {print"VFO set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+	   }
+
+
+sub setTuner {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'MEMORY' && $value ne 'VFO'){
+                if($verbose){print "Value invalid: Choose MEMORY/VFO\n\n";}
+return 1;
+    					  	  }
+        $self->setVerbose(0);
+        my $currenttuner = $self->getTuner();
+        $self->setVerbose(1);
+        if ($value eq $currenttuner){
+                if($verbose){print "Value $currenttuner already selected.\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','1','1');}
+        if($value eq 'VFO'){$writestatus = $self->writeEeprom('0055','1','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"TUNER set to $value sucessfull!\n";}
+                else {print"TUNER set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+	 }
 
 # 57 ################################# SET AGC MODE, NOISE BLOCK, FASTTUNE , DSP AND LOCK ######
 ###################################### READ BITS 0-1 , 2, 5 AND 6 FROM 0X57
@@ -2261,7 +2551,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_10
+Version 0.9.0_11
 
 =head1 SYNOPSIS
 
@@ -2763,22 +3053,31 @@ With two arguments it will display information on a range of addresses
 		my $option = $FT817->readMemvfo('[A/B]', '[BAND]', '[OPTION]');
 
 	Reads and returns information from the VFO memory given a VFO [A/B] and a BAND [20M/40M/70CM] etc..
-	This is only for VFO memory's and not the Stored Memories nor Home Memories
+	This is only for VFO memory's and not the Stored Memories nor Home Memories. Leave OPTION empty to 
+	Return a hash with all OPTIONS below
 
 	Returns information based on one of the valid options:
 
-	MODE      - Returns the mode in memory - update only appears after toggling the VFO
-	NARFM     - Returns if Narrow FM os ON or OFF
-	NARCWDIG  - Returns if the CW or Digital Mode is on Narrow
-	RPTOFFSET - Returns the Repeater offset
-	TONEDCS   - Returns type type of tone being used
-	ATT       - Returns if ATT is on if applicable, if not shows OFF
-	IPO       - Returns if IPO is on if applicable, if not shows OFF
-	FMSTEP    - Returns the setting for FM STEP in KHZ
-	AMSTEP    - Returns the setting for AM STEP in KHZ
-        SSBSTEP   - Returns the setting for SSB STEP in KHZ
-	CTCSSTONE - Returns the currently set CTCSS Tone
-	DCSCODE   - Returns the currently set DCS Code
+	MODE          - Returns the mode in memory - update only appears after toggling the VFO
+	NARFM         - Returns if Narrow FM os ON or OFF
+	NARCWDIG      - Returns if the CW or Digital Mode is on Narrow
+	RPTOFFSET     - Returns the Repeater offset
+	TONEDCS       - Returns type type of tone being used
+	ATT           - Returns if ATT is on if applicable, if not shows OFF
+	IPO           - Returns if IPO is on if applicable, if not shows OFF
+	FMSTEP        - Returns the setting for FM STEP in KHZ
+	AMSTEP        - Returns the setting for AM STEP in KHZ
+        SSBSTEP       - Returns the setting for SSB STEP in KHZ
+	CTCSSTONE     - Returns the currently set CTCSS Tone
+	DCSCODE       - Returns the currently set DCS Code
+	CLARIFIER     - Returns if the CLARIFIER is on or off
+	CLAROFFSET    - Returns the polarity and offset frequency of the clarifier stored on EEPROM
+	RXFREQ        - Returns the stored Receive Frequency
+	RPTOFFSETFREQ - Returns the stored Repeater offset Frequency
+
+	The CLAROFFSET is the stored value in the VFO not the active one.  The EEPROM doesnt write everytime
+	you turn the clarifer adjustment.  When using the CAT command to set the CLARIFIERFREQ this value will
+	not update, only when set directly in the VFO mem will it show a live update 
 
 
 =item restoreEeprom()
@@ -2789,7 +3088,7 @@ With two arguments it will display information on a range of addresses
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
 	This command does not allow for an arbitrary address to be written. 
-	Currently [0057] [0058] [0059] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
+	Currently [0055] [0057] [0058] [0059] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
 
 	restoreEeprom('005F'); 
 
@@ -2891,7 +3190,7 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0062');
 	restoreEeprom('007B');
 
-        Returns 'OK' on success. Any other optput an error.
+        Returns 'OK' on success. Any other output an error.
 
 
 =item setClarifier()
@@ -2995,6 +3294,21 @@ With two arguments it will display information on a range of addresses
 	Returns '00' on success or 'f0' on failure
 
 
+=item setHome()
+
+                $output = $FT817->setHome([ON/OFF]);
+
+        Sets the Radio to HOME frequency or back to normal frequencies
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0055');
+
+
 =item setLock()
 
 		$setlock = $FT817->setLock([ON/OFF]);
@@ -3027,7 +3341,7 @@ With two arguments it will display information on a range of addresses
 
         restoreEeprom('0057');
 
-        Returns 'OK' on success. Any other optput an error.
+        Returns 'OK' on success. Any other output an error.
 
 
 =item setOffsetfreq()
@@ -3097,7 +3411,7 @@ With two arguments it will display information on a range of addresses
 
         restoreEeprom('005F');
 
-        Returns 'OK' on success. Any other optput an error.
+        Returns 'OK' on success. Any other output an error.
 
 
 =item setSplitfreq()
@@ -3107,6 +3421,38 @@ With two arguments it will display information on a range of addresses
 	Sets the radio to split the transmit and receive frequencies
 
 	Returns '00' on success or 'f0' on failure
+
+
+=item setTuner()
+
+                $output = $FT817->setTuner([VFO/MEMORY]);
+
+        Sets the Tuner to VFO or memory
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0055');
+
+        Returns 'OK' on success. Any other output an error.
+
+
+=item setVfo()
+
+                $status = $FT817->setVfo([A/B];
+
+        Sets the VFO to A or B
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0055');
 
 
 =item setVfoband()

@@ -80,3 +80,14 @@ Revision history for Ham-Device-FT817COMM
 	    Fixed wrong variable on writeEeprom debug output
 	    Added internal function hexDiff
 	    getEeprom now supports a range of addresses using second argument
+
+0.9.0_11    25MARCH2014/1200
+	    More POD updates
+	    getEeprom checks for 4 characters on both variables given
+	    Added hash for VFO memory options
+	    added CLARIFIER, CLAROFFSET, RXFREQ, RPTOFFSETFREQ option to readMemvfo
+	    added memvfohash as return option on readMemvfo when no option given
+	    Added [0055] option to restoreEeprom
+	    Added function setTuner
+	    Added function setVfo
+	    Added function setHome
