@@ -91,3 +91,31 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setTuner
 	    Added function setVfo
 	    Added function setHome
+
+0.9.0_12    25MARCH2014/1200
+	    POD updates, removed verbose(2): depricated
+	    Added function getMtqmb
+            Added function setMtqmb
+            Added function getQmb
+            Added function setQmb
+            Added function getMtune
+            Added function setMtune
+            Added function getChargetime
+	    Added function getCwspeed
+	    Added function getContrast
+	    Added function getColor
+            Added function getBacklight
+            Added function getBeepvol
+	    Added function getBeepfreq
+	    Added function getResumescan
+            Added function getPktrate
+	    Added function getScope
+            Added function getCwid
+	    Added function getMainstep
+	    Added function getPwrmtr
+	    Added function getCwpaddle
+            Added function getKyr
+	    Added function getBk
+	    Added function getVlt
+	    All CAT functions renamed to begin with cat
+	

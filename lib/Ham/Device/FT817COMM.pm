@@ -14,7 +14,7 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.0_11';
+our $VERSION = '0.9.0_12';
 
 BEGIN {
 	use Exporter ();
@@ -236,7 +236,13 @@ return $agreewithwarning;
 
 sub getFlags {
         my $self = shift;
-	my $flags = "DEBUG\:$debug \/ VERBOSE\:$verbose \/ WRITE ALLOW:$writeallow \/ WARNED\:$agreewithwarning";
+	my $value = shift;
+	my $flags;
+	if ($value eq 'DEBUG'){$flags = "$debug";}
+        if ($value eq 'VERBOSE'){$flags = "$verbose";}
+        if ($value eq 'WRITEALLOW'){$flags = "$writeallow";}
+	if ($value eq 'WARNED'){$flags = "$agreewithwarning";}
+	if (!$value){$flags = "DEBUG\:$debug \/ VERBOSE\:$verbose \/ WRITE ALLOW:$writeallow \/ WARNED\:$agreewithwarning";}
         if($verbose){
                 printf "\n%-11s %-11s\n", 'FLAG','VALUE';
                 print "_________________";
@@ -588,7 +594,7 @@ return $writestatus;
 
 
 #### ENABLE/DISABLE LOCK VIA CAT
-sub setLock {
+sub catLock {
         my ($data) = @_;
 	my $self=shift;
 	my $lock = shift;
@@ -617,7 +623,7 @@ return $catoutput;
             }
 
 #### ENABLE/DISABLE PTT VIA CAT
-sub setPtt {
+sub catPtt {
         my ($data) = @_;
 	my $self=shift;
 	my $ptt = shift;
@@ -640,13 +646,13 @@ return $catoutput;
            }
 
 #### SET CURRENT FREQ USING CAT
-sub setFrequency {
+sub catsetFrequency {
 	my ($badf,$f1,$f2,$f3,$f4) = @_;
 	my $self=shift;
 	my $newfrequency = shift;
 
         $self->setVerbose(0);
-        $output=$self->getFrequency();
+        $output=$self->catgetFrequency();
         $self->setVerbose(1);
         if ($output eq $newfrequency) {
                 if($verbose){print "\nFrequency is already set to $newfrequency\n\n"; }
@@ -673,11 +679,11 @@ return $catoutput;
                  }
 
 #### SET MODE VIA CAT
-sub setMode {
+sub catsetMode {
 	my $self=shift;
 	my $newmode = shift;
         $self->setVerbose(0);
-        $output=$self->getMode();
+        $output=$self->catgetMode();
         $self->setVerbose(1);
         if ($output eq $newmode) {
                 if($verbose){print "\nMode is already set to $newmode\n\n"; }
@@ -699,7 +705,7 @@ return $catoutput;
          }
 
 #### ENABLE/DISABLE CLARIFIER VIA CAT
-sub setClarifier {
+sub catClarifier {
 	my ($data) = @_;
 	my $self=shift;
 	my $clarifier = shift;
@@ -721,7 +727,7 @@ return $catoutput;
                  }
 
 #### SET CLARIFIER FREQ AND POLARITY USING CAT
-sub setClarifierfreq {
+sub catClarifierfreq {
 	my ($badf,$f1,$f2,$p) = @_;
 	my $self=shift;
 	my $polarity = shift;
@@ -754,7 +760,7 @@ return $catoutput;
                      }
 
 #### TOGGLE VFO A/B VIA CAT
-sub vfoToggle {
+sub catvfoToggle {
 	my $self=shift;
 	$catoutput = $self->sendCat('00','00','00','00','81',1);
         if ($verbose){
@@ -765,7 +771,7 @@ return $catoutput;
               }
 
 #### ENABLE/DISABLE SPLIT FREQUENCY VIA CAT
-sub setSplitfreq {
+sub catSplitfreq {
 	my ($data) = @_;
 	my $self=shift;
 	my $split = shift;
@@ -788,7 +794,7 @@ return $catoutput;
               }
 
 #### POS/NEG/SIMPLEX REPEATER OFFSET MODE VIA CAT
-sub setOffsetmode {
+sub catOffsetmode {
 	my ($datablock) = @_;
 	my $self=shift;
 	my $offsetmode = shift;
@@ -811,7 +817,7 @@ return $catoutput;
                 }
 
 #### SET REPEATER OFFSET FREQ USING CAT
-sub setOffsetfreq {
+sub catOffsetfreq {
 	my ($badf,$f1,$f2,$f3,$f4) = @_;
         my $self=shift;
         my $frequency = shift;
@@ -835,7 +841,7 @@ return $catoutput;
                  }
 
 #### SETS CTCSS/DCS MODE VIA CAT
-sub setCtcssdcs {
+sub catCtcssdcs {
 	my ($split,$data) = @_;
         my $self=shift;
         my $ctcssdcs = shift;
@@ -859,7 +865,7 @@ return $catoutput;
                 }
 
 #### SETS CTCSS TONE FREQUENCY
-sub setCtcsstone {
+sub catCtcsstone {
 	my ($badf,$f1,$f2) = @_;
 	my $self=shift;
 	my $tonefreq = shift;
@@ -892,7 +898,7 @@ return $catoutput;
                  }
 
 #### SET DCS CODE USING CAT######
-sub setDcscode {
+sub catDcscode {
 	my ($badf,$f1,$f2) = @_;
         my $self=shift;
         my $code = shift;
@@ -925,7 +931,7 @@ return $catoutput;
                  }
 
 #### GET MULTIPLE VALUES OF RX STATUS RETURN AS variables OR hash
-sub getRxstatus {
+sub catRxstatus {
         my ($match,$desc) = @_;
         my $self=shift;
         my $option = shift;
@@ -962,7 +968,7 @@ return %rxstatus;
 		}
 
 #### GET MULTIPLE VALUES OF TX STATUS RETURN AS variables OR hash
-sub getTxstatus {
+sub catTxstatus {
         my ($match,$desc,$ptt,$highswr,$split) = @_;
         my $self=shift;
         my $option = shift;
@@ -998,7 +1004,7 @@ return %txstatus;
                   }
 
 #### GET CURRENT FREQ USING CAT######
-sub getFrequency {
+sub catgetFrequency {
 	my ($freq) = @_;
 	my $self=shift;
 	my $formatted = shift;
@@ -1018,7 +1024,7 @@ return $freq;
                  }
 
 #### GET CURRENT MODE USING CAT######
-sub getMode {
+sub catgetMode {
 	my $self=shift;
 	my $formatted = shift;
 	$catoutput = $self->sendCat('00','00','00','00','03',5);
@@ -1031,7 +1037,7 @@ return $mode;
             }
 
 #### SETS RADIO POWER ON OR OFF VIA CAT
-sub setPower {
+sub catPower {
         my ($data) = @_;
 	my $self=shift;
 	my $powerset = shift;
@@ -1280,8 +1286,47 @@ return $output;
                 }
 
 
-# 55 ################################# GET VFO A/B , HOME VFO OR MEMORY  VIA EEPROMDECODE
-###################################### READ BIT 0 4 AND 8 FROM ADDRESS 0X55
+# 55 ################################# GET MTQMB, QMB, VFO A/B , HOME VFO OR MEMORY  VIA EEPROMDECODE
+###################################### READ BIT 0,1,2,4 AND 8 FROM ADDRESS 0X55
+sub getMtqmb {
+        my $self=shift;
+	my $mtqmb;
+        $output = $self->eepromDecode('0055');
+        my @block55 = split("",$output);
+        if ($block55[6] == '0') {$mtqmb = "OFF";}
+        if ($block55[6] == '1') {$mtqmb = "ON";}
+        if($verbose){
+                print "MTQMB is $mtqmb\n";
+                    }
+return $mtqmb;
+           }
+
+sub getQmb {
+        my $self=shift;
+        my $qmb;
+        $output = $self->eepromDecode('0055');
+        my @block55 = split("",$output);
+        if ($block55[5] == '0') {$qmb = "OFF";}
+        if ($block55[5] == '1') {$qmb = "ON";}
+        if($verbose){
+                print "QMB is $qmb\n";
+                    }
+return $qmb;
+           }
+
+sub getMtune {
+        my $self=shift;
+        my $mtune;
+        $output = $self->eepromDecode('0055');
+        my @block55 = split("",$output);
+        if ($block55[2] == '0') {$mtune = "MEMORY";}
+        if ($block55[2] == '1') {$mtune = "MTUNE";}
+        if($verbose){
+                print "MTUNE is $mtune\n";
+                    }
+return $mtune;
+           }
+
 sub getVfo {
 	my $self=shift;
 	$output = $self->eepromDecode('0055');
@@ -1399,8 +1444,78 @@ return $fasttuning;
 
 
 
-# 58 ################################# GET VOX ######
-###################################### READ BIT 7 FROM 0X58
+# 58 ################################# GET POWER METER MODE, CW PADDLE, KYR, BK, VLT, VOX ######
+###################################### READ BIT 0-1,2,4,5,6,7 FROM 0X58
+
+sub getPwrmtr {
+        my ($pwrmtr) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0058');
+        $pwrmtr = substr($output,6,2);
+        if ($pwrmtr == '00'){$pwrmtr = 'PWR'};
+        if ($pwrmtr == '01'){$pwrmtr = 'ALC'};
+        if ($pwrmtr == '10'){$pwrmtr = 'SWR'};
+        if ($pwrmtr == '11'){$pwrmtr = 'MOD'};
+        if($verbose){
+                print "Power Meter set to $pwrmtr\n";
+                    }
+return $pwrmtr;
+	      }
+
+
+sub getCwpaddle {
+        my ($cwpaddle) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0058');
+        $cwpaddle = substr($output,5,1);
+        if ($cwpaddle == '0'){$cwpaddle = 'NORMAL'};
+        if ($cwpaddle == '1'){$cwpaddle = 'REVERSE'};
+        if($verbose){
+                print "CW Paddle set to $cwpaddle\n";
+                    }
+return $cwpaddle;
+                }
+
+sub getKyr {
+        my ($kyr) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0058');
+        $kyr = substr($output,3,1);
+        if ($kyr == '0'){$kyr = 'OFF'};
+        if ($kyr == '1'){$kyr = 'ON'};
+        if($verbose){
+                print "Keyer (KYR) set to $kyr\n";
+                    }
+return $kyr;
+           }
+
+
+sub getBk {
+        my ($bk) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0058');
+        $bk = substr($output,2,1);
+        if ($bk == '0'){$bk = 'OFF'};
+        if ($bk == '1'){$bk = 'ON'};
+        if($verbose){
+                print "Break in (BK) set to $bk\n";
+                    }
+return $bk;
+           }
+
+sub getVlt {
+        my ($vlt) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0058');
+        $vlt = substr($output,1,1);
+        if ($vlt == '0'){$vlt = 'OFF'};
+        if ($vlt == '1'){$vlt = 'ON'};
+        if($verbose){
+                print "Voltage display set to  set to $vlt\n";
+                    }
+return $vlt;
+           }
+
 
 sub getVox {
         my ($vox) = @_;
@@ -1439,8 +1554,155 @@ return $vfoband;
                }
 
 
-# 5d ################################# GET ARTS BEEP MODE ######
-###################################### READ BIT 6-7 FROM 0X5d
+
+
+# 5B ################################# GET CONTRAST, COLOR, BACKLIGHT ######
+###################################### READ BIT 0-3, 4, 6-7  FROM 0X5B
+
+sub getContrast {
+        my ($contrast) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005B');
+        $contrast = substr($output,4,4);
+        my $HEX1 = sprintf("%X", oct( "0b$contrast" ) );
+        $contrast = hex($HEX1);
+	$contrast = $contrast - 1;
+        if($verbose){
+                print "CONTRAST is $contrast\n";
+                    }
+return $contrast;
+               }
+
+
+sub getColor {
+        my ($color) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005B');
+        $color = substr($output,3,1);
+        if ($color == '1'){$color = 'AMBER'};
+        if ($color == '0'){$color = 'BLUE'};
+        if($verbose){
+                print "COLOR is $color\n";
+                    }
+return $color;
+               }
+
+sub getBacklight {
+        my ($backlight) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005B');
+        $backlight = substr($output,0,2);
+        if ($backlight == '00'){$backlight = 'OFF'};
+        if ($backlight == '01'){$backlight = 'ON'};
+        if ($backlight == '10'){$backlight = 'AUTO'};
+        if($verbose){
+                print "BACKLIGHT is set to $backlight\n";
+                    }
+return $backlight;
+                 }
+
+
+# 5C ################################# GET BEEP VOL, BEEP FREQ ######
+###################################### READ BIT 6-0, 7 FROM 0X5C
+
+sub getBeepvol {
+        my ($beepvol) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005C');
+        $beepvol = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$beepvol" ) );
+        $beepvol = hex($HEX1);
+        if($verbose){
+                print "BEEP VOLUME is $beepvol\n";
+                    }
+return $beepvol;
+               }
+
+
+sub getBeepfreq {
+        my ($beepfreq) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005C');
+        $beepfreq = substr($output,0,1);
+        if ($beepfreq == '1'){$beepfreq = '880 hz'};
+        if ($beepfreq == '0'){$beepfreq = '440 hz'};
+        if($verbose){
+                print "BEEP Frequency is $beepfreq\n";
+                    }
+return $beepfreq;
+               }
+
+# 5d ################################# GET RESUME SCAN, PKT RATE, SCOPE, CW ID, MAIN STEP, ARTS BEEP MODE ######
+###################################### READ BIT 0-1, 2, 3, 4, 5, 6-7 FROM 0X5d
+
+sub getResumescan {
+        my ($resumescan) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005D');
+        $resumescan = substr($output,6,2);
+        if ($resumescan == '00'){$resumescan = 'OFF'};
+        if ($resumescan == '01'){$resumescan = '3 sec'};
+        if ($resumescan == '10'){$resumescan = '5 sec'};
+        if ($resumescan == '11'){$resumescan = '10 sec'};
+        if($verbose){
+                print "RESUME SCAN is ($resumescan)\n";
+                    }
+return $resumescan;
+                }
+
+
+sub getPktrate {
+        my ($pktrate) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005D');
+        $pktrate = substr($output,5,1);
+        if ($pktrate == '0'){$pktrate = '1200'};
+        if ($pktrate == '1'){$pktrate = '9600'};
+        if($verbose){
+                print "PKT RATE is ($pktrate)\n";
+                    }
+return $pktrate;
+                }
+
+
+sub getScope {
+        my ($scope) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005D');
+        $scope = substr($output,4,1);
+        if ($scope == '0'){$scope = 'CONT'};
+        if ($scope == '1'){$scope = 'CHK'};
+        if($verbose){
+                print "SCOPE is ($scope)\n";
+                    }
+return $scope;
+                }
+
+sub getCwid {
+        my ($cwid) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005D');
+        $cwid = substr($output,3,1);
+        if ($cwid == '0'){$cwid = 'OFF'};
+        if ($cwid == '1'){$cwid = 'ON'};
+        if($verbose){
+                print "CW ID is ($cwid)\n";
+                    }
+return $cwid;
+                }
+
+sub getMainstep {
+        my ($mainstep) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005D');
+        $mainstep = substr($output,4,1);
+        if ($mainstep == '0'){$mainstep = 'FINE'};
+        if ($mainstep == '1'){$mainstep = 'COURSE'};
+        if($verbose){
+                print "Main Step is ($mainstep)\n";
+                    }
+return $mainstep;
+                }
 
 sub getArtsmode {
         my ($artsmode) = @_;
@@ -1473,6 +1735,40 @@ return $value;
            }
 
 
+# 62 ################################# GET CWSPEED, CHARGETIME ######
+###################################### READ BIT 0-5, 6-7 FROM 0X62
+
+sub getChargetime {
+        my ($chargetime) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0062');
+        $chargetime = substr($output,0,2);
+        if ($chargetime == '00'){$chargetime = '6'};
+        if ($chargetime == '01'){$chargetime = '8'};
+        if ($chargetime == '10'){$chargetime = '10'};
+
+        if($verbose){
+                print "CHARGETIME is $chargetime\n";
+                    }
+return $chargetime;
+
+		  }
+
+
+sub getCwspeed {
+        my ($cwspeed) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0062');
+        $cwspeed = substr($output,2,6);
+        my $HEX1 = sprintf("%X", oct( "0b$cwspeed" ) );
+	$cwspeed = hex($HEX1);
+	$cwspeed = $cwspeed +4;
+        if($verbose){
+                print "CW-SPEED is $cwspeed\n";
+                    }
+return $cwspeed;
+
+	       }
 
 # 79 ################################# GET TX POWER AND ARTS ######
 ###################################### READ BIT 0-1 AND 7 FROM 0X79
@@ -1967,13 +2263,87 @@ return %memvfohash;
 #################################
 
 
-# 55 ################################# SET VFO A/B , MEM OR VFO, MTQMB, QMB, HOME ######
+# 55 ################################# SET VFO A/B , MEM OR VFO, MTUNE OR MEMORY,MTQMB, QMB, HOME ######
 ###################################### SET BITS 0,1,2,4,5 AND 7 FROM 0X55
+sub setMtune {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'MTUNE' && $value ne 'MEMORY'){
+                if($verbose){print "Value invalid: Choose MTUNE/MEMORY\n\n";}
+return 1;
+                                           }
+        $self->setVerbose(0);
+        my $currentmtune = $self->getMtune();
+        $self->setVerbose(1);
+        if ($value eq $currentmtune){
+                if($verbose){print "Value $currentmtune already selected.\n\n"; }
+return 1;
+                                  }
 
-#55	1	MTQMB Select	0 = (Not MTQMB), 1 = MTQMB
-#55	2	QMB Select	0 = (Not QMB), 1 = QMB
-#55	3	?	?
-#55	5	Memory/MTUNE select	0 = Memory, 1 = MTUNE
+        if($value eq 'MTUNE'){$writestatus = $self->writeEeprom('0055','2','1');}
+        if($value eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','2','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"MTUNE set to $value sucessfull!\n";}
+                else {print"MTUNE set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
+
+
+sub setMtqmb {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
+return 1;
+                                           }
+        $self->setVerbose(0);
+        my $currentmtqmb = $self->getMtqmb();
+        $self->setVerbose(1);
+        if ($value eq $currentmtqmb){
+                if($verbose){print "Value $currentmtqmb already selected.\n\n"; }
+return 1;
+                                  }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','6','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','6','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"MTQMB set to $value sucessfull!\n";}
+                else {print"MTQMB set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
+
+
+sub setQmb {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
+return 1;
+                                           }
+        $self->setVerbose(0);
+        my $currentqmb = $self->getQmb();
+        $self->setVerbose(1);
+        if ($value eq $currentqmb){
+                if($verbose){print "Value $currentqmb already selected.\n\n"; }
+return 1;
+                                  }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','5','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','5','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"QMB set to $value sucessfull!\n";}
+                else {print"QMB set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
 
 
 sub setHome {
@@ -2551,7 +2921,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_11
+Version 0.9.0_12
 
 =head1 SYNOPSIS
 
@@ -2598,14 +2968,14 @@ all done through the cat interface
 
 an example is a follows
 
-	$output = $FT817->setLock('ON');
+	$output = $FT817->catLock('ON');
 
 Using this method, the output which is collected in the varible B<$output> is designed to be minimal for
 use in applications that provide an already formatted output.
 
 For example:
 	
-	$output = $FT817->setLock('ON');
+	$output = $FT817->catLock('ON');
 	print "$output";
 
 Would simply return B<F0> if the command failed and B<00> if the command was sucessfull. The outputs vary
@@ -2617,7 +2987,7 @@ The module already has pre-formatted outputs for each subroutine.  Using the sam
 and setting B<setVerbose(1)> we have the following
 
 	setVerbose(1);
-	$FT817->setLock('ON');
+	$FT817->catLock('ON');
 
 The output would be, for example:
 	
@@ -2626,23 +2996,18 @@ The output would be, for example:
 Other verbose outputs exist to catch errors.
 
 	setVerbose(1);
-	$FT817->setLock('blabla');
+	$FT817->catLock('blabla');
 
 The output would be:
 
 	Set Lock (blabla) Failed. Option:blabla invalid.
 
-The B<setVerbose(2)> flag is similar to the setVerbose(1) flag but also provides the bit value of the function at
-the specified memory address.
-
-An example of all 3 is show below for the command getHome()
+An example of both is shown below for the command getHome()
 
 	As return data: Y
 	As verbose(1) : At Home Frequency
-	As verbose(2) : getHome: bit is (1) Home is Y
 
-We see that return data will be suitable for a program which needs just a boolean value, verbose(1) is suitable
-for a front-end app response, and verbose(2) for internal testing of module.
+We see that return data will be suitable for a program which needs just a boolean value.
 
 =head2 3. Build a sub-routine into a condition
 
@@ -2675,7 +3040,7 @@ Two distinct type of transactions happen with the debugger, they are:
 	CAT commands   :	Commands which use the Yaesu CAT protocol
 	EPROMM commands:	Commands which read and write to the EEPROM
 
-With the command: B<getMode()> we get the regular output expected, with B<verbose(1)>
+With the command: B<catgetMode()> we get the regular output expected, with B<verbose(1)>
 
 	Mode is FM
 
@@ -2697,7 +3062,7 @@ returning B<1471200008>. What were looking at is the last two digits 08 which is
 the block of data.  08 is mode FM.  FT817COMM does all of the parsing and conversion for you.
 
 As you might have guessed, the first 8 digits are the current frequency, which in this case
-is 147.120 MHZ.  The getFrequency() module would pull the exact same data, but parse it differently
+is 147.120 MHZ.  The catgetFrequency() module would pull the exact same data, but parse it differently
 
 The debugger works differently on read/write to the eeprom. The next example shown below used the function
 B<setArts('OFF')>, the function which tunrs arts off.
@@ -2763,6 +3128,178 @@ The output shows all of the transactions and modifications conducted by the syst
 	Returns the argument sent to it on success.
 
 
+=item catClarifier()
+
+                $setclar = $FT817->catClarifier([ON/OFF]);
+
+        Enables or disables the clarifier
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catClarifierfreq()
+
+                $clarifierfreq = $FT817->catClarifierfreq([####]);
+
+        Uses 4 digits as an argument to set the Clarifier frequency.  Leading and trailing zeros required where applicable
+         1.234 KHZ would be 1234
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catCtcssdcs()
+
+                $ctcssdcs = $FT817->catCtcssdcs({DCS/CTCSS/ENCODER/OFF});
+
+        Sets the CTCSS DCS mode of the radio
+
+        Returns 'OK' on success or something else on failure
+
+
+=item catCtcsstone()
+
+                $ctcsstone = $FT817->catCtcsstone([####]);
+
+        Uses 4 digits as an argument to set the CTCSS tone.  Leading and trailing zeros required where applicable
+         192.8 would be 1928 as an argument
+
+        Returns '00' on success or 'f0' on failure
+        On 'f0' verbose(1) displays all valid tones
+
+
+=item catDcscode()
+
+                $dcscode = $FT817->catDcscode([####]);
+
+        Uses 4 digits as an argument to set the DCS code.  Leading and trailing zeros required where applicable
+         0546 would be 546 as an argument
+
+        Returns '00' on success or 'f0' on failure
+        On 'f0' verbose(1) displays all valid tones
+
+
+=item catgetFrequency()
+
+                $frequency = $FT817->catgetFrequency([#]);
+
+        Returns the current frequency of the rig eg. B<14712000> with B<catgetFrequency()>
+        Returns the current frequency of the rig eg. B<147.120.00> MHZ with B<catgetFrequency(1)>
+
+
+=item catgetMode()
+
+                $mode = $FT817->catgetMode();
+
+        Returns the current Mode of the Radio : AM / FM / USB / CW etc.......
+
+
+=item catLock()
+
+                $setlock = $FT817->catLock([ON/OFF]);
+
+        Enables or disables the radio lock.
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catOffsetfreq()
+
+                $offsetfreq = $FT817->catOffsetfreq([########]);
+
+        Uses 8 digits as an argument to set the offset frequency.  Leading and trailing zeros required where applicable
+        1.230 MHZ would be 00123000
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catOffsetmode()
+
+                $setoffsetmode = $FT817->catOffsetmode([POS/NEG/SIMPLEX]);
+
+        Sets the mode of the radio with one of the valid modes.
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catPower()
+
+                $setPower = $FT817->catPower([ON/OFF]);
+
+        Sets the power of the radio on or off. Note that this function, as stated in the manual only works
+        Correctly when connected to DC power and NO Battery installed
+
+        Returns '00' on success or 'null' on failure
+
+
+=item catPtt()
+
+                $setptt = $FT817->catPtt([ON/OFF]);
+
+        Sets the Push to talk of the radio on or off.
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catRxstatus()
+
+                $rxstatus = $FT817->catRxstatus([VARIABLES/HASH]);
+
+        Retrieves the status of SQUELCH / S-METER / TONEMATCH / DESCRIMINATOR in one
+        command and posts the information when verbose(1).
+
+        Returns with variables as argument $squelch $smeter $smeterlin $desc $match
+        Returns with hash as argument %rxstatus
+
+
+=item catsetFrequency()
+
+                $setfreq = $FT817->catsetFrequency([########]);
+
+        Uses 8 digits as an argument to set the frequency.  Leading and trailing zeros required where applicable
+        147.120 MHZ would be 14712000
+         14.070 MHZ would be 01407000
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catsetMode()
+
+                $setmode = $FT817->catsetMode([LSB/USB/CW/CWR/AM/FM/DIG/PKT/FMN/WFM]);
+
+        Sets the mode of the radio with one of the valid modes.
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catSplitfreq()
+
+                $setsplit = $FT817->catSplitfreq([ON/OFF]);
+
+        Sets the radio to split the transmit and receive frequencies
+
+        Returns '00' on success or 'f0' on failure
+
+
+=item catTxstatus()
+
+                $txstatus = $FT817->catTxstatus([VARIABLES/HASH]);
+
+        Retrieves the status of POWERMETER / PTT / HIGHSWR / SPLIT in one
+        command and posts the information when verbose(1).
+
+        Returns with variables as argument $pometer $ptt $highswr $split
+        Returns with hash as argument %txstatus
+
+
+=item catvfoToggle()
+
+                $vfotoggle = $FT817->catvfotoggle();
+
+        Togles the VFO between A and B
+
+        Returns '00' on success or 'f0' on failure
+
+
 =item closePort()
 
 		$FT817->closePort();
@@ -2819,8 +3356,36 @@ The output shows all of the transactions and modifications conducted by the syst
 
                 $artsmode = $FT817->getArtsmode();
 
-        Returns the status of ARTS BEEP: OFF / RANGE /ALL
+        MENU ITEM # 9 - Returns the status of ARTS BEEP: OFF / RANGE /ALL
 
+
+=item getBacklight ()
+
+                $backlight = $FT817->getBacklight();
+
+        MENU ITEM # 10 - Returns the status of the Backlight: OFF / ON / AUTO
+
+
+=item getBeepfreq ()
+
+                $beepfreq = $FT817->getBeepfreq();
+
+        MENU ITEM # 12 - Returns the BEEP Frequency of the radio : 440 / 880
+
+
+=item getBeepvol ()
+
+                $beepvol = $FT817->getBeepvol();
+
+        MENU ITEM # 13 - Returns the BEEP VOLUME of the radio : 0 - 100
+
+
+=item getBk ()
+
+                $bk = $FT817->getBk();
+
+        Returns the status of Break-in (BK) ON / OFF
+ 
 
 =item getCharger()
 
@@ -2830,11 +3395,25 @@ The output shows all of the transactions and modifications conducted by the syst
 	status is on, how many hours the battery is set to charge for.
 
 
+=item getChargetime()
+
+                $chargetime = $FT817->getChargetime();
+
+        MENU ITEM # 11 - Returns how many hours the charger is set for in the config. 6/8/10
+
+
 =item getChecksum()
 
                 $checksum = $FT817->getChecksum();
 
 	Returns the checksum bits in EEPROM areas 0x00 through 0x03
+
+
+=item getColor()
+
+                $color = $FT817->getColor();
+
+        MENU ITEM # 15 - Returns the Color of the LCD display (BLUE/AMBER)
 
 
 =item getConfig()
@@ -2843,6 +3422,34 @@ The output shows all of the transactions and modifications conducted by the syst
 
 	Returns the two values that make up the Radio configuration.  This is set by the soldier blobs
 	of J4001-J4009 in the radio.
+
+
+=item getContrast()
+
+                $contrast = $FT817->getContrast();
+
+        MENU ITEM # 16 - Returns the Contrast of the LCD display (1-12)
+
+
+=item getCwid()
+
+                $cwspeed = $FT817->getCwspeed();
+
+        MENU ITEM # 18 - Shows if CW ID is ON / OFF
+
+
+=item getCwpaddle()
+
+                $cwpaddle = $FT817->getCwpaddle();
+
+        MENU ITEM # 19 - Shows if CW Paddle is  NORMAL / REVERSE
+
+
+=item getCwspeed()
+
+                $cwspeed = $FT817->getCwspeed();
+
+        MENU ITEM # 21 - Returns the speed of CW in WPM
 
 
 =item getDsp()
@@ -2894,13 +3501,6 @@ With two arguments it will display information on a range of addresses
 	Returns the current status of the flags : DEBUG / VERBOSE / WRITE ALLOW / WARNED
 
 
-=item getFrequency()
-
-		$frequency = $FT817->getFrequency([#]);
-
-	Returns the current frequency of the rig eg. B<14712000> with B<getFrequency()>
-	Returns the current frequency of the rig eg. B<147.120.00> MHZ with B<getFrequency(1)>
-
 
 =item getHome()
 
@@ -2909,18 +3509,39 @@ With two arguments it will display information on a range of addresses
 	Returns the current status of the rig being on the Home Frequency : Y/N
 
 
+=item getKyr()
+
+                $kyr = $FT817->getKyr();
+
+        Returns the current status of the Keyer (KYR) : ON/OFF
+
+
 =item getLock()
 
-		$lock = $FT817->getLock();
+                $lock = $FT817->getLock();
 
-	Returns the current status of the lock function being enable : Y/N
+        Returns the current status of the Lock : ON/OFF
 
 
-=item getMode()
+=item getMainstep()
 
-		$mode = $FT817->getMode();
+                $mainstep = $FT817->getMainstep();
 
-	Returns the current Mode of the Radio : AM / FM / USB / CW etc.......
+        MENU ITEM # 33 - Returns the Main Step COURSE / FINE
+
+
+=item getMtqmb()
+
+                $mtqmb = $FT817->getMtqmb();
+
+        Returns the current Status of MTQMB : ON / OFF
+
+
+=item getMtune()
+
+                $mtune = $FT817->getMtune();
+
+        Returns the current Status of MTUNE : MTUNE / MEMORY 
 
 
 =item getNb()
@@ -2930,29 +3551,53 @@ With two arguments it will display information on a range of addresses
 	Returns the current Status of the Noise Blocker : ON / OFF
 
 
-=item getPbt ()
+=item getPktrate()
+
+                $pktrate = $FT817->getPktrate();
+
+        MENU ITEM # 40 - Returns the Packet Rate  1200 / 9600 Baud
+
+
+=item getPbt()
 
                 $pbt = $FT817->getPbt();
 
         Returns the status of Pass Band Tuning: ON /OFF
 
 
+=item getPwrmtr()
+
+                $pwrmtr = $FT817->getPwrmtr();
+
+        Returns the current Setting of the Power meter : PWR / ALC / SWR / MOD
+
+
+=item getQmb()
+
+                $qmb = $FT817->getQmb();
+
+        Returns the current Status of QMB : ON / OFF 
+
+
+=item getResumescan()
+
+                $resumescan = $FT817->getResumescan();
+
+        MENU ITEM # 41 - Returns the RESUME(scan) setting OFF / 3,5,10 SEC
+
+
 =item getRfknob()
 
 		$rfknob = $FT817->getRfknob();
 
-	Returns the current Functionality of the RF-GAIN Knob : RFGAIN / SQUELCH
+	MENU ITEM # 45 - Returns the current Functionality of the RF-GAIN Knob : RFGAIN / SQUELCH
 
 
-=item getRxstatus()
+=item getScope()
 
-		$rxstatus = $FT817->getRxstatus([VARIABLES/HASH]);
+                $scope = $FT817->getScope();
 
-	Retrieves the status of SQUELCH / S-METER / TONEMATCH / DESCRIMINATOR in one
-	command and posts the information when verbose(1).  
-
-	Returns with variables as argument $squelch $smeter $smeterlin $desc $match
-	Returns with hash as argument %rxstatus
+        MENU ITEM # 43 - Returns the Setting for SCOPE : Continuous / CHK (every 10 sec)
 
 
 =item getSoftcal()
@@ -2982,17 +3627,6 @@ With two arguments it will display information on a range of addresses
 	Returns the current Transmit power level : HIGH / LOW3 / LOW2 / LOW1
 
 
-=item getTxstatus()
-
-		$txstatus = $FT817->getTxstatus([VARIABLES/HASH]);
-
-	Retrieves the status of POWERMETER / PTT / HIGHSWR / SPLIT in one
-	command and posts the information when verbose(1).  
-
-	Returns with variables as argument $pometer $ptt $highswr $split
-	Returns with hash as argument %txstatus
-
-
 =item getVfo()
 
 		$vfo = $FT817->getVfo();
@@ -3007,6 +3641,13 @@ With two arguments it will display information on a range of addresses
         Returns the current band of a given VFO 
 
 
+=item getVlt()
+
+                $vlt = $FT817->getVlt();
+
+        Returns if the voltage display is ON or OFF
+
+
 =item getVox()
 
                 $vox = $FT817->getVox();
@@ -3019,14 +3660,14 @@ With two arguments it will display information on a range of addresses
 	Simple internal function for convrting hex to binary. Has no use to the end user.
 
 
+=item hexAdder()
+
+        Internal function to incriment a given hex value off a base address
+
+
 =item hexDiff()
 
         Internal function to return decimal value as the difference between two hex numbers
-
-
-=item hexAdder()
-
-	Internal function to incriment a given hex value off a base address
 
 
 =item moduleVersion()
@@ -3101,21 +3742,6 @@ With two arguments it will display information on a range of addresses
 	You have been warned.
 
 
-=item setAntenna()
-
-                $status = $FT817->setAntenna([HF/6M/FMBCB/AIR/VHF/UHF] [FRONT/BACK]);
-
-	Sets the antenna for the given band as connected on the FRONT or REAR of the radio
-
-	This is a WRITEEEPROM based function and requires both setWriteallow() and
-        agreeWithwarning() to be set to 1.
-
-        In the event of a failure, the memory area can be restored with. The following
-        command that also requires both flags previously mentioned set to 1.
-
-        restoreEeprom('007A');
-
-
 =item setAgc()
 
                 $status = $FT817->setAgc([AUTO/FAST/SLOW/OFF];
@@ -3129,6 +3755,21 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0057');
+
+
+=item setAntenna()
+
+                $status = $FT817->setAntenna([HF/6M/FMBCB/AIR/VHF/UHF] [FRONT/BACK]);
+
+        Sets the antenna for the given band as connected on the FRONT or REAR of the radio
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('007A');
 
 
 =item setArts()
@@ -3150,7 +3791,7 @@ With two arguments it will display information on a range of addresses
 
                 $artsmode = $FT817->setArts([OFF/RANGE/BEEP]);
 
-        Sets the ARTS function of the radio when ARTS is enables
+        MENU ITEM # 9 Sets the ARTS function of the radio when ARTS is enabled
 
         This is a WRITEEEPROM based function and requires both setWriteallow() and
         agreeWithwarning() to be set to 1.
@@ -3179,6 +3820,8 @@ With two arguments it will display information on a range of addresses
 
                 $chargetime = $FT817->setChargetime([6/8/10]);
 
+	MENU ITEM # 11 
+
         Sets the Battery charge time to 6, 8 or 10 hours.  If the charger is currently
 	on, it will return an error and not allow the change. Charger must be off.
 	This is a WRITEEEPROM based function and requires both setWriteallow() and
@@ -3191,56 +3834,6 @@ With two arguments it will display information on a range of addresses
 	restoreEeprom('007B');
 
         Returns 'OK' on success. Any other output an error.
-
-
-=item setClarifier()
-
-		$setclar = $FT817->setClarifier([ON/OFF]);
-
-	Enables or disables the clarifier
-
-	Returns '00' on success or 'f0' on failure
-
-
-=item setClarifierfreq()
-
-		$setclarfreq = $FT817->setClarifierfreq([####]);
-
-	Uses 4 digits as an argument to set the Clarifier frequency.  Leading and trailing zeros required where applicable
-	 1.234 KHZ would be 1234
-
-	Returns '00' on success or 'f0' on failure
-
-
-=item setCtcssdcs()
-
-		$ctcssdcs = $FT817->setCtcssdcs({DCS/CTCSS/ENCODER/OFF});
-
-	Sets the CTCSS DCS mode of the radio
-
-	Returns 'OK' on success or something else on failure
-
-
-=item setCtcsstone()
-
-		$ctcsstone = $FT817->setCtcsstone([####]);
-
-	Uses 4 digits as an argument to set the CTCSS tone.  Leading and trailing zeros required where applicable
-	 192.8 would be 1928 as an argument
-
-	Returns '00' on success or 'f0' on failure
-	On 'f0' verbose(1) displays all valid tones
-
-
-=item setDcscode()
-
-		$dcscode = $FT817->setDcscode([####]);
-
-	Uses 4 digits as an argument to set the DCS code.  Leading and trailing zeros required where applicable
-	 0546 would be 546 as an argument
-
-	Returns '00' on success or 'f0' on failure
-	On 'f0' verbose(1) displays all valid tones
 
 
 =item setDebug()
@@ -3283,17 +3876,6 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
-=item setFrequency()
-
-		$setfreq = $FT817->setFrequency([########]);
-
-	Uses 8 digits as an argument to set the frequency.  Leading and trailing zeros required where applicable
-	147.120 MHZ would be 14712000
-	 14.070 MHZ would be 01407000
-
-	Returns '00' on success or 'f0' on failure
-
-
 =item setHome()
 
                 $output = $FT817->setHome([ON/OFF]);
@@ -3309,22 +3891,34 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0055');
 
 
-=item setLock()
+=item setMtqmb()
 
-		$setlock = $FT817->setLock([ON/OFF]);
+                $output = $FT817->setMtqmb([ON/OFF]);
 
-	Enables or disables the radio lock.
+        Sets the MTQMB to ON or OFF
 
-	Returns '00' on success or 'f0' on failure
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0055');
 
 
-=item setMode()
+=item setMtune()
 
-		$setmode = $FT817->setMode([LSB/USB/CW/CWR/AM/FM/DIG/PKT/FMN/WFM]);
+                $output = $FT817->setMtune([MTUNE/MEMORY]);
 
-	Sets the mode of the radio with one of the valid modes.
+        Sets the MTUNE to MTUNE or MEMORY
 
-	Returns '00' on success or 'f0' on failure
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0055');
 
 
 =item setNb()
@@ -3344,25 +3938,6 @@ With two arguments it will display information on a range of addresses
         Returns 'OK' on success. Any other output an error.
 
 
-=item setOffsetfreq()
-
-		$offsetfreq = $FT817->setOffsetfreq([########]);
-
-	Uses 8 digits as an argument to set the offset frequency.  Leading and trailing zeros required where applicable
-	1.230 MHZ would be 00123000
-
-	Returns '00' on success or 'f0' on failure
-
-
-=item setOffsetmode()
-
-		$setoffsetmode = $FT817->setOffsetmode([POS/NEG/SIMPLEX]);
-
-	Sets the mode of the radio with one of the valid modes.
-
-	Returns '00' on success or 'f0' on failure
-
-
 =item setPbt()
 
                 $status = $FT817->setPbt([OFF/ON];
@@ -3378,30 +3953,26 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
-=item setPower()
+=item setQmb()
 
-		$setPower = $FT817->setPower([ON/OFF]);
+                $output = $FT817->setQmb([ON/OFF]);
 
-	Sets the power of the radio on or off. Note that this function, as stated in the manual only works
-	Correctly when connected to DC power and NO Battery installed 
+        Sets the QMB to ON or OFF
 
-	Returns '00' on success or 'null' on failure
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
 
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
 
-=item setPtt()
-
-		$setptt = $FT817->setPtt([ON/OFF]);
-
-	Sets the Push to talk of the radio on or off.  
-
-	Returns '00' on success or 'f0' on failure
+        restoreEeprom('0055');
 
 
 =item setRfknob()
 
                 $rfknob = $FT817->setRfknob([RFGAIN/SQUELCH]);
 
-        SETS THE RF-GAIN knob functionality.  
+        MENU ITEM # 45 - SETS THE RF-GAIN knob functionality.  
 
 	This is a WRITEEEPROM based function and requires both setWriteallow() and 
 	agreeWithwarning() to be set to 1.
@@ -3412,15 +3983,6 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005F');
 
         Returns 'OK' on success. Any other output an error.
-
-
-=item setSplitfreq()
-
-		$setsplit = $FT817->setSplitfreq([ON/OFF]);
-
-	Sets the radio to split the transmit and receive frequencies
-
-	Returns '00' on success or 'f0' on failure
 
 
 =item setTuner()
@@ -3482,15 +4044,6 @@ With two arguments it will display information on a range of addresses
 	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
-
-
-=item vfoToggle()
-
-		$vfotoggle = $FT817->vfotoggle();
-
-	Togles the VFO between A and B
-
-	Returns '00' on success or 'f0' on failure
 
 
 =item writeBlock()
