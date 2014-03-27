@@ -93,7 +93,8 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setHome
 
 0.9.0_12    25MARCH2014/1200
-	    POD updates, removed verbose(2): depricated
+	    POD updates, removed verbose(2): depricated	
+	    Added [005C] option to restoreEeprom
 	    Added function getMtqmb
             Added function setMtqmb
             Added function getQmb
@@ -119,3 +120,22 @@ Revision history for Ham-Device-FT817COMM
 	    Added function getVlt
 	    All CAT functions renamed to begin with cat
 	
+0.9.0_13    26MARCH2014/1200
+	    Pod updates (stale lockfile removal)
+            Added [005B] option to restoreEeprom
+	    Added function setLock
+	    Added function setPwrmtr
+	    Added function setCwpaddle
+	    Added function setKyr
+	    Added function setBk
+	    Added function setVlt
+	    Added function setContrast
+	    Added function setColor
+	    Added function setBacklight
+	    Added function setBeepvol
+	    Added function setBeepfreq
+	    Added function setResumescan
+	    Added function setPktrate
+	    Added function setScope
+	    Added function setCwid
+	    Added function setMainstep

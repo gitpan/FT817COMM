@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-23 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-26 14:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -14,7 +14,7 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.0_12';
+our $VERSION = '0.9.0_13';
 
 BEGIN {
 	use Exporter ();
@@ -482,7 +482,7 @@ return $writestatus;
 
 
 
-	if (($area ne '0055') && ($area ne '0057') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
+	if (($area ne '0055') && ($area ne '0057') && ($area ne '005B') && ($area ne '005C') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
@@ -527,13 +527,30 @@ return $writestatus;
                              }
                           }
 
+        if ($area eq '005B'){
+                $restorevalue = '86';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x5B\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Contrast','5', 'Color','Blue', 'Backlight','Auto';
+                             }
+                          }
+
+        if ($area eq '005C'){
+                $restorevalue = 'B2';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x5C\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Beep Volume','50', 'Beep Frequency','880 hz';
+                             }
+                          }
 
         if ($area eq '005D'){
                 $restorevalue = '42';
                 if ($verbose){
                         print "\nDEFAULTS LOADED FOR 0x5D\n";
                         print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Resume Scan','OFF', 'PKT Rate','1200', 'Scope','CONT', 'CW-ID', 'OFF', 'Main STEP','FINE', 'ARTS','RANGE';
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Resume Scan','5 SEC', 'PKT Rate','1200', 'Scope','CONT', 'CW-ID', 'OFF', 'Main STEP','FINE', 'ARTS','RANGE';
                              }
                           }
 
@@ -1511,7 +1528,7 @@ sub getVlt {
         if ($vlt == '0'){$vlt = 'OFF'};
         if ($vlt == '1'){$vlt = 'ON'};
         if($verbose){
-                print "Voltage display set to  set to $vlt\n";
+                print "Voltage display set to $vlt\n";
                     }
 return $vlt;
            }
@@ -1579,8 +1596,8 @@ sub getColor {
         my $self=shift;
         $output = $self->eepromDecode('005B');
         $color = substr($output,3,1);
-        if ($color == '1'){$color = 'AMBER'};
-        if ($color == '0'){$color = 'BLUE'};
+        if ($color == '1'){$color = 'AMBER';}
+        else{$color = 'BLUE';}
         if($verbose){
                 print "COLOR is $color\n";
                     }
@@ -1592,9 +1609,9 @@ sub getBacklight {
         my $self=shift;
         $output = $self->eepromDecode('005B');
         $backlight = substr($output,0,2);
-        if ($backlight == '00'){$backlight = 'OFF'};
-        if ($backlight == '01'){$backlight = 'ON'};
-        if ($backlight == '10'){$backlight = 'AUTO'};
+        if ($backlight == '00'){$backlight = 'OFF';}
+        if ($backlight == '01'){$backlight = 'ON';}
+        if ($backlight == '10'){$backlight = 'AUTO';}
         if($verbose){
                 print "BACKLIGHT is set to $backlight\n";
                     }
@@ -1624,10 +1641,10 @@ sub getBeepfreq {
         my $self=shift;
         $output = $self->eepromDecode('005C');
         $beepfreq = substr($output,0,1);
-        if ($beepfreq == '1'){$beepfreq = '880 hz'};
-        if ($beepfreq == '0'){$beepfreq = '440 hz'};
+        if ($beepfreq == '1'){$beepfreq = '880'};
+        if ($beepfreq == '0'){$beepfreq = '440'};
         if($verbose){
-                print "BEEP Frequency is $beepfreq\n";
+                print "BEEP Frequency is $beepfreq hz\n";
                     }
 return $beepfreq;
                }
@@ -1641,11 +1658,11 @@ sub getResumescan {
         $output = $self->eepromDecode('005D');
         $resumescan = substr($output,6,2);
         if ($resumescan == '00'){$resumescan = 'OFF'};
-        if ($resumescan == '01'){$resumescan = '3 sec'};
-        if ($resumescan == '10'){$resumescan = '5 sec'};
-        if ($resumescan == '11'){$resumescan = '10 sec'};
+        if ($resumescan == '01'){$resumescan = '3'};
+        if ($resumescan == '10'){$resumescan = '5'};
+        if ($resumescan == '11'){$resumescan = '10'};
         if($verbose){
-                print "RESUME SCAN is ($resumescan)\n";
+                print "RESUME SCAN is ($resumescan) sec\n";
                     }
 return $resumescan;
                 }
@@ -1695,7 +1712,7 @@ sub getMainstep {
         my ($mainstep) = @_;
         my $self=shift;
         $output = $self->eepromDecode('005D');
-        $mainstep = substr($output,4,1);
+        $mainstep = substr($output,2,1);
         if ($mainstep == '0'){$mainstep = 'FINE'};
         if ($mainstep == '1'){$mainstep = 'COURSE'};
         if($verbose){
@@ -2265,6 +2282,7 @@ return %memvfohash;
 
 # 55 ################################# SET VFO A/B , MEM OR VFO, MTUNE OR MEMORY,MTQMB, QMB, HOME ######
 ###################################### SET BITS 0,1,2,4,5 AND 7 FROM 0X55
+
 sub setMtune {
         my $self=shift;
         my $value=shift;
@@ -2291,6 +2309,7 @@ return 1;
 return $writestatus;
             }
 
+####################
 
 sub setMtqmb {
         my $self=shift;
@@ -2318,6 +2337,7 @@ return 1;
 return $writestatus;
             }
 
+####################
 
 sub setQmb {
         my $self=shift;
@@ -2345,6 +2365,7 @@ return 1;
 return $writestatus;
             }
 
+####################
 
 sub setHome {
         my $self=shift;
@@ -2372,6 +2393,7 @@ return 1;
 return $writestatus;
 	    }
 
+####################
 
 sub setVfo {
         my $self=shift;
@@ -2399,6 +2421,7 @@ return 1;
 return $writestatus;
 	   }
 
+####################
 
 sub setTuner {
         my $self=shift;
@@ -2492,7 +2515,6 @@ return $writestatus;
 
 ####################
 
-
 sub setDsp {
         my ($currentdsp) = @_;
         my $self=shift;
@@ -2524,7 +2546,6 @@ return $writestatus;
 
 ####################
 
-
 sub setPbt {
         my ($currentpbt) = @_;
         my $self=shift;
@@ -2554,9 +2575,38 @@ return $writestatus;
 
            }
 
-
 ####################
 
+sub setLock {
+        my ($currentlock) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentlock = $self->getLock();
+        $self->setVerbose(1);
+
+        if ($value eq $currentlock){
+                if($verbose){print "Value $currentlock already selected.\n\n"; }
+return 1;
+                                     }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','1','0');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','1','1');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Lock set to $value sucessfull!\n";}
+                else {print"Lock set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+####################
 
 sub setFasttuning {
         my ($currenttuning) = @_;
@@ -2587,9 +2637,176 @@ return $writestatus;
 
            }
 
+# 58 ################################# SET PWR MTR MODE, CW PADDLE, KYR, BK, VLT, VOX ######
+###################################### CHANGE BIT 0-1,2,4,5,6,7 FROM 0X58
 
-# 58 ################################# SET VOX ######
-###################################### CHANGE BIT 7 FROM 0X58
+sub setPwrmtr {
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'PWR' && $value ne 'ALC' && $value ne 'SWR' && $value ne 'MOD'){
+                if($verbose){print "Value invalid: Choose PWR/ALC/SWR/MOD\n\n"; }
+return 1;
+                                                                                        }
+        $self->setVerbose(0);
+        my $currentpwrmtr = $self->getPwrmtr();
+        $self->setVerbose(1);
+        if ($value eq $currentpwrmtr){
+                if($verbose){print "Value $currentpwrmtr already selected.\n\n"; }
+return 1;
+                                  }
+
+        my $BYTE1 = $self->eepromDecode('0058');
+        if ($value eq 'PWR'){substr ($BYTE1, 6, 2, '00');}
+        if ($value eq 'ALC'){substr ($BYTE1, 6, 2, '01');}
+        if ($value eq 'SWR'){substr ($BYTE1, 6, 2, '10');}
+        if ($value eq 'MOD'){substr ($BYTE1, 6, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0058',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Power Meter set to $value sucessfull!\n";}
+                else {print"Power Meter set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+           }
+
+########################
+
+sub setCwpaddle {
+        my ($currentcwpaddle) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'NORMAL' && $value ne 'REVERSE'){
+                if($verbose){print "Value invalid: Choose NORMAL/REVERSE\n\n"; }
+return 1;
+                                              }
+
+        $self->setVerbose(0);
+        $currentcwpaddle = $self->getCwpaddle();
+        $self->setVerbose(1);
+
+        if ($value eq $currentcwpaddle){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'NORMAL'){$writestatus = $self->writeEeprom('0058','5','0');}
+        if($value eq 'REVERSE'){$writestatus = $self->writeEeprom('0058','5','1');}
+
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"CW Paddle set to $value sucessfull!\n";}
+                else {print"CW Paddle set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+########################
+
+sub setKyr {
+        my ($currentkyr) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+
+        $self->setVerbose(0);
+        $currentkyr = $self->getKyr();
+        $self->setVerbose(1);
+
+        if ($value eq $currentkyr){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','3','0');}
+
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Keyer (KYR) set to $value sucessfull!\n";}
+                else {print"Keyer (KYR) set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+########################
+
+sub setBk {
+        my ($currentbk) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+
+        $self->setVerbose(0);
+        $currentbk = $self->getBk();
+        $self->setVerbose(1);
+
+        if ($value eq $currentbk){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','2','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','2','0');}
+
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Break-in (BK) set to $value sucessfull!\n";}
+                else {print"Break-in (BK) set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+           }
+
+########################
+
+sub setVlt {
+        my ($currentvlt) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+
+        $self->setVerbose(0);
+        $currentvlt = $self->getVlt();
+        $self->setVerbose(1);
+
+        if ($value eq $currentvlt){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','1','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','1','0');}
+
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Voltage readout set to $value sucessfull!\n";}
+                else {print"Voltage readout set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+
+          }
+
+########################
 
 sub setVox {
         my ($currentvox) = @_;
@@ -2622,7 +2839,6 @@ return 1;
 return $writestatus;
 
            }
-
 
 # 59 ################################# SET VFOBAND ######
 ###################################### CHANGE ALL BITS FROM 0X59
@@ -2667,9 +2883,332 @@ return 1;
 return $writestatus;
                }
 
+# 5B ################################# SET CONTRAST, COLOR, BACKLIGHT
+######################################  BITS 0-3,4, 6-7 FROM ADDRESS 0X5B
+ 
+sub setContrast {
+        my ($currentcontrast) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < '1' && $value > '12'){
+                if($verbose){print "Value invalid: Choose a number between 1 and 12\n\n"; }
+return 1;
+                                          }
 
-# 5d ################################# SET ARTS MODE BIT
-###################################### TOGGLE BIT 0 FROM ADDRESS 0X5D
+
+        $self->setVerbose(0);
+        $currentcontrast = $self->getContrast();
+        $self->setVerbose(1);
+
+        if ($value eq $currentcontrast){
+                if($verbose){print "Value $currentcontrast already selected.\n\n"; }
+return 1;
+                                       }
+	my $firstvalue = $value;
+	$value++;
+	my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('005B');
+	$binvalue = substr("$binvalue", 4);
+        substr ($BYTE1, 4, 4, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005B',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Contrast set to $firstvalue sucessfull!\n";}
+                else {print"Contrast set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setColor {
+        my ($currentcolor) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'BLUE' && $value ne 'AMBER'){
+                if($verbose){print "Value invalid: Choose BLUE/AMBER\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentcolor = $self->getColor();
+        $self->setVerbose(1);
+        if ($currentcolor eq $value) {
+                if($verbose){print "\nSetting $value already selected for Screen Color\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'BLUE'){$writestatus = $self->writeEeprom('005B','3','0');}
+        if($value eq 'AMBER'){$writestatus = $self->writeEeprom('005B','3','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Screen color set to $value sucessfull!\n";}
+                else {print"Screen Color set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
+
+sub setBacklight {
+        my ($currentbacklight) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'OFF' && $value ne 'ON' && $value ne 'AUTO'){
+                if($verbose){print "Value invalid: Choose OFF/ON/AUTO\n\n"; }
+return 1;
+                                                                    }
+
+
+        $self->setVerbose(0);
+        $currentbacklight = $self->getBacklight();
+        $self->setVerbose(1);
+
+        if ($value eq $currentbacklight){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+
+        my $BYTE1 = $self->eepromDecode('005B');
+        if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq 'ON'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq 'AUTO'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+
+        $writestatus = $self->writeBlock('005B',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Back Light Set to $value sucessfull!\n";}
+                else {print"Back Light set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 5C ################################# SET BEEP VOL , BEEP FREQ ######
+######################################  BITS 0-6, 7 FROM 0X5C
+
+sub setBeepvol {
+        my ($currentbeepvol) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 && $value > 100){
+                if($verbose){print "Value invalid: Choose (0 - 100)\n\n"; }
+return 1;
+                                                                    }
+
+
+        $self->setVerbose(0);
+        $currentbeepvol = $self->getBeepvol();
+        $self->setVerbose(1);
+
+        if ($value eq $currentbeepvol){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('005C');
+        $binvalue = substr("$binvalue", 1);
+        substr ($BYTE1, 1, 7, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005C',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Beep Volume Set to $value sucessfull!\n";}
+                else {print"Beep Volume set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setBeepfreq {
+        my ($currentbeepfreq) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value == '440' && $value == '880'){
+                if($verbose){print "Value invalid: Choose 440/880\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentbeepfreq = $self->getBeepfreq();
+        $self->setVerbose(1);
+        if ($currentbeepfreq eq $value) {
+                if($verbose){print "\nSetting $value already selected for Beep Frequency\n\n"; }
+return 1;
+                                    }
+
+        if($value == '440'){$writestatus = $self->writeEeprom('005C','0','0');}
+        if($value == '880'){$writestatus = $self->writeEeprom('005C','0','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Beep Frequency set to $value sucessfull!\n";}
+                else {print"Beep Frequency set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+# 5D ################################# SET RESUME SCAN, PKT RATE, SCOPE, CW-ID, MAIN STEP, ARTS MODE
+######################################  BIT 0-1, 2, 3, 4, 5, 6-7 FROM ADDRESS 0X5D
+
+sub setResumescan {
+        my ($currentresumescan) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'OFF' && $value ne '3' && $value ne '5' && $value ne '10'){
+                if($verbose){print "Value invalid: Choose OFF/3/5/10\n\n"; }
+return 1;
+                                                                    }
+
+
+        $self->setVerbose(0);
+        $currentresumescan = $self->getResumescan();
+        $self->setVerbose(1);
+
+        if ($value eq $currentresumescan){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+
+        my $BYTE1 = $self->eepromDecode('005D');
+        if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq '3'){substr ($BYTE1, 6, 2, '01');}
+        if ($value eq '5'){substr ($BYTE1, 6, 2, '10');}
+        if ($value eq '10'){substr ($BYTE1, 6, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+
+        $writestatus = $self->writeBlock('005D',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Resume (SCAN) Set to $value sucessfull!\n";}
+                else {print"Resume (SCAN) set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setPktrate {
+        my ($currentpktrate) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value != '1200' && $value != '9600'){
+                if($verbose){print "Value invalid: Choose 1200/9600\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentpktrate = $self->getPktrate();
+        $self->setVerbose(1);
+        if ($currentpktrate eq $value) {
+                if($verbose){print "\nSetting $value already selected for PKT Rate\n\n"; }
+return 1;
+                                    }
+
+        if($value == '1200'){$writestatus = $self->writeEeprom('005D','5','0');}
+        if($value == '9600'){$writestatus = $self->writeEeprom('005D','5','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"PKT RATE set to $value sucessfull!\n";}
+                else {print"PKT RATE set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
+
+sub setScope {
+        my ($currentscope) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'CONT' && $value ne 'CHK'){
+                if($verbose){print "Value invalid: Choose CONT/CHK\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentscope = $self->getScope();
+        $self->setVerbose(1);
+        if ($currentscope eq $value) {
+                if($verbose){print "\nSetting $value already selected for Scope\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'CONT'){$writestatus = $self->writeEeprom('005D','4','0');}
+        if($value eq 'CHK'){$writestatus = $self->writeEeprom('005D','4','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Scope set to $value sucessfull!\n";}
+                else {print"Scope set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
+
+sub setCwid {
+        my ($currentcwid) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentcwid = $self->getCwid();
+        $self->setVerbose(1);
+        if ($currentcwid eq $value) {
+                if($verbose){print "\nSetting $value already selected for CW-ID\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('005D','3','0');}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('005D','3','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"CW-ID set to $value sucessfull!\n";}
+                else {print"CW-ID set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
+
+sub setMainstep {
+        my ($currentmainstep) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'COURSE' && $value ne 'FINE'){
+                if($verbose){print "Value invalid: Choose COURSE/FINE\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentmainstep = $self->getMainstep();
+        $self->setVerbose(1);
+        if ($currentmainstep eq $value) {
+                if($verbose){print "\nSetting $value already selected for Main Step\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'FINE'){$writestatus = $self->writeEeprom('005D','2','0');}
+        if($value eq 'COURSE'){$writestatus = $self->writeEeprom('005D','2','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Main Step set to $value sucessfull!\n";}
+                else {print"Main Step set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
 
 sub setArtsmode {
         my ($chargebits, $currentartsmode) = @_;
@@ -2706,7 +3245,6 @@ return 1;
 return $writestatus;
 		 }
 
-
 # 5F ################################# SETS RFKNOB FUNCTION
 ###################################### SETS BIT 7 FROM ADDRESS 0X5F
 
@@ -2736,7 +3274,6 @@ return 1;
 
 return $writestatus;
                   }
-
 
 # 62 ################################# SET CHARGETIME
 ###################################### CHANGE BITS 6-7 FROM ADDRESS 0X62
@@ -2798,7 +3335,6 @@ return 1;
 return $writestatus;
                       }
 
-
 # 79 ################################# SET ARTS ON/OFF
 ###################################### CHANGE BITS 7 FROM ADDRESS 0X79
 
@@ -2829,7 +3365,6 @@ return 1;
 
 return $writestatus;
             }
-
 
 # 7a ################################# SET ANTENNA FRONT/BACK
 ###################################### CHANGE BITS 0-5 FROM ADDRESS 0X7A
@@ -2876,7 +3411,6 @@ return 1;
 return $writestatus;
  	       }
 
-
 # 7b ################################# SET CHARGER ON/OFF
 ###################################### CHANGE BITS 6-7 FROM ADDRESS 0X7b
 
@@ -2903,15 +3437,11 @@ return 1;
 return 0;
 	     }
 
-
-
-
 return 1;
-
                }
 
 
-
+################################################## FIN
 
 
 
@@ -2921,7 +3451,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_12
+Version 0.9.0_13
 
 =head1 SYNOPSIS
 
@@ -2944,6 +3474,18 @@ use HAM::Device::FT817COMM;
 =head2 Destructor
 
 	$FT817->closePort;
+
+=head2 Lock File
+
+In the event you abruptly end the software or loose connectivity via ssh.  When attempting to reconnect
+you will see the following error.
+
+	Can't open serial port /dev/ttyUSB0: File exists
+
+The lock file can be remove simply by 
+
+	rm /var/lock/ft817 
+
 
 =head2 Initialization
 
@@ -3729,7 +4271,7 @@ With two arguments it will display information on a range of addresses
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
 	This command does not allow for an arbitrary address to be written. 
-	Currently [0055] [0057] [0058] [0059] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
+	Currently [0055] [0057] [0058] [0059] [005B] [005C] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
 
 	restoreEeprom('005F'); 
 
@@ -3801,6 +4343,65 @@ With two arguments it will display information on a range of addresses
 
         restoreEeprom('005D');
 
+=item setBacklight()
+
+                $status = $FT817->setBacklight([OFF/ON/AUTO]);
+
+        MENU ITEM # 10 Sets the Backlight of the radio
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005B');
+
+
+=item setBeepfreq()
+
+                $status = $FT817->setBeepfreq([440/880]);
+
+        MENU ITEM # 13 Sets the frequency of the radio beep
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005C');
+
+
+=item setBeepvol()
+
+                $status = $FT817->setBeepvol([1-100]);
+
+        MENU ITEM # 13 Sets the volume of the radio beep
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005C');
+
+
+=item setBk()
+
+                $status = $FT817->setBk([ON/OFF]);
+
+        Sets the CW Break-in (BK) ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
+
 
 =item setCharger()
 
@@ -3834,6 +4435,75 @@ With two arguments it will display information on a range of addresses
 	restoreEeprom('007B');
 
         Returns 'OK' on success. Any other output an error.
+
+
+=item setColor()
+
+                $output = $FT817->setColor([BLUE/AMBER]);
+
+        MENU ITEM # 15
+
+        Sets the Color of the LCD screen
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005B');
+
+
+=item setContrast()
+
+                $output = $FT817->setContrast([1-12]);
+
+        MENU ITEM # 16
+
+        Sets the Contrast of the LCD screen, this seems to only update the screen
+	after a power cycle, either manually, or by CAT command
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005B');
+
+
+=item setCwid()
+
+                $output = $FT817->setCwid([ON/OFF]);
+
+        MENU ITEM # 18
+
+        Sets the CW ID to ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005D');
+
+
+=item setCwpaddle()
+
+                $output = $FT817->setCwpaddle([NORMAL/REVERSE]);
+
+	MENU ITEM # 19
+
+        Sets the CW paddle to NORMAL or REVERSE
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
 
 
 =item setDebug()
@@ -3891,6 +4561,51 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0055');
 
 
+=item setKyr()
+
+                $output = $FT817->setKyr([ON/OFF]);
+
+        Sets the CW Keyer (KYR) on or off
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
+
+
+=item setLock()
+
+                $output = $FT817->setLock([ON/OFF]);
+
+        Sets the Radio Lock on or off. Similar to catLock() but calls it directly
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0057');
+
+
+=item setMainstep()
+
+                $status = $FT817->setMainstep([COURSE-FINE]);
+
+        MENU ITEM # 33 Sets the Main step
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005D');
+
+
 =item setMtqmb()
 
                 $output = $FT817->setMtqmb([ON/OFF]);
@@ -3938,6 +4653,23 @@ With two arguments it will display information on a range of addresses
         Returns 'OK' on success. Any other output an error.
 
 
+=item setPktrate()
+
+                $output = $FT817->setCwpaddle([NORMAL/REVERSE]);
+
+        MENU ITEM # 40
+
+        Sets the Packet rate
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005D');
+
+
 =item setPbt()
 
                 $status = $FT817->setPbt([OFF/ON];
@@ -3953,6 +4685,20 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
+=item setPwrmtr()
+
+                $status = $FT817->setPwrmtr([PWR/ALC/SWR/MOD];
+
+        Sets the active display of the Power Meter
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
+
 =item setQmb()
 
                 $output = $FT817->setQmb([ON/OFF]);
@@ -3966,6 +4712,23 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0055');
+
+
+=item setResumescan()
+
+                $status = $FT817->setResumescan([OFF/3/5/10]);
+
+        MENU ITEM # 41 - SETS THE Resume (scan) functionality.  
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005D');
+
+        Returns 'OK' on success. Any other output an error.
 
 
 =item setRfknob()
@@ -3983,6 +4746,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005F');
 
         Returns 'OK' on success. Any other output an error.
+
+
+=item setScope()
+
+                $output = $FT817->setScope([CONT/CHK]);
+
+        MENU ITEM # 43
+
+        Sets the Scope
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005D');
 
 
 =item setTuner()
@@ -4022,8 +4802,30 @@ With two arguments it will display information on a range of addresses
                 $setvfoband = $FT817->setVfoband([A/B] [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]);
 
         Sets the band of the selected VFO
-
         Returns 'OK' on success or '1' on failure
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0059');
+
+
+=item setVlt()
+
+                $status = $FT817->setVlt([ON/OFF];
+
+        Enables or disables the voltage display
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
 
 
 =item setVox()
@@ -4031,8 +4833,15 @@ With two arguments it will display information on a range of addresses
                 $setvox = $FT817->setVox([ON/OFF]);
 
         Sets the VOX feature of the radio on or off.
-
         Returns 'OK' on success or '1' on failure
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0058');
 
 
 =item setWriteallow()
