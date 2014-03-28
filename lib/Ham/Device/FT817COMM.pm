@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-26 14:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-27 14:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -14,7 +14,7 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.0_13';
+our $VERSION = '0.9.0_14';
 
 BEGIN {
 	use Exporter ();
@@ -399,7 +399,7 @@ return $writestatus;
         $BYTE2 = unpack("H*", substr($output2,1,1));
         if ($debug){print "\n(writeEeprom:DEBUG) - SHOULD BE: ($NEWHEX1) ($OLDBYTE2)\n";}
         if ($debug){print "\n(writeEeprom:DEBUG) - IS: -----> ($BYTE1) ($BYTE2)\n";}
-	if ($output2 == $output) {
+        if (($NEWHEX1 == $BYTE1) && ($OLDBYTE2 == $BYTE2)) {
 		$writestatus = "OK";
 		if($debug){print "\n(writeEeprom:DEBUG) - VALUES MATCH!!!\n\n";}
 		          }
@@ -454,10 +454,10 @@ if ($debug){print "\n(writeBlock:DEBUG) - OUTPUT FROM [$address]\n";}
         $BYTE2 = unpack("H*", substr($output2,1,1));
         if ($debug){print "\n(writeBlock:DEBUG) - SHOULD BE: ($VALUE) ($OLDBYTE2)\n";}
         if ($debug){print "\n(writeBlock:DEBUG) - IS: -----> ($BYTE1) ($BYTE2)\n";}
-        if ($output2 == $output) {
+        if (($VALUE == $BYTE1) && ($OLDBYTE2 == $BYTE2)) {
                 $writestatus = "OK";
                 if($debug){print "\n(writeBlock:DEBUG) - VALUES MATCH!!!\n\n";}
-                          }
+                                                         }
         else {
                 $writestatus = "1";
                 if($debug){print "\n(writeBlock:DEBUG) - NO MATCH!!!\n\n";}
@@ -482,7 +482,10 @@ return $writestatus;
 
 
 
-	if (($area ne '0055') && ($area ne '0057') && ($area ne '005B') && ($area ne '005C') && ($area ne '005F') && ($area ne '0062') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && ($area ne '0058') && ($area ne '0059')){
+	    if (($area ne '0055') && ($area ne '0057') && ($area ne '005B') && ($area ne '005C') && ($area ne '005E') && 
+		($area ne '005F') && ($area ne '0060') && ($area ne '0061') && ($area ne '0062') && ($area ne '0063') &&
+		($area ne '0064') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && 
+		($area ne '0058') && ($area ne '0059')){
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
@@ -554,6 +557,17 @@ return $writestatus;
                              }
                           }
 
+
+        if ($area eq '005E'){
+                $restorevalue = '08';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x5E\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Pitch','700 Hz', 'Lock Mode','Dial', 'OP Filter','OFF';
+                             }
+                          }
+
+
         if ($area eq '005F'){
 		$restorevalue = 'E5';
 		if ($verbose){
@@ -561,7 +575,25 @@ return $writestatus;
 			print "________________________\n";
 			printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Weight','1:3', '430 ARS','ON', '144 ARS','ON', 'SQL-RFG', 'SQUELCH';
 			     }			
-			  } 
+			  }
+ 
+        if ($area eq '0060'){
+                $restorevalue = '19';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x60\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Delay','250';
+                             }
+                          }
+
+        if ($area eq '0061'){
+                $restorevalue = '32';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x61\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Sidetone Volume','50';
+                             }
+                          }
 
         if ($area eq '0062'){
 		$restorevalue = '48';
@@ -571,6 +603,24 @@ return $writestatus;
                         printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Speed','12wpm', 'Chargetime','8hrs';
                              }
 		  	  }
+
+        if ($area eq '0063'){
+                $restorevalue = 'B2';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x63\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'VOX Gain','50', 'AM\&FM DL','DISABLED';
+                             }
+                          }
+
+        if ($area eq '0064'){
+                $restorevalue = '05';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x64\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Vox Delay','500 msec', 'Emergency','OFF', 'Cat rate','4800';
+                             }
+                          }
 
         if ($area eq '0079'){
                 $restorevalue = '03';
@@ -588,6 +638,7 @@ return $writestatus;
                         print "________________________\n";
                         printf "%-11s %-11s\n%-11s %-11s\n\n", 'Antennas','All Rear except VHF and UHF', 'SPL','OFF';
                              }
+
 			  }
         if ($area eq '007B'){
 		$restorevalue = '08';
@@ -1735,8 +1786,96 @@ sub getArtsmode {
 return $artsmode;
 		}
 
-# 5f ################################# GET RFGAIN/SQUELCH ######
-###################################### READ BIT 0-1 FROM 0X5f
+# 5E ################################# GET CW PITCH ,LOCK MODE, OP FILTER######
+###################################### READ BIT 0-3, 4-5, 6-7  FROM 0X5E
+
+sub getCwpitch {
+        my ($pitch) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005E');
+        $pitch = substr($output,4,4);
+        my $HEX1 = sprintf("%X", oct( "0b$pitch" ) );
+        $pitch = hex($HEX1);
+	$pitch = $pitch * 50;
+	$pitch = $pitch + 300;
+        if($verbose){
+                print "CW Pitch is $pitch\n";
+                    }
+return $pitch;
+               }
+
+sub getLockmode {
+        my ($lockmode) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005E');
+        $lockmode = substr($output,2,2);
+        if ($lockmode == '00'){$lockmode = 'DIAL'};
+        if ($lockmode == '01'){$lockmode = 'FREQ'};
+        if ($lockmode == '10'){$lockmode = 'PANEL'};
+        if($verbose){
+                print "Lock Mode is $lockmode\n";
+                    }
+return $lockmode;
+                }
+
+sub getOpfilter {
+        my ($opfilter) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005E');
+        $opfilter = substr($output,0,2);
+        if ($opfilter == '00'){$opfilter = 'OFF'};
+        if ($opfilter == '01'){$opfilter = 'SSB'};
+        if ($opfilter == '10'){$opfilter = 'CW'};
+        if($verbose){
+                print "OP Filter is $opfilter\n";
+                    }
+return $opfilter;
+                }
+
+# 5F ################################# GET CW WEIGHT, 420 ARS, 144 ARS, RFGAIN/SQUELCH ######
+###################################### READ BIT 0-4, 5, 6, 7 FROM 0X5F
+
+sub getCwweight {
+        my ($cwweight) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005F');
+        $cwweight = substr($output,3,5);
+        my $HEX1 = sprintf("%X", oct( "0b$cwweight" ) );
+        $cwweight = hex($HEX1);
+	$cwweight = $cwweight + 25;
+        substr($cwweight, -1, 0) = '.';
+	$cwweight = join("",'1:',"$cwweight");	
+        if($verbose){
+                print "CW Weight is $cwweight\n";
+                    }
+return $cwweight;
+               }
+
+sub getArs144 {
+        my ($ars144,$value) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005F');
+        $ars144 = substr($output,1,1);
+        if($ars144 == '0'){$value = 'OFF';}
+        else {$value = 'ON';}
+        if($verbose){
+                print "144 ARS is set to $value\n";
+                    }
+return $value;
+           }
+
+sub getArs430 {
+        my ($ars430,$value) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('005F');
+        $ars430 = substr($output,2,1);
+        if($ars430 == '0'){$value = 'OFF';}
+        else {$value = 'ON';}
+        if($verbose){
+                print "430 ARS is set to $value\n";
+                    }
+return $value;
+           }
 
 sub getRfknob {
         my ($sqlbit,$value) = @_;
@@ -1751,6 +1890,38 @@ sub getRfknob {
 return $value; 
            }
 
+# 60 ################################# GET CWDELAY ######
+###################################### READ BIT 0-7 FROM 0X60
+
+sub getCwdelay {
+        my ($cwdelay) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0060');
+        $cwdelay = substr($output,0,8);
+        my $HEX1 = sprintf("%X", oct( "0b$cwdelay" ) );
+        $cwdelay = hex($HEX1);
+	$cwdelay = $cwdelay * 10;
+        if($verbose){
+                print "CW DELAY is $cwdelay\n";
+                    }
+return $cwdelay;
+               }
+
+# 61 ################################# GET SIDETONE VOLUME ######
+###################################### READ BIT 0-6 FROM 0X61
+
+sub getSidetonevol {
+        my ($sidetonevol) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0061');
+        $sidetonevol = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$sidetonevol" ) );
+        $sidetonevol = hex($HEX1);
+        if($verbose){
+                print "Sidetone Volume is $sidetonevol\n";
+                    }
+return $sidetonevol;
+               }
 
 # 62 ################################# GET CWSPEED, CHARGETIME ######
 ###################################### READ BIT 0-5, 6-7 FROM 0X62
@@ -1786,6 +1957,82 @@ sub getCwspeed {
 return $cwspeed;
 
 	       }
+
+# 63 ################################# GET VOX GAIN, DISABLE AM/FM DIAL ######
+###################################### READ BIT 0-6, 7 FROM 0X63
+
+sub getVoxgain {
+        my ($voxgain) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0063');
+        $voxgain = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$voxgain" ) );
+        $voxgain = hex($HEX1);
+        if($verbose){
+                print "VOX Gain is $voxgain\n";
+                    }
+return $voxgain;
+               }
+
+sub getAmfmdial {
+        my ($disabledial, $value) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0063');
+        $disabledial = substr($output,0,1);
+        if($disabledial == '0'){$value = 'ENABLE';}
+        else {$value = 'DISABLE';}
+        if($verbose){
+                print "Disable AM/FM Dial is set to $value\n";
+                    }
+return $value;
+           }
+
+# 64 ################################# GET VOX DELAY, EMERGENCY, CAT RATE ######
+###################################### READ BIT 0-4, 5, 6-7 FROM 0X64
+
+sub getVoxdelay {
+        my ($voxdelay) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0064');
+        $voxdelay = substr($output,3,5);
+        my $HEX1 = sprintf("%X", oct( "0b$voxdelay" ) );
+        $voxdelay = hex($HEX1);
+        $voxdelay = $voxdelay * 100;
+        if($verbose){
+                print "VOX Delay is $voxdelay msec\n";
+                    }
+return $voxdelay;
+
+               }
+
+sub getEmergency {
+        my ($emergency) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0064');
+        $emergency = substr($output,2,1);
+        if ($emergency == '0'){$emergency = 'OFF'};
+        if ($emergency == '1'){$emergency = 'ON'};
+
+        if($verbose){
+                print "EMERGENCY is $emergency\n";
+                    }
+return $emergency;
+                 }
+
+sub getCatrate {
+        my ($catrate) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0064');
+        $catrate = substr($output,0,2);
+        if ($catrate == '00'){$catrate = '4800'};
+        if ($catrate == '01'){$catrate = '9600'};
+        if ($catrate == '10'){$catrate = '38400'};
+
+        if($verbose){
+                print "CAT RATE is $catrate\n";
+                    }
+return $catrate;
+               }
 
 # 79 ################################# GET TX POWER AND ARTS ######
 ###################################### READ BIT 0-1 AND 7 FROM 0X79
@@ -2890,12 +3137,10 @@ sub setContrast {
         my ($currentcontrast) = @_;
         my $self=shift;
         my $value=shift;
-        if ($value < '1' && $value > '12'){
+        if ($value < 1 || $value > 12){
                 if($verbose){print "Value invalid: Choose a number between 1 and 12\n\n"; }
 return 1;
-                                          }
-
-
+                                      }
         $self->setVerbose(0);
         $currentcontrast = $self->getContrast();
         $self->setVerbose(1);
@@ -2994,7 +3239,7 @@ sub setBeepvol {
         my ($currentbeepvol) = @_;
         my $self=shift;
         my $value=shift;
-        if ($value < 0 && $value > 100){
+        if ($value < 0 || $value > 100){
                 if($verbose){print "Value invalid: Choose (0 - 100)\n\n"; }
 return 1;
                                                                     }
@@ -3218,23 +3463,18 @@ sub setArtsmode {
                 if($verbose){print "Value invalid: Choose OFF/ALL/RANGE\n\n"; }
 return 1;
 								    }
-
-
         $self->setVerbose(0);
         $currentartsmode = $self->getArtsmode();
         $self->setVerbose(1);
-
         if ($value eq $currentartsmode){
                 if($verbose){print "Value $currentartsmode already selected.\n\n"; }
 return 1;
                                        }
-
         my $BYTE1 = $self->eepromDecode('005D');
         if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
         if ($value eq 'RANGE'){substr ($BYTE1, 0, 2, '01');}
         if ($value eq 'ALL'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
-
         $writestatus = $self->writeBlock('005D',"$NEWHEX");
 
         if($verbose){
@@ -3245,8 +3485,211 @@ return 1;
 return $writestatus;
 		 }
 
-# 5F ################################# SETS RFKNOB FUNCTION
-###################################### SETS BIT 7 FROM ADDRESS 0X5F
+# 5E ################################# SET CWPITCH, LOCK MODE, OP FILTER
+######################################  BIT 0-3, 4-5 6-7 FROM ADDRESS 0X5E
+
+sub setCwpitch {
+        my ($currentcwpitch) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 300 || $value > 1000){
+                if($verbose){print "Value invalid: Choose a number between 300 and 1000\n\n"; }
+return 1;
+                                          }
+
+        my $testvalue =  substr("$value", -2, 2);
+
+        if (($testvalue != '00') && ($testvalue !='50')){
+                if($verbose){print "Value invalid: Must be in incriments of 50\n\n"; }
+return 1;
+                                                        }
+        $self->setVerbose(0);
+        $currentcwpitch = $self->getCwpitch();
+        $self->setVerbose(1);
+
+        if ($value eq $currentcwpitch){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+        my $firstvalue = $value;
+        $value = $value - 300;
+	$value = $value / 50;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('005E');
+        $binvalue = substr("$binvalue", 4);
+        substr ($BYTE1, 4, 4, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005E',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CW Pitch set to $firstvalue sucessfull!\n";}
+                else {print"CW Pitch set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setLockmode {
+        my ($currentlockmode) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'DIAL' && $value ne 'FREQ' && $value ne 'PANEL'){
+                if($verbose){print "Value invalid: Choose DIAL/FREQ/PANEL\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentlockmode = $self->getLockmode();
+        $self->setVerbose(1);
+        if ($value eq $currentlockmode){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('005E');
+        if ($value eq 'DIAL'){substr ($BYTE1, 2, 2, '00');}
+        if ($value eq 'FREQ'){substr ($BYTE1, 2, 2, '01');}
+        if ($value eq 'PANEL'){substr ($BYTE1, 2, 2, '10');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005E',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Lock Mode Set to $value sucessfull!\n";}
+                else {print"Lock Mode set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setOpfilter {
+        my ($currentopfilter) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'OFF' && $value ne 'SSB' && $value ne 'CW'){
+                if($verbose){print "Value invalid: Choose OFF/SSB/CW\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentopfilter = $self->getOpfilter();
+        $self->setVerbose(1);
+        if ($value eq $currentopfilter){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('005E');
+        if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq 'SSB'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq 'CW'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005E',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Optional Filter Set to $value sucessfull!\n";}
+                else {print"Optional Filter set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 5F ################################# SETS CW WEIGHT, 430 ARS, 144 ARS, RFKNOB FUNCTION
+###################################### SETS BIT 0-4, 5, 6, 7 FROM ADDRESS 0X5F
+
+sub setCwweight {
+        my ($currentcwweight) = @_;
+        my $self=shift;
+        my $value=shift;
+	my $testvalue = $value; 
+	$testvalue =~ tr/.//d;
+        if ($testvalue < 25 || $testvalue > 45){
+                if($verbose){print "Value invalid: Choose a number between 2.5 and 4.5\n\n";}
+return 1;
+                                               }
+        $self->setVerbose(0);
+        $currentcwweight = $self->getCwweight();
+        $self->setVerbose(1);
+	my $testcwweight = join("",'1:',"$value");
+        if ($currentcwweight eq $testcwweight){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                              }
+        my $firstvalue = $value;
+	$value =~ tr/.//d;
+        $value = $value - 25;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('005F');
+        $binvalue = substr("$binvalue", 3);
+        substr ($BYTE1, 3, 5, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('005F',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CW Weight set to $firstvalue sucessfull!\n";}
+                else {print"CW Weight set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setArs144 {
+        my ($currentars144) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentars144 = $self->getArs144();
+        $self->setVerbose(1);
+        if ($currentars144 eq $value) {
+                if($verbose){print "\nSetting $value already selected for 144 ARS\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('005F','1','0');}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('005F','1','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"144 ARS set to $value sucessfull!\n";}
+                else {print"144 ARS set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
+
+sub setArs430 {
+        my ($currentars430) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentars430 = $self->getArs430();
+        $self->setVerbose(1);
+        if ($currentars430 eq $value) {
+                if($verbose){print "\nSetting $value already selected for 430 ARS\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('005F','2','0');}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('005F','2','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"430 ARS set to $value sucessfull!\n";}
+                else {print"430 ARS set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+####################
 
 sub setRfknob {
         my ($sqlbit, $writestatus,$currentknob) = @_;
@@ -3275,8 +3718,126 @@ return 1;
 return $writestatus;
                   }
 
-# 62 ################################# SET CHARGETIME
-###################################### CHANGE BITS 6-7 FROM ADDRESS 0X62
+# 60 ################################# SET CW DELAY
+###################################### CHANGE BITS 0-7 FROM ADDRESS 0X60
+
+sub setCwdelay {
+        my ($currentcwdelay) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 10 || $value > 2500){
+                if($verbose){print "Value invalid: Choose a number between 10 and 2500\n\n"; }
+return 1;
+                                          }
+
+        my $testvalue =  substr("$value", -1, 1);
+
+        if ($testvalue != '0'){
+                if($verbose){print "Value invalid: Must be in incriments of 10\n\n"; }
+return 1;
+                              }
+        $self->setVerbose(0);
+        $currentcwdelay = $self->getCwdelay();
+        $self->setVerbose(1);
+
+        if ($value eq $currentcwdelay){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+
+        my $firstvalue = $value;
+        $value = $value / 10;
+        my $binvalue = dec2bin($value);
+        my $NEWHEX = sprintf("%X", oct( "0b$binvalue" ) );
+        $writestatus = $self->writeBlock('0060',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CW Delay set to $firstvalue sucessfull!\n";}
+                else {print"CW Delay set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 61 ################################# SET SIDETONE VOLUME
+###################################### CHANGE BITS 0-6 FROM ADDRESS 0X61
+
+sub setSidetonevol {
+        my ($currentsidetonevol) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentsidetonevol = $self->getSidetonevol();
+        $self->setVerbose(1);
+        if ($value eq $currentsidetonevol){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('0061');
+        $binvalue = substr("$binvalue", 1);
+        substr ($BYTE1, 1, 7, "$binvalue");
+       my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0061',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Sidetone Volume set to $firstvalue sucessfull!\n";}
+                else {print"Sidetone Volume set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 62 ################################# SET CW SPEED, CHARGETIME
+###################################### CHANGE BITS 0-5, 6-7 FROM ADDRESS 0X62
+
+sub setCwspeed {
+        my ($currentcwspeed) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 4 || $value > 60){
+                if($verbose){print "Value invalid: Choose a number between 4 and 60\n\n"; }
+return 1;
+                                            }
+
+
+        $self->setVerbose(0);
+        $currentcwspeed = $self->getCwspeed();
+        $self->setVerbose(1);
+
+        if ($value eq $currentcwspeed){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        $value = $value - 4;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('0062');
+        $binvalue = substr("$binvalue", 2);
+        substr ($BYTE1, 2, 6, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0062',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CW Speed set to $firstvalue sucessfull!\n";}
+                else {print"CW Speed set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
 
 sub setChargetime {
         my ($chargebits, $writestatus1, $writestatus2, $writestatus3, $writestatus4, $writestatus5, $writestatus6, $changebits, $change7bbit) = @_;
@@ -3334,6 +3895,176 @@ return 1;
 
 return $writestatus;
                       }
+
+# 63 ################################# SET VOX GAIN, AM/FM DIAL 
+###################################### CHANGE BITS 0-6,7 FROM ADDRESS 0X63
+
+sub setVoxgain {
+        my ($currentvoxgain) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 1 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+        $self->setVerbose(0);
+        $currentvoxgain = $self->getVoxgain();
+        $self->setVerbose(1);
+        if ($value eq $currentvoxgain){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('0063');
+        $binvalue = substr("$binvalue", 1);
+        substr ($BYTE1, 1, 7, "$binvalue");
+       my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0063',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"VOX Gain set to $firstvalue sucessfull!\n";}
+                else {print"VOX Gain set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setAmfmdial {
+        my ($currentdial) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ENABLE' && $value ne 'DISABLE'){
+                if($verbose){print "Value invalid: Choose ENABLE/DISABLE\n\n"; }
+return 1;
+                                                      }
+
+        $self->setVerbose(0);
+        $currentdial = $self->getAmfmdial();
+        $self->setVerbose(1);
+        if ($currentdial eq $value) {
+                if($verbose){print "\nSetting $value already selected\n\n"; }
+return 1;
+                                    }
+
+        if($value eq 'ENABLE'){$writestatus = $self->writeEeprom('0063','0','0');}
+        if($value eq 'DISABLE'){$writestatus = $self->writeEeprom('0063','0','1');}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"AM/FM Dial set to $value sucessfull!\n";}
+                else {print"AM/FM Dial set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+                  }
+
+# 64 ################################# SET VOX DELAY, EMERGENCY, CAT RATE
+###################################### CHANGE BITS 0-4, 5, 6-7 FROM ADDRESS 0X64
+
+sub setVoxdelay {
+        my ($currentvoxdelay) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 100 || $value > 2500){
+                if($verbose){print "Value invalid: Choose a number between 100 and 2500\n\n"; }
+return 1;
+                                           }
+	my $testvalue =  substr("$value", -2, 2);
+
+        if ($testvalue != '00'){
+                if($verbose){print "Value invalid: Must be in incriments of 100\n\n"; }
+return 1;
+                               }
+        $self->setVerbose(0);
+        $currentvoxdelay = $self->getVoxdelay();
+        $self->setVerbose(1);
+        if ($value eq $currentvoxdelay){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        $value = $value / 100;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('0064');
+        $binvalue = substr("$binvalue", 3);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 3, 5, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0064',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Vox Delay set to $firstvalue sucessfull!\n";}
+                else {print"Vox Delay set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setEmergency {
+       my ($currentemergency) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentemergency = $self->getEmergency();
+        $self->setVerbose(1);
+
+        if ($value eq $currentemergency){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0064','2','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0064','2','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Emergency set to $value sucessfull!\n";}
+                else {print"Emergency set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
+
+####################
+
+sub setCatrate {
+        my ($currentcatrate) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value != '4800' && $value != '9600' && $value != '38400'){
+                if($verbose){print "Value invalid: Choose 4800/9600/38400\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentcatrate = $self->getCatrate();
+        $self->setVerbose(1);
+        if ($value eq $currentcatrate){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('0064');
+        if ($value == '4800'){substr ($BYTE1, 0, 2, '00');}
+        if ($value == '9600'){substr ($BYTE1, 0, 2, '01');}
+        if ($value == '38400'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0064',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CAT RATE Set to $value sucessfull!\n";}
+                else {print"CAT RATE set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
 
 # 79 ################################# SET ARTS ON/OFF
 ###################################### CHANGE BITS 7 FROM ADDRESS 0X79
@@ -3451,7 +4182,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_13
+Version 0.9.0_14
 
 =head1 SYNOPSIS
 
@@ -3875,6 +4606,13 @@ The output shows all of the transactions and modifications conducted by the syst
 	Returns the current setting of the AGC: AUTO / FAST / SLOW / OFF
 
 
+=item getAmfmdial()
+
+                $amfmdial = $FT817->getAmfmdial();
+
+        MENU ITEM # 4 - Returns the Disable option of the AM/FM dial ENABLE / DISABLE
+
+
 =item getAntenna ()
 
                 $antenna = $FT817->getAntenna({HF/6M/FMBCB/AIR/VHF/UHF});
@@ -3892,6 +4630,20 @@ The output shows all of the transactions and modifications conducted by the syst
 		$arts = $FT817->getArts();
 
 	Returns the status of ARTS: ON / OFF
+
+
+=item getArs144 ()
+
+                $ars144 = $FT817->getArs144();
+
+        MENU ITEM # 1 - Returns the status of 144 ARS: OFF / ON
+
+
+=item getArs430 ()
+
+                $ars430 = $FT817->getArs430();
+
+        MENU ITEM # 2 - Returns the status of 430 ARS: OFF / ON
 
 
 =item getArtsmode ()
@@ -3928,6 +4680,13 @@ The output shows all of the transactions and modifications conducted by the syst
 
         Returns the status of Break-in (BK) ON / OFF
  
+
+=item getCatrate()
+
+                $catrate = $FT817->getCatrate();
+
+        MENU ITEM # 14 - Returns the CAT RATE (4800/9600/38400)
+
 
 =item getCharger()
 
@@ -3973,9 +4732,16 @@ The output shows all of the transactions and modifications conducted by the syst
         MENU ITEM # 16 - Returns the Contrast of the LCD display (1-12)
 
 
+=item getCwdelay()
+
+                $cwdelay = $FT817->getCwdelay();
+
+        MENU ITEM # 17 - Shows CW Delay 10-2500 ms
+
+
 =item getCwid()
 
-                $cwspeed = $FT817->getCwspeed();
+                $cwid = $FT817->getCwid();
 
         MENU ITEM # 18 - Shows if CW ID is ON / OFF
 
@@ -3987,11 +4753,25 @@ The output shows all of the transactions and modifications conducted by the syst
         MENU ITEM # 19 - Shows if CW Paddle is  NORMAL / REVERSE
 
 
+=item getCwpitch()
+
+                $cwpitch = $FT817->getCwpitch();
+
+        MENU ITEM # 20 - Shows the CW Pitch 300-1000 Hz
+
+
 =item getCwspeed()
 
                 $cwspeed = $FT817->getCwspeed();
 
         MENU ITEM # 21 - Returns the speed of CW in WPM
+
+
+=item getCwweight()
+
+                $cwwtight = $FT817->getCwweight();
+
+        MENU ITEM # 22 - Returns the Weight of CW [1:2.5 - 1:4.5]
 
 
 =item getDsp()
@@ -4027,6 +4807,13 @@ With two arguments it will display information on a range of addresses
 	0060        00011001        25          19         
 	0061        00110010        50          32         
 	0062        10001000        136         88  
+
+
+=item getEmergency()
+
+                $emergency = $FT817->getEmergency();
+
+        MENU ITEM # 28 - Shows if Emergency is set to ON / OFF
 
 
 =item getFasttuning()
@@ -4065,6 +4852,13 @@ With two arguments it will display information on a range of addresses
         Returns the current status of the Lock : ON/OFF
 
 
+=item getLockmode()
+
+                $lockmode = $FT817->getLockmode();
+
+        MENU ITEM # 32 - Returns the Lock Mode  DIAL / FREQ / PANEL
+
+
 =item getMainstep()
 
                 $mainstep = $FT817->getMainstep();
@@ -4091,6 +4885,13 @@ With two arguments it will display information on a range of addresses
 		$nb = $FT817->getNb();
 
 	Returns the current Status of the Noise Blocker : ON / OFF
+
+
+=item getOpfilter()
+
+                $opfilter = $FT817->getOpfilter();
+
+        MENU ITEM # 38 - Returns the OP Filter setting OFF / SSB / CW
 
 
 =item getPktrate()
@@ -4140,6 +4941,13 @@ With two arguments it will display information on a range of addresses
                 $scope = $FT817->getScope();
 
         MENU ITEM # 43 - Returns the Setting for SCOPE : Continuous / CHK (every 10 sec)
+
+
+=item getSidetonevol()
+
+                $sidetonevol = $FT817->getSidetonevol();
+
+        MENU ITEM # 44 - Returns the Sidetone Volume 0-100
 
 
 =item getSoftcal()
@@ -4195,6 +5003,20 @@ With two arguments it will display information on a range of addresses
                 $vox = $FT817->getVox();
 
         Returns the status of VOX : ON / OFF
+
+
+=item getVoxdelay()
+
+                $voxdelay = $FT817->getVoxdelay();
+
+        MENU ITEM # 50 - Returns the VOX Delay (100-2500)ms
+
+
+=item getVoxgain()
+
+                $voxgain = $FT817->getVoxgain();
+
+        MENU ITEM # 51 - Returns the VOX Gain (1-100)
 
 
 =item hex2bin()
@@ -4271,7 +5093,14 @@ With two arguments it will display information on a range of addresses
 	This is a WRITEEEPROM based function and requires both setWriteallow() and agreeWithwarning()
 	to be set to 1.
 	This command does not allow for an arbitrary address to be written. 
-	Currently [0055] [0057] [0058] [0059] [005B] [005C] [005D] [005F] [0062] [0079] [007A] and [007B] are allowed
+	
+	Currently 
+		  [0055] [0057] [0058] [0059] [0060]
+		  [005B] [005C] [005D] [005E] [005F] 
+		  [0061] [0062] [0063] [0064] [0079]
+		  [007A] [007B]
+	
+	 are allowed
 
 	restoreEeprom('005F'); 
 
@@ -4299,6 +5128,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
+=item setAmfmdial()
+
+                $status = $FT817->setAmfmdial([ENABLE/DISABLE]);
+
+        MENU ITEM # 4 Sets the function of the dial when using AM or FM
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0063');
+
+
 =item setAntenna()
 
                 $status = $FT817->setAntenna([HF/6M/FMBCB/AIR/VHF/UHF] [FRONT/BACK]);
@@ -4313,6 +5157,35 @@ With two arguments it will display information on a range of addresses
 
         restoreEeprom('007A');
 
+
+=item setArs144()
+
+                $status = $FT817->setArs144([OFF/ON]);
+
+        MENU ITEM # 1 Sets the 144 ARS ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005F');
+
+
+=item setArs430()
+
+                $status = $FT817->setArs430([OFF/ON]);
+
+        MENU ITEM # 2 Sets the 430 ARS ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005F');
 
 =item setArts()
 
@@ -4403,6 +5276,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0058');
 
 
+=item setCatrate()
+
+                $status = $FT817->setCatrate([4800/9600/38400]);
+
+        MENU ITEM # 14 Sets the Baud rate of the CAT interface
+	
+	Takes effect on next radio restart, be sure to update value baud in new().
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0064');
+
+
 =item setCharger()
 
                 $charger = $FT817->setCharger([ON/OFF]);
@@ -4472,6 +5362,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005B');
 
 
+=item setCwdelay()
+
+                $output = $FT817->setCwdelay([10-2500]);
+
+        MENU ITEM # 17
+
+        Sets the CW Delay between 10 - 2500 ms in incriments of 10
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0060');
+
+
 =item setCwid()
 
                 $output = $FT817->setCwid([ON/OFF]);
@@ -4489,6 +5396,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005D');
 
 
+=item setCwpitch()
+
+                $output = $FT817->setCwpitch([300-1000]);
+
+        MENU ITEM # 20
+
+        Sets the CW Pitch from 300 to 1000 hz in incriments of 50
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005E');
+
+
 =item setCwpaddle()
 
                 $output = $FT817->setCwpaddle([NORMAL/REVERSE]);
@@ -4504,6 +5428,40 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0058');
+
+
+=item setCwspeed()
+
+                $output = $FT817->setCwpaddle([4-60]);
+
+        MENU ITEM # 21
+
+        Sets the CW Speed
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0062');
+
+
+=item setCwweight()
+
+                $output = $FT817->setCwweight([2.5-4.5]);
+
+        MENU ITEM # 22
+
+        Sets the CW weight
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005F');
 
 
 =item setDebug()
@@ -4529,6 +5487,23 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0057');
+
+
+=item setEmergency()
+
+                $output = $FT817->setEmergency([ON/OFF]);
+
+        MENU ITEM # 28
+
+        Sets the Emergency to ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0064');
 
 
 =item setFasttuning()
@@ -4591,9 +5566,24 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
+=item setLockmode()
+
+                $status = $FT817->setLockmode([DIAL/FREQ/PANEL]);
+
+        MENU ITEM # 32 Sets the Radio Lock Mode
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005E');
+
+
 =item setMainstep()
 
-                $status = $FT817->setMainstep([COURSE-FINE]);
+                $status = $FT817->setMainstep([COURSE/FINE]);
 
         MENU ITEM # 33 Sets the Main step
 
@@ -4651,6 +5641,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
         Returns 'OK' on success. Any other output an error.
+
+
+=item setOpfilter()
+
+                $output = $FT817->setOpfilter([OFF/SSB/CW]);
+
+        MENU ITEM # 38
+
+        Sets the Optional Filter
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('005E');
 
 
 =item setPktrate()
@@ -4765,6 +5772,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005D');
 
 
+=item setSidetonevol()
+
+                $output = $FT817->setSidetonevol([1-100]);
+
+        MENU ITEM # 44
+
+        Sets the Sidetone Volume
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0061');
+
+
 =item setTuner()
 
                 $output = $FT817->setTuner([VFO/MEMORY]);
@@ -4842,6 +5866,40 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0058');
+
+
+=item setVoxdelay()
+
+                $output = $FT817->setVoxdelay([100-2500]);
+
+        MENU ITEM # 50
+
+        Sets the Vox delay. Done in incriments of 100
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0064');
+
+
+=item setVoxgain()
+
+                $output = $FT817->setVoxgain([1-100]);
+
+        MENU ITEM # 51
+
+        Sets the Vox Gain.
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0063');
 
 
 =item setWriteallow()

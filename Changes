@@ -139,3 +139,34 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setScope
 	    Added function setCwid
 	    Added function setMainstep
+
+0.9.0_14    27MARCH2014/1200
+	    Pod Fixes
+            Added [005E] [0060] [0064] option to restoreEeprom
+	    Added function setCwspeed
+	    Added function getEmergency
+	    Added function getCatrate
+	    Added function getVoxdelay
+	    Added function setEmergency
+	    Added function setVoxdelay
+            Added function setCatrate
+	    Added function getArs420
+	    Added function getArs144
+	    Added function getCwweight
+	    Added function setArs430
+            Added function setArs144
+            Added function setCwweight
+	    Added function getCwpitch
+	    Added function getLockmode	
+	    Added function getOpfilter
+	    Added function getCwdelay
+	    Added function getSidetonevol
+	    Added function getVoxgain
+	    Added function getDisabledial
+	    Added function setCwpitch
+	    Added function setLockmode
+	    Added function setOpfilter
+	    Added function setCwdelay
+	    Added function setSidetonevol
+	    Added function setVoxgain
+	    Added function setAmfmdial
