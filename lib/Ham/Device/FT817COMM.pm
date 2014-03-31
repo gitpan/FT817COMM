@@ -14,15 +14,15 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.0_15';
+our $VERSION = '0.9.0_16';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
-		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS $catoutput
-		$output $squelch $currentmode $out $vfo $home $tuneselect $nb $lock $txpow $toggled
-		$writestatus $testbyte $dsp $fasttuning $charger);
+		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS %RESTOREAREAS 
+		$catoutput $output $squelch $currentmode $out $vfo $home $tuneselect $nb $lock
+		$txpow $toggled $writestatus $testbyte $dsp $fasttuning $charger);
 
 my $ft817;
 my $catoutput;
@@ -30,6 +30,13 @@ my $currentmode;
 my $output;
 
 our $syntaxerr = "SYNTAX ERROR, CHECK WITH VERBOSE('1')\n";
+
+our %RESTOREAREAS = ('0055' => '00', '0057' => '00', '0058' => '00', '0059' => '45', '005B' => '86', '005C' => 'B2', 
+		     '005D' => '42', '005E' => '08', '005F' => 'E5', '0060' => '19', '0061' => '32', '0062' => '48', 
+		     '0063' => 'B2', '0064' => '05', '0065' => '00', '0066' => '00', '0067' => 'B2', '0068' => '32',
+		     '0069' => '32', '006A' => '32', '006B' => 'B2', '006C' => '32', '006D' => '00', '006E' => '00',
+		     '006F' => '00', '0070' => '00', '0071' => '00', '0072' => '00', '0073' => '00', '0074' => '00',
+		     '0079' => '03', '007A' => '0F', '007B' => '08');
 
 our %AGCMODES = (AUTO => '00', FAST => '01', SLOW => '10', OFF => '11');
 
@@ -481,233 +488,55 @@ return $writestatus;
 sub restoreEeprom {
         my $self=shift;
 	my $area=shift;
-        my ($writestatus,$test,$restorevalue,$address) = @_;
+        my ($writestatus,$test,$restorevalue,$restorearea,$address) = @_;
         if ($writeallow != '1' and $agreewithwarning != '1') {
                 if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
                 if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
                 $writestatus = "Write Disabled";
 return $writestatus;
-                          }
-
-
-
-	    if (($area ne '0055') && ($area ne '0057') && ($area ne '0058') && ($area ne '0059') && ($area ne '005B') &&
-		($area ne '005C') && ($area ne '005D') && ($area ne '005E') && ($area ne '005F') && ($area ne '0060') &&
-		($area ne '0061') && ($area ne '0062') && ($area ne '0063') && ($area ne '0064') && ($area ne '0065') &&
-		($area ne '0066') && ($area ne '0067') && ($area ne '0068') && ($area ne '0069') && ($area ne '0079') &&
-	        ($area ne '007A') && ($area ne '007B')){
-
-		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
-		$writestatus = "Invalid memory address ($area)";
+                                                             }
+                if(!$RESTOREAREAS{$area}){
+		if ($verbose){print "Address ($area) not supported for restore...\n";}
+                $writestatus = "Invalid memory address ($area)";
 return $writestatus;
-			  }
-
-        if ($area eq '0055'){
-                $restorevalue = '00';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x55\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'VFO','A', 'MTQMB','NO', 'QMB','NO', 'MEM/VFO', 'VFO';
-                             }
-                          }
-
-
-        if ($area eq '0057'){
-                $restorevalue = '00';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x57\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'AGC','AUTO', 'DSP','OFF', 'PBT','OFF', 'NB', 'OFF', 'LOCK','OFF', 'FASTTUNE','OFF';
-                             }
-                          }
-
-
-        if ($area eq '0058'){
-		$restorevalue = '00';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x58\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'PWR METER','PWR', 'CW PADDLE','NORMAL', 'KEYER','OFF', 'BK', 'OFF', 'VLT','OFF', 'VOX','OFF';
-                             }
-                          }
-
-
-        if ($area eq '0059'){
-                $restorevalue = '4C';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x59\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'VFO A','2M', 'VFO B','20M';
-                             }
-                          }
-
-        if ($area eq '005B'){
-                $restorevalue = '86';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x5B\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Contrast','5', 'Color','Blue', 'Backlight','Auto';
-                             }
-                          }
-
-        if ($area eq '005C'){
-                $restorevalue = 'B2';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x5C\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Beep Volume','50', 'Beep Frequency','880 hz';
-                             }
-                          }
-
-        if ($area eq '005D'){
-                $restorevalue = '42';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x5D\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Resume Scan','5 SEC', 'PKT Rate','1200', 'Scope','CONT', 'CW-ID', 'OFF', 'Main STEP','FINE', 'ARTS','RANGE';
-                             }
-                          }
-
-
-        if ($area eq '005E'){
-                $restorevalue = '08';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x5E\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Pitch','700 Hz', 'Lock Mode','Dial', 'OP Filter','OFF';
-                             }
-                          }
-
-
-        if ($area eq '005F'){
-		$restorevalue = 'E5';
-		if ($verbose){
-			print "\nDEFAULTS LOADED FOR 0x5F\n";
-			print "________________________\n";
-			printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Weight','1:3', '430 ARS','ON', '144 ARS','ON', 'SQL-RFG', 'SQUELCH';
-			     }			
-			  }
- 
-        if ($area eq '0060'){
-                $restorevalue = '19';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x60\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Delay','250';
-                             }
-                          }
-
-        if ($area eq '0061'){
-                $restorevalue = '32';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x61\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Sidetone Volume','50';
-                             }
-                          }
-
-        if ($area eq '0062'){
-		$restorevalue = '48';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x62\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Speed','12wpm', 'Chargetime','8hrs';
-                             }
-		  	  }
-
-        if ($area eq '0063'){
-                $restorevalue = 'B2';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x63\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'VOX Gain','50', 'AM\&FM DL','DISABLED';
-                             }
-                          }
-
-        if ($area eq '0064'){
-                $restorevalue = '05';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x64\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Vox Delay','500 msec', 'Emergency','OFF', 'Cat rate','4800';
-                             }
-                          }
-
-        if ($area eq '0065'){
-                $restorevalue = '00';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x65\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'APO Time','OFF', 'MEM Groups','OFF', 'DIG Mode','RTTY';
-                             }
-                          }
-
-        if ($area eq '0066'){
-                $restorevalue = '00';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x66\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'TOT Time','OFF', 'DCS INV','TN-RN';
-                             }
-                          }
-
-        if ($area eq '0067'){
-                $restorevalue = 'B2';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x67\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n %-11s %-11s\n\n", 'SSB MIC','50' , 'MIC SCAN','ON';
-                             }
-                          }
-
-        if ($area eq '0068'){
-                $restorevalue = '32';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x68\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'AM MIC','50', 'MIC KEY','OFF';
-                             }
-                          }
-
-        if ($area eq '0069'){
-                $restorevalue = '32';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x69\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n\n", 'FM MIC','50';
-                             }
-                          }
-
-        if ($area eq '0079'){
-                $restorevalue = '03';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x79\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'TX Power','LOW1', 'PRI','OFF', 'DUAL-WATCH', 'OFF', 'SCAN', 'OFF', 'ARTS', 'OFF';
-                             }
-			  }
-
-        if ($area eq '007A'){
-		$restorevalue = '0F';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x7A\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Antennas','All Rear except VHF and UHF', 'SPL','OFF';
-                             }
-
-			  }
-        if ($area eq '007B'){
-		$restorevalue = '08';
-                if ($verbose){
-                        print "\nDEFAULTS LOADED FOR 0x7B\n";
-                        print "________________________\n";
-                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'Chargetime','8hrs', 'Charger','OFF';
-                             }
-			  }
-
-        $writestatus = $self->writeBlock("$area","$restorevalue");
-
-
+		   		         }
+	if ($verbose){
+                        print "\nDEFAULTS LOADED FOR $area\n________________________\n";
+        if ($area eq '0055'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'VFO','A', 'MTQMB','NO', 'QMB','NO', 'MEM/VFO', 'VFO';}
+        if ($area eq '0057'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'AGC','AUTO', 'DSP','OFF', 'PBT','OFF', 'NB', 'OFF', 'LOCK','OFF', 'FASTTUNE','OFF';}
+        if ($area eq '0058'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'PWR METER','PWR', 'CW PADDLE','NORMAL', 'KEYER','OFF', 'BK', 'OFF', 'VLT','OFF', 'VOX','OFF';}
+        if ($area eq '0059'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'VFO A','2M', 'VFO B','20M';}
+        if ($area eq '005B'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Contrast','5', 'Color','Blue', 'Backlight','Auto';}
+        if ($area eq '005C'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'Beep Volume','50', 'Beep Frequency','880 hz';}
+        if ($area eq '005D'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Resume Scan','5 SEC', 'PKT Rate','1200', 'Scope','CONT', 'CW-ID', 'OFF', 'Main STEP','FINE', 'ARTS','RANGE';}
+        if ($area eq '005E'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Pitch','700 Hz', 'Lock Mode','Dial', 'OP Filter','OFF';}
+        if ($area eq '005F'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'CW Weight','1:3', '430 ARS','ON', '144 ARS','ON', 'SQL-RFG', 'SQUELCH';}
+        if ($area eq '0060'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Delay','250';}
+        if ($area eq '0061'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'Sidetone Volume','50';}
+        if ($area eq '0062'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'CW Speed','12wpm', 'Chargetime','8hrs';}
+        if ($area eq '0063'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'VOX Gain','50', 'AM\&FM DL','DISABLED';}
+        if ($area eq '0064'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Vox Delay','500 msec', 'Emergency','OFF', 'Cat rate','4800';}
+        if ($area eq '0065'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'APO Time','OFF', 'MEM Groups','OFF', 'DIG Mode','RTTY';}
+        if ($area eq '0066'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'TOT Time','OFF', 'DCS INV','TN-RN';}
+        if ($area eq '0067'){printf "%-11s %-11s\n %-11s %-11s\n\n", 'SSB MIC','50' , 'MIC SCAN','ON';}
+        if ($area eq '0068'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'AM MIC','50', 'MIC KEY','OFF';}
+        if ($area eq '0069'){printf "%-11s %-11s\n\n", 'FM MIC','50';}
+        if ($area eq '006A'){printf "%-11s %-11s\n\n", 'DIG MIC','50';}
+        if ($area eq '006B'){printf "%-11s %-11s\n\n", 'PKT MIC','50';}
+        if ($area eq '006C'){printf "%-11s %-11s\n\n", '9600 MIC','50';}
+        if ($area eq '006D'){printf "%-11s %-11s\n\n", 'DIG SHIFT MSB','0';}
+        if ($area eq '006E'){printf "%-11s %-11s\n\n", 'DIG SHIFT LSB','0';}
+        if ($area eq '006F'){printf "%-11s %-11s\n\n", 'DIG DISP MSB','0';}
+        if ($area eq '0070'){printf "%-11s %-11s\n\n", 'DIG DISP LSB','0';}
+        if ($area eq '0071'){printf "%-11s %-11s\n\n", 'R LSB CAR','0';}
+        if ($area eq '0072'){printf "%-11s %-11s\n\n", 'R USB CAR','0';}
+        if ($area eq '0073'){printf "%-11s %-11s\n\n", 'T LSB CAR','0';}
+        if ($area eq '0074'){printf "%-11s %-11s\n\n", 'T USB CAR','0';}
+        if ($area eq '0079'){printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'TX Power','LOW1', 'PRI','OFF', 'DUAL-WATCH', 'OFF', 'SCAN', 'OFF', 'ARTS', 'OFF';}
+        if ($area eq '007A'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'Antennas','All Rear except VHF and UHF', 'SPL','OFF';}
+        if ($area eq '007B'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'Chargetime','8hrs', 'Charger','OFF';}
+		     }
+$writestatus = $self->writeBlock("$area","$RESTOREAREAS{$area}");
 return $writestatus;
 		  }
 
@@ -1327,7 +1156,6 @@ sub getSoftcal {
 			     }
 	                          }
 
-
         if ($verbose && $option eq 'DIGEST'){
                 print "Generated an MD5 hash from software calibration values ";
                      }
@@ -1349,7 +1177,6 @@ sub getSoftcal {
 		     }
                               }
 
-
 	if ($option eq 'DIGEST') {
 
         do {
@@ -1370,12 +1197,9 @@ sub getSoftcal {
 return $digest;
       			 }
 
-
-
 	else {
 
 	do {
-
 		$memoryaddress = sprintf("%x",$startaddress);
 		my $size = length($memoryaddress);
 		if ($size < 2){$memoryaddress = join("",'0',"$memoryaddress");}	
@@ -1389,23 +1213,17 @@ return $digest;
 	if ($buildfile == '1'){
                printf FILE "%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
 			      }
-
 		$block++;
 		$startaddress ++;
 	   }
 	while ($block < '78');
-
-
-            }
-
-
+           }
 
         if ($buildfile == '1'){
                 print FILE "\n\n---END OF Software Calibration Settings---\n";
                 close FILE;
 		return 0;
                               }
-
 return $output;
                 }
 
@@ -1419,11 +1237,9 @@ sub getMtqmb {
         my @block55 = split("",$output);
         if ($block55[6] == '0') {$mtqmb = "OFF";}
         if ($block55[6] == '1') {$mtqmb = "ON";}
-        if($verbose){
-                print "MTQMB is $mtqmb\n";
-                    }
+        if($verbose){print "MTQMB is $mtqmb\n";}
 return $mtqmb;
-           }
+             }
 
 sub getQmb {
         my $self=shift;
@@ -1432,9 +1248,7 @@ sub getQmb {
         my @block55 = split("",$output);
         if ($block55[5] == '0') {$qmb = "OFF";}
         if ($block55[5] == '1') {$qmb = "ON";}
-        if($verbose){
-                print "QMB is $qmb\n";
-                    }
+        if($verbose){print "QMB is $qmb\n";}
 return $qmb;
            }
 
@@ -1445,11 +1259,9 @@ sub getMtune {
         my @block55 = split("",$output);
         if ($block55[2] == '0') {$mtune = "MEMORY";}
         if ($block55[2] == '1') {$mtune = "MTUNE";}
-        if($verbose){
-                print "MTUNE is $mtune\n";
-                    }
+        if($verbose){print "MTUNE is $mtune\n";}
 return $mtune;
-           }
+             }
 
 sub getVfo {
 	my $self=shift;
@@ -1457,9 +1269,7 @@ sub getVfo {
 	my @block55 = split("",$output);
 	if ($block55[7] == '0') {$vfo = "A";}
 	if ($block55[7] == '1') {$vfo = "B";}
-        if($verbose){
-                print "VFO is $vfo\n";
-                    }
+        if($verbose){print "VFO is $vfo\n";}
 return $vfo;
            }
 
@@ -1482,9 +1292,7 @@ sub getTuner {
 	my @block55 = split("",$output);
 	if ($block55[1] == '0') {$tuneselect = "VFO";}
 	if ($block55[1] == '1') {$tuneselect = "MEMORY";}
-        if($verbose){
-                print "Tuner is $tuneselect\n";
-                    }
+        if($verbose){print "Tuner is $tuneselect\n";}
 return $tuneselect;
              }
 
@@ -1496,12 +1304,9 @@ sub getAgc {
 	$output = $self->eepromDecode('0057');
 	my $agcvalue = substr($output,6,2);
 	my ($agc) = grep { $AGCMODES{$_} eq $agcvalue } keys %AGCMODES;
-        if($verbose){
-                print "AGC is $agc\n";
-                    }
+        if($verbose){print "AGC is $agc\n";}
 return $agc;
            }
-
 
 sub getDsp {
         my $self=shift;
@@ -1509,9 +1314,7 @@ sub getDsp {
         my @block55 = split("",$output);
         if ($block55[5] == '0') {$dsp = "OFF";}
         if ($block55[5] == '1') {$dsp = "ON";}
-        if($verbose){
-                print "DSP is $dsp\n";
-                    }
+        if($verbose){print "DSP is $dsp\n";}
 return $dsp;
            }
 
@@ -1522,36 +1325,29 @@ sub getPbt {
         my @block55 = split("",$output);
         if ($block55[3] == '0') {$pbt = "OFF";}
         if ($block55[3] == '1') {$pbt = "ON";}
-        if($verbose){
-                print "Passband Tuning is $pbt\n";
-                    }
+        if($verbose){print "Passband Tuning is $pbt\n";}
 return $pbt;
            }
 
-
-sub getNb    {
+sub getNb {
 	my $self=shift;
 	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[2] == '0') {$nb = "OFF";}
 	if ($block55[2] == '1') {$nb = "ON";}
-        if($verbose){
-                print "Noise Blocker is $nb\n";
-                    }
+        if($verbose){print "Noise Blocker is $nb\n";}
 return $nb;
-             }
+          }
 
-sub getLock    {
+sub getLock {
 	my $self=shift;
 	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[1] == '1') {$lock = "OFF";}
 	if ($block55[1] == '0') {$lock = "ON";}
-        if($verbose){
-                print "Lock is $lock\n";
-                    }
+        if($verbose){print "Lock is $lock\n";}
 return $lock;
-                }
+            }
 
 sub getFasttuning {
         my $self=shift;
@@ -1559,14 +1355,9 @@ sub getFasttuning {
         my @block55 = split("",$output);
         if ($block55[0] == '1') {$fasttuning = "OFF";}
         if ($block55[0] == '0') {$fasttuning = "ON";}
-        if($verbose){
-                print "Fast Tuning is $fasttuning\n";
-                    }
+        if($verbose){print "Fast Tuning is $fasttuning\n";}
 return $fasttuning;
                   }
-
-
-
 
 # 58 ################################# GET POWER METER MODE, CW PADDLE, KYR, BK, VLT, VOX ######
 ###################################### READ BIT 0-1,2,4,5,6,7 FROM 0X58
@@ -1580,9 +1371,7 @@ sub getPwrmtr {
         if ($pwrmtr == '01'){$pwrmtr = 'ALC'};
         if ($pwrmtr == '10'){$pwrmtr = 'SWR'};
         if ($pwrmtr == '11'){$pwrmtr = 'MOD'};
-        if($verbose){
-                print "Power Meter set to $pwrmtr\n";
-                    }
+        if($verbose){print "Power Meter set to $pwrmtr\n";}
 return $pwrmtr;
 	      }
 
@@ -1594,9 +1383,7 @@ sub getCwpaddle {
         $cwpaddle = substr($output,5,1);
         if ($cwpaddle == '0'){$cwpaddle = 'NORMAL'};
         if ($cwpaddle == '1'){$cwpaddle = 'REVERSE'};
-        if($verbose){
-                print "CW Paddle set to $cwpaddle\n";
-                    }
+        if($verbose){print "CW Paddle set to $cwpaddle\n";}
 return $cwpaddle;
                 }
 
@@ -1607,12 +1394,9 @@ sub getKyr {
         $kyr = substr($output,3,1);
         if ($kyr == '0'){$kyr = 'OFF'};
         if ($kyr == '1'){$kyr = 'ON'};
-        if($verbose){
-                print "Keyer (KYR) set to $kyr\n";
-                    }
+        if($verbose){print "Keyer (KYR) set to $kyr\n";}
 return $kyr;
            }
-
 
 sub getBk {
         my ($bk) = @_;
@@ -1621,9 +1405,7 @@ sub getBk {
         $bk = substr($output,2,1);
         if ($bk == '0'){$bk = 'OFF'};
         if ($bk == '1'){$bk = 'ON'};
-        if($verbose){
-                print "Break in (BK) set to $bk\n";
-                    }
+        if($verbose){print "Break in (BK) set to $bk\n";}
 return $bk;
            }
 
@@ -1634,12 +1416,9 @@ sub getVlt {
         $vlt = substr($output,1,1);
         if ($vlt == '0'){$vlt = 'OFF'};
         if ($vlt == '1'){$vlt = 'ON'};
-        if($verbose){
-                print "Voltage display set to $vlt\n";
-                    }
+        if($verbose){print "Voltage display set to $vlt\n";}
 return $vlt;
            }
-
 
 sub getVox {
         my ($vox) = @_;
@@ -1648,12 +1427,9 @@ sub getVox {
         my @block55 = split("",$output);
         if ($block55[0] == '0') {$vox = "OFF";}
         if ($block55[0] == '1') {$vox = "ON";}
-        if($verbose){
-                print "VOX is $vox\n";
-                    }
+        if($verbose){print "VOX is $vox\n";}
 return $vox;
            }
-
 
 # 59 ################################# GET VFO BANDS ######
 ###################################### READ  ALL BITS FROM 0X59
@@ -1662,7 +1438,6 @@ sub getVfoband {
         my ($vfoband, $vfobandvalue) = @_;
         my $self=shift;
         my $value=shift;
-
         if ($value ne 'A' && $value ne 'B'){
                 if($verbose){print "Value invalid: Choose A/B\n\n"; }
 return 1;
@@ -1671,14 +1446,9 @@ return 1;
 	if ($value eq 'A'){$vfobandvalue = substr($output,4,4);}
 	if ($value eq 'B'){$vfobandvalue = substr($output,0,4);}
         ($vfoband) = grep { $VFOBANDS{$_} eq $vfobandvalue } keys %VFOBANDS;
-        if($verbose == '1'){
-                print "VFO Band is $vfoband\n";
-                           }
+        if($verbose == '1'){print "VFO Band is $vfoband\n";}
 return $vfoband;
                }
-
-
-
 
 # 5B ################################# GET CONTRAST, COLOR, BACKLIGHT ######
 ###################################### READ BIT 0-3, 4, 6-7  FROM 0X5B
@@ -1691,12 +1461,9 @@ sub getContrast {
         my $HEX1 = sprintf("%X", oct( "0b$contrast" ) );
         $contrast = hex($HEX1);
 	$contrast = $contrast - 1;
-        if($verbose){
-                print "CONTRAST is $contrast\n";
-                    }
+        if($verbose){print "CONTRAST is $contrast\n";}
 return $contrast;
-               }
-
+                 }
 
 sub getColor {
         my ($color) = @_;
@@ -1705,11 +1472,9 @@ sub getColor {
         $color = substr($output,3,1);
         if ($color == '1'){$color = 'AMBER';}
         else{$color = 'BLUE';}
-        if($verbose){
-                print "COLOR is $color\n";
-                    }
+        if($verbose){print "COLOR is $color\n";}
 return $color;
-               }
+             }
 
 sub getBacklight {
         my ($backlight) = @_;
@@ -1719,12 +1484,9 @@ sub getBacklight {
         if ($backlight == '00'){$backlight = 'OFF';}
         if ($backlight == '01'){$backlight = 'ON';}
         if ($backlight == '10'){$backlight = 'AUTO';}
-        if($verbose){
-                print "BACKLIGHT is set to $backlight\n";
-                    }
+        if($verbose){print "BACKLIGHT is set to $backlight\n";}
 return $backlight;
                  }
-
 
 # 5C ################################# GET BEEP VOL, BEEP FREQ ######
 ###################################### READ BIT 6-0, 7 FROM 0X5C
@@ -1736,12 +1498,9 @@ sub getBeepvol {
         $beepvol = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$beepvol" ) );
         $beepvol = hex($HEX1);
-        if($verbose){
-                print "BEEP VOLUME is $beepvol\n";
-                    }
+        if($verbose){print "BEEP VOLUME is $beepvol\n";}
 return $beepvol;
                }
-
 
 sub getBeepfreq {
         my ($beepfreq) = @_;
@@ -1750,11 +1509,9 @@ sub getBeepfreq {
         $beepfreq = substr($output,0,1);
         if ($beepfreq == '1'){$beepfreq = '880'};
         if ($beepfreq == '0'){$beepfreq = '440'};
-        if($verbose){
-                print "BEEP Frequency is $beepfreq hz\n";
-                    }
+        if($verbose){print "BEEP Frequency is $beepfreq hz\n";}
 return $beepfreq;
-               }
+                }
 
 # 5d ################################# GET RESUME SCAN, PKT RATE, SCOPE, CW ID, MAIN STEP, ARTS BEEP MODE ######
 ###################################### READ BIT 0-1, 2, 3, 4, 5, 6-7 FROM 0X5d
@@ -1768,12 +1525,9 @@ sub getResumescan {
         if ($resumescan == '01'){$resumescan = '3'};
         if ($resumescan == '10'){$resumescan = '5'};
         if ($resumescan == '11'){$resumescan = '10'};
-        if($verbose){
-                print "RESUME SCAN is ($resumescan) sec\n";
-                    }
+        if($verbose){print "RESUME SCAN is ($resumescan) sec\n";}
 return $resumescan;
                 }
-
 
 sub getPktrate {
         my ($pktrate) = @_;
@@ -1782,12 +1536,9 @@ sub getPktrate {
         $pktrate = substr($output,5,1);
         if ($pktrate == '0'){$pktrate = '1200'};
         if ($pktrate == '1'){$pktrate = '9600'};
-        if($verbose){
-                print "PKT RATE is ($pktrate)\n";
-                    }
+        if($verbose){print "PKT RATE is ($pktrate)\n";}
 return $pktrate;
                 }
-
 
 sub getScope {
         my ($scope) = @_;
@@ -1796,9 +1547,7 @@ sub getScope {
         $scope = substr($output,4,1);
         if ($scope == '0'){$scope = 'CONT'};
         if ($scope == '1'){$scope = 'CHK'};
-        if($verbose){
-                print "SCOPE is ($scope)\n";
-                    }
+        if($verbose){print "SCOPE is ($scope)\n";}
 return $scope;
                 }
 
@@ -1809,11 +1558,9 @@ sub getCwid {
         $cwid = substr($output,3,1);
         if ($cwid == '0'){$cwid = 'OFF'};
         if ($cwid == '1'){$cwid = 'ON'};
-        if($verbose){
-                print "CW ID is ($cwid)\n";
-                    }
+        if($verbose){print "CW ID is ($cwid)\n";}
 return $cwid;
-                }
+            }
 
 sub getMainstep {
         my ($mainstep) = @_;
@@ -1822,9 +1569,7 @@ sub getMainstep {
         $mainstep = substr($output,2,1);
         if ($mainstep == '0'){$mainstep = 'FINE'};
         if ($mainstep == '1'){$mainstep = 'COURSE'};
-        if($verbose){
-                print "Main Step is ($mainstep)\n";
-                    }
+        if($verbose){print "Main Step is ($mainstep)\n";}
 return $mainstep;
                 }
 
@@ -1836,9 +1581,7 @@ sub getArtsmode {
         if ($artsmode == '00'){$artsmode = 'OFF'};
         if ($artsmode == '01'){$artsmode = 'RANGE'};
         if ($artsmode == '10'){$artsmode = 'ALL'};
-        if($verbose){
-                print "ARTS BEEP is ($artsmode)\n";
-                    }
+        if($verbose){print "ARTS BEEP is ($artsmode)\n";}
 return $artsmode;
 		}
 
@@ -1854,9 +1597,7 @@ sub getCwpitch {
         $pitch = hex($HEX1);
 	$pitch = $pitch * 50;
 	$pitch = $pitch + 300;
-        if($verbose){
-                print "CW Pitch is $pitch\n";
-                    }
+        if($verbose){print "CW Pitch is $pitch\n";}
 return $pitch;
                }
 
@@ -1868,9 +1609,7 @@ sub getLockmode {
         if ($lockmode == '00'){$lockmode = 'DIAL'};
         if ($lockmode == '01'){$lockmode = 'FREQ'};
         if ($lockmode == '10'){$lockmode = 'PANEL'};
-        if($verbose){
-                print "Lock Mode is $lockmode\n";
-                    }
+        if($verbose){print "Lock Mode is $lockmode\n";}
 return $lockmode;
                 }
 
@@ -1882,9 +1621,7 @@ sub getOpfilter {
         if ($opfilter == '00'){$opfilter = 'OFF'};
         if ($opfilter == '01'){$opfilter = 'SSB'};
         if ($opfilter == '10'){$opfilter = 'CW'};
-        if($verbose){
-                print "OP Filter is $opfilter\n";
-                    }
+        if($verbose){print "OP Filter is $opfilter\n";}
 return $opfilter;
                 }
 
@@ -1901,11 +1638,9 @@ sub getCwweight {
 	$cwweight = $cwweight + 25;
         substr($cwweight, -1, 0) = '.';
 	$cwweight = join("",'1:',"$cwweight");	
-        if($verbose){
-                print "CW Weight is $cwweight\n";
-                    }
+        if($verbose){print "CW Weight is $cwweight\n";}
 return $cwweight;
-               }
+                 }
 
 sub getArs144 {
         my ($ars144,$value) = @_;
@@ -1914,11 +1649,9 @@ sub getArs144 {
         $ars144 = substr($output,1,1);
         if($ars144 == '0'){$value = 'OFF';}
         else {$value = 'ON';}
-        if($verbose){
-                print "144 ARS is set to $value\n";
-                    }
+        if($verbose){print "144 ARS is set to $value\n";}
 return $value;
-           }
+              }
 
 sub getArs430 {
         my ($ars430,$value) = @_;
@@ -1927,11 +1660,9 @@ sub getArs430 {
         $ars430 = substr($output,2,1);
         if($ars430 == '0'){$value = 'OFF';}
         else {$value = 'ON';}
-        if($verbose){
-                print "430 ARS is set to $value\n";
-                    }
+        if($verbose){print "430 ARS is set to $value\n";}
 return $value;
-           }
+              }
 
 sub getRfknob {
         my ($sqlbit,$value) = @_;
@@ -1940,11 +1671,9 @@ sub getRfknob {
 	$sqlbit = substr($output,0,1);
         if($sqlbit == '0'){$value = 'RFGAIN';}
         else {$value = 'SQUELCH';}
-        if($verbose){
-                print "RF-KNOB is set to $value\n";
-                    }
+        if($verbose){print "RF-KNOB is set to $value\n";}
 return $value; 
-           }
+              }
 
 # 60 ################################# GET CWDELAY ######
 ###################################### READ BIT 0-7 FROM 0X60
@@ -1957,11 +1686,9 @@ sub getCwdelay {
         my $HEX1 = sprintf("%X", oct( "0b$cwdelay" ) );
         $cwdelay = hex($HEX1);
 	$cwdelay = $cwdelay * 10;
-        if($verbose){
-                print "CW DELAY is $cwdelay\n";
-                    }
+        if($verbose){print "CW DELAY is $cwdelay\n";}
 return $cwdelay;
-               }
+                }
 
 # 61 ################################# GET SIDETONE VOLUME ######
 ###################################### READ BIT 0-6 FROM 0X61
@@ -1973,11 +1700,9 @@ sub getSidetonevol {
         $sidetonevol = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$sidetonevol" ) );
         $sidetonevol = hex($HEX1);
-        if($verbose){
-                print "Sidetone Volume is $sidetonevol\n";
-                    }
+        if($verbose){print "Sidetone Volume is $sidetonevol\n";}
 return $sidetonevol;
-               }
+                    }
 
 # 62 ################################# GET CWSPEED, CHARGETIME ######
 ###################################### READ BIT 0-5, 6-7 FROM 0X62
@@ -1990,14 +1715,9 @@ sub getChargetime {
         if ($chargetime == '00'){$chargetime = '6'};
         if ($chargetime == '01'){$chargetime = '8'};
         if ($chargetime == '10'){$chargetime = '10'};
-
-        if($verbose){
-                print "CHARGETIME is $chargetime\n";
-                    }
+        if($verbose){ print "CHARGETIME is $chargetime\n";}
 return $chargetime;
-
 		  }
-
 
 sub getCwspeed {
         my ($cwspeed) = @_;
@@ -2007,11 +1727,8 @@ sub getCwspeed {
         my $HEX1 = sprintf("%X", oct( "0b$cwspeed" ) );
 	$cwspeed = hex($HEX1);
 	$cwspeed = $cwspeed +4;
-        if($verbose){
-                print "CW-SPEED is $cwspeed\n";
-                    }
+        if($verbose){print "CW-SPEED is $cwspeed\n";}
 return $cwspeed;
-
 	       }
 
 # 63 ################################# GET VOX GAIN, DISABLE AM/FM DIAL ######
@@ -2024,11 +1741,9 @@ sub getVoxgain {
         $voxgain = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$voxgain" ) );
         $voxgain = hex($HEX1);
-        if($verbose){
-                print "VOX Gain is $voxgain\n";
-                    }
+        if($verbose){print "VOX Gain is $voxgain\n";}
 return $voxgain;
-               }
+                }
 
 sub getAmfmdial {
         my ($disabledial, $value) = @_;
@@ -2037,9 +1752,7 @@ sub getAmfmdial {
         $disabledial = substr($output,0,1);
         if($disabledial == '0'){$value = 'ENABLE';}
         else {$value = 'DISABLE';}
-        if($verbose){
-                print "Disable AM/FM Dial is set to $value\n";
-                    }
+        if($verbose){print "Disable AM/FM Dial is set to $value\n";}
 return $value;
            }
 
@@ -2054,11 +1767,8 @@ sub getVoxdelay {
         my $HEX1 = sprintf("%X", oct( "0b$voxdelay" ) );
         $voxdelay = hex($HEX1);
         $voxdelay = $voxdelay * 100;
-        if($verbose){
-                print "VOX Delay is $voxdelay msec\n";
-                    }
+        if($verbose){print "VOX Delay is $voxdelay msec\n";}
 return $voxdelay;
-
                }
 
 sub getEmergency {
@@ -2068,10 +1778,7 @@ sub getEmergency {
         $emergency = substr($output,2,1);
         if ($emergency == '0'){$emergency = 'OFF'};
         if ($emergency == '1'){$emergency = 'ON'};
-
-        if($verbose){
-                print "EMERGENCY is $emergency\n";
-                    }
+        if($verbose){print "EMERGENCY is $emergency\n";}
 return $emergency;
                  }
 
@@ -2083,12 +1790,9 @@ sub getCatrate {
         if ($catrate == '00'){$catrate = '4800'};
         if ($catrate == '01'){$catrate = '9600'};
         if ($catrate == '10'){$catrate = '38400'};
-
-        if($verbose){
-                print "CAT RATE is $catrate\n";
-                    }
+        if($verbose){print "CAT RATE is $catrate\n";}
 return $catrate;
-               }
+                }
 
 # 65 ################################# GET APO TIME, MEM GROUP, DIG MODE ######
 ###################################### READ BIT 0-2, 4, 5-7 FROM 0X65
@@ -2101,10 +1805,7 @@ sub getApotime {
         my $HEX1 = sprintf("%X", oct( "0b$apotime" ) );
         $apotime = hex($HEX1);
 	if ($apotime == '0'){$apotime = 'OFF';}
-
-        if($verbose){
-                print "APO Time is $apotime\n";
-                    }
+        if($verbose){print "APO Time is $apotime\n";}
 return $apotime;
                }
 
@@ -2115,10 +1816,7 @@ sub getMemgroup {
         $memgroup = substr($output,3,1);
         if ($memgroup == '0'){$memgroup = 'OFF'};
         if ($memgroup == '1'){$memgroup = 'ON'};
-
-        if($verbose){
-                print "Memory Groups is $memgroup\n";
-                    }
+        if($verbose){print "Memory Groups is $memgroup\n";}
 return $memgroup;
                  }
 
@@ -2132,9 +1830,7 @@ sub getDigmode {
         if ($digmode == '010'){$digmode = 'PSK31-U'};
         if ($digmode == '011'){$digmode = 'USER-L'};
         if ($digmode == '100'){$digmode = 'USER-U'};
-        if($verbose){
-                print "Digital mode is $digmode\n";
-                    }
+        if($verbose){print "Digital mode is $digmode\n";}
 return $digmode;
                  }
 
@@ -2149,9 +1845,7 @@ sub getTottime {
         my $HEX1 = sprintf("%X", oct( "0b$tottime" ) );
         $tottime = hex($HEX1);
 	if ($tottime == 0){$tottime = 'OFF';}
-        if($verbose){
-                print "Time Out Timer Time is $tottime\n";
-                    }
+        if($verbose){print "Time Out Timer Time is $tottime\n";}
 return $tottime;
                }
 
@@ -2164,9 +1858,7 @@ sub getDcsinv {
         if ($dcsinv == '01'){$dcsinv = 'TN-RIV'};
         if ($dcsinv == '10'){$dcsinv = 'TIV-RN'};
         if ($dcsinv == '11'){$dcsinv = 'TIV-RIV'};
-        if($verbose){
-                print "DCS Inversion is $dcsinv\n";
-                    }
+        if($verbose){print "DCS Inversion is $dcsinv\n";}
 return $dcsinv;
                  }
 
@@ -2180,9 +1872,7 @@ sub getSsbmic {
         $ssbmic = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$ssbmic" ) );
         $ssbmic = hex($HEX1);
-        if($verbose){
-                print "SSB MIC is $ssbmic\n";
-                    }
+        if($verbose){print "SSB MIC is $ssbmic\n";}
 return $ssbmic;
                }
 
@@ -2193,10 +1883,7 @@ sub getMicscan {
         $micscan = substr($output,0,1);
         if ($micscan == '0'){$micscan = 'OFF'};
         if ($micscan == '1'){$micscan = 'ON'};
-
-        if($verbose){
-                print "MIC SCAN is $micscan\n";
-                    }
+        if($verbose){print "MIC SCAN is $micscan\n";}
 return $micscan;
                }
 
@@ -2210,9 +1897,7 @@ sub getAmmic {
         $ammic = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$ammic" ) );
         $ammic = hex($HEX1);
-        if($verbose){
-                print "AM MIC is $ammic\n";
-                    }
+        if($verbose){print "AM MIC is $ammic\n";}
 return $ammic;
                }
 
@@ -2223,10 +1908,7 @@ sub getMickey {
         $mickey = substr($output,0,1);
         if ($mickey == '0'){$mickey = 'OFF'};
         if ($mickey == '1'){$mickey = 'ON'};
-
-        if($verbose){
-                print "MIC KEY is $mickey\n";
-                    }
+        if($verbose){print "MIC KEY is $mickey\n";}
 return $mickey;
                }
 
@@ -2240,10 +1922,150 @@ sub getFmmic {
         $fmmic = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$fmmic" ) );
         $fmmic = hex($HEX1);
-        if($verbose){
-                print "FM MIC is $fmmic\n";
-                    }
+        if($verbose){print "FM MIC is $fmmic\n";}
 return $fmmic;
+               }
+
+# 6A ################################# GET DIG MIC , ######
+###################################### READ BIT 0-6 FROM 0X6A
+
+sub getDigmic {
+        my ($digmic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('006A');
+        $digmic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$digmic" ) );
+        $digmic = hex($HEX1);
+        if($verbose){print "DIG MIC is $digmic\n";}
+return $digmic;
+               }
+
+# 6B ################################# GET PKT MIC , ######
+###################################### READ BIT 0-6 FROM 0X6B
+
+sub getPktmic {
+        my ($pktmic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('006B');
+        $pktmic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$pktmic" ) );
+        $pktmic = hex($HEX1);
+        if($verbose){print "PKT MIC is $pktmic\n";}
+return $pktmic;
+               }
+
+# 6C ################################# GET 9600 MIC , ######
+###################################### READ BIT 0-6 FROM 0X6C
+
+sub get9600mic {
+        my ($b9600mic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('006C');
+        $b9600mic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$b9600mic" ) );
+        $b9600mic = hex($HEX1);
+        if($verbose){print "9600 MIC is $b9600mic\n";}
+return $b9600mic;
+               }
+
+# 6D-6E ################################# GET DIG SHIFT ######
+###################################### READ ALL BITS FROM 0X6D AND 0X6E
+
+sub getDigshift{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $MSB = $self->eepromDecode('006D');
+        my $LSB = $self->eepromDecode('006E');
+        my $binvalue = join("","$MSB","$LSB");
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 300) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 65235) {$newvalue = 65536 - $decvalue; $polarity = '-';}
+	$newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "DIG SHIFT is $newvalue\n";}
+return $newvalue;
+	       }
+
+# 6F-70 ################################# GET DIG SHIFT ######
+###################################### READ ALL BITS FROM 0X6F AND 0X70
+
+sub getDigdisp{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $MSB = $self->eepromDecode('006F');
+        my $LSB = $self->eepromDecode('0070');
+        my $binvalue = join("","$MSB","$LSB");
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 300) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 65235) {$newvalue = 65536 - $decvalue; $polarity = '-';}
+        $newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "DIG DISP is $newvalue\n";}
+return $newvalue;
+               }
+
+# 71 ################################# GET R-LSB CAR ######
+###################################### READ ALL BITS FROM 0X71
+
+sub getRlsbcar{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $binvalue = $self->eepromDecode('0071');
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 30) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 224) {$newvalue = 256 - $decvalue; $polarity = '-';}
+        $newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "R-LSB CAR is $newvalue\n";}
+return $newvalue;
+               }
+
+# 72 ################################# GET R-USB CAR ######
+###################################### READ ALL BITS FROM 0X72
+
+sub getRusbcar{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $binvalue = $self->eepromDecode('0072');
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 30) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 224) {$newvalue = 256 - $decvalue; $polarity = '-';}
+        $newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "R-USB CAR is $newvalue\n";}
+return $newvalue;
+               }
+
+# 73 ################################# GET T-LSB CAR ######
+###################################### READ ALL BITS FROM 0X73
+
+sub getTlsbcar{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $binvalue = $self->eepromDecode('0073');
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 30) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 224) {$newvalue = 256 - $decvalue; $polarity = '-';}
+        $newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "T-LSB CAR is $newvalue\n";}
+return $newvalue;
+               }
+
+# 74 ################################# GET T-USB CAR ######
+###################################### READ ALL BITS FROM 0X74
+
+sub getTusbcar{
+        my ($newvalue,$polarity) = @_;
+        my $self=shift;
+        my $binvalue = $self->eepromDecode('0074');
+        my $decvalue = oct("0b".$binvalue);
+        if ($decvalue >= 0 && $decvalue <= 30) {$newvalue = $decvalue; $polarity = '+';}
+        if ($decvalue > 224) {$newvalue = 256 - $decvalue; $polarity = '-';}
+        $newvalue = $newvalue * 10;
+        if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
+        if($verbose){print "T-USB CAR is $newvalue\n";}
+return $newvalue;
                }
 
 # 79 ################################# GET TX POWER AND ARTS ######
@@ -2254,9 +2076,7 @@ sub getTxpower {
 	$output = $self->eepromDecode('0079');
 	my $txpower = substr($output,6,2);
 	($txpow) = grep { $TXPWR{$_} eq $txpower } keys %TXPWR;
-        if($verbose){
-                print "Tx power is $txpow\n";
-                    }
+        if($verbose){print "Tx power is $txpow\n";}
 return $txpow;
                }
 
@@ -2267,13 +2087,9 @@ sub getArts {
         my $arts = substr($output,0,1);
 	if ($arts == '0'){$artsis = 'OFF'};
         if ($arts == '1'){$artsis = 'ON'};
-
-        if($verbose){
-                print "ARTS is $artsis\n";
-                    }
+        if($verbose){print "ARTS is $artsis\n";}
 return $artsis;
-               }
-
+            }
 
 # 7a ################################# GET ANTENNA STATUS ######
 ###################################### READ 0-5 BITS FROM 0X7A
@@ -2284,26 +2100,18 @@ sub getAntenna {
 	my $value=shift;
 	my $ant;
         $output = $self->eepromDecode('007A');
-
         if ($value eq 'HF'){$antenna = substr($output,7,1);}
         if ($value eq '6M'){$antenna = substr($output,6,1);}
         if ($value eq 'FMBCB'){$antenna = substr($output,5,1);}
         if ($value eq 'AIR'){$antenna = substr($output,4,1);}
         if ($value eq 'VHF'){$antenna = substr($output,3,1);}
         if ($value eq 'UHF'){$antenna = substr($output,2,1);}
-
-
 	if ($antenna == 0){$ant = 'FRONT';}
         if ($antenna == 1){$ant = 'BACK';}
-	
 	if ($value && $value ne 'ALL'){
-        if($verbose){
-                print "Antenna [$value] is set to $ant\n";
-                    }
+        if($verbose){print "Antenna [$value] is set to $ant\n";}
 			              }
-
 	if (!$value || $value eq 'ALL'){
-
 	%antennas = ('HF', 7, '6M', 6, 'FMBCB', 5, 'AIR', 4, 'VHF', 3, 'UHF', 2);
 	my $key;
 	print "\n";
@@ -2316,12 +2124,9 @@ foreach $key (sort keys %antennas) {
  				   }
 	print "\n";
 return %returnant;
-
 				       }
-
 return $ant;
                }
-
 
 # 7b ################################# GET BATTERY CHARGE STATUS ######
 ###################################### READ BIT 0-3 and 4 FROM 0X7B
@@ -2333,26 +2138,16 @@ sub getCharger {
 	my $time = substr($output,4,4);
         my $timehex = sprintf("%X", oct( "0b$time" ) );
 	$time = hex($timehex);
-
         if ($test == '0') {$charger = "OFF";}
         if ($test == '1') {$charger = "ON";}
-
 	if ($charger eq 'OFF'){
-        if($verbose){
-                print "Charger is [$charger]: Timer configured for $time hours\n";
-                    }
+        if($verbose){print "Charger is [$charger]: Timer configured for $time hours\n";}
 			      }
-
 	        if ($charger eq 'ON'){
-        if($verbose){
-                print "Charging is [$charger]: Set for $time hours\n";
-                    }
+        if($verbose){print "Charging is [$charger]: Set for $time hours\n";}
                                      }
 return $charger;
-           
-	       }
-
-
+                 }
 
 # 7D - 388 ################################# GET VFO MEM INFO ######
 ###################################### 
@@ -2364,15 +2159,11 @@ sub readMemvfo {
         my $band=shift;
         my $value=shift;
 	my %memvfohash = ();
-
-
 	if (!$value) {$value = 'ALL';}
-
         if ($vfo ne 'A' && $vfo ne 'B'){
                 if($verbose){print "Value invalid: Choose A/B\n\n"; }
 return 1;
                                                                     }
-
 
         my %newhash = reverse %VFOBANDS;
         ($testvfoband) = grep { $newhash{$_} eq $band } keys %newhash;
@@ -2380,10 +2171,8 @@ return 1;
                 if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
 return 1;
                                }
-
         my %testhash = reverse %VFOMEMOPTS;
         ($testoptions) = grep { $testhash{$_} eq $value } keys %testhash;
-
         if (!$testoptions && $value ne 'ALL'){
                 if($verbose){
                 print "Choose a valid option, or no option for ALL\.\n\n";
@@ -2395,32 +2184,24 @@ return 1;
                                                             }
                 print "\n\n";
                             }
-
 return 1;
                                             }
-
-
 	if ($vfo eq 'A'){%baseaddress = reverse %VFOABASE;}
         if ($vfo eq 'B'){%baseaddress = reverse %VFOBBASE;}
+	($base) = grep { $baseaddress{$_} eq $band } keys %baseaddress;
+	if ($value eq 'MODE' || $value eq 'ALL'){
+		$offset=0x00;
+		$address = $self->hexAdder("$offset","$base");
+        	my $mode;
+        	$output = $self->eepromDecode("$address");
+        	$output = substr($output,5,3);
+        	($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
+		if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n"};
+		if ($value eq 'ALL'){$memvfohash{'MODE'} = "$mode";}
 
-($base) = grep { $baseaddress{$_} eq $band } keys %baseaddress;
-
-
-
-if ($value eq 'MODE' || $value eq 'ALL'){
-	$offset=0x00;
-	$address = $self->hexAdder("$offset","$base");
-        my $mode;
-        $output = $self->eepromDecode("$address");
-        $output = substr($output,5,3);
-        ($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
-	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n"};
-
-if ($value eq 'ALL'){$memvfohash{'MODE'} = "$mode";}
-
-else {
+	else {
 return $mode;
-     }
+     	     }
                                         }
 
 
@@ -2433,12 +2214,10 @@ if ($value eq 'NARFM' || $value eq 'ALL'){
         if ($output == '0') {$narfm = "OFF";}
         if ($output == '1') {$narfm = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - NARROW FM is $narfm\n"};
-
-if ($value eq 'ALL'){$memvfohash{'NARFM'} = "$narfm";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'NARFM'} = "$narfm";}
+	else {
 return $narfm;
-     }
+	     }
 		      			 }
 
 if ($value eq 'NARCWDIG' || $value eq 'ALL'){
@@ -2450,12 +2229,10 @@ if ($value eq 'NARCWDIG' || $value eq 'ALL'){
         if ($output == '0') {$narcw = "OFF";}
         if ($output == '1') {$narcw = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - NARROW CW/DIG is $narcw\n"};
-
-if ($value eq 'ALL'){$memvfohash{'NARCWDIG'} = "$narcw";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'NARCWDIG'} = "$narcw";}
+	else {
 return $narcw;
-     }
+     	     }
                       			    }
 
 
@@ -2470,12 +2247,10 @@ if ($value eq 'RPTOFFSET' || $value eq 'ALL'){
         if ($output == '10') {$rptoffset = "PLUS";}
         if ($output == '11') {$rptoffset = "NON-STANDARD";}
         if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $rptoffset\n"};
-
-if ($value eq 'ALL'){$memvfohash{'RPTOFFSET'} = "$rptoffset";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'RPTOFFSET'} = "$rptoffset";}
+	else {
 return $rptoffset;
-     }
+     	     }
                       			    }
 
 if ($value eq 'TONEDCS' || $value eq 'ALL'){
@@ -2489,12 +2264,10 @@ if ($value eq 'TONEDCS' || $value eq 'ALL'){
         if ($output == '10') {$tonedcs = "TONE(TX) \+ TSQ";}
         if ($output == '11') {$tonedcs = "DCS";}
         if($verbose){print "VFO $vfo\[$band\] - TONE/DCS SELECT is $tonedcs\n"};
-
-if ($value eq 'ALL'){$memvfohash{'TONEDCS'} = "$tonedcs";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'TONEDCS'} = "$tonedcs";}
+	else {
 return $tonedcs;
-     }
+     	     }
                       			   }
 
 if ($value eq 'ATT' || $value eq 'ALL'){
@@ -2506,14 +2279,11 @@ if ($value eq 'ATT' || $value eq 'ALL'){
         if ($output == '0') {$att = "OFF";}
         if ($output == '1') {$att = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - ATT is $att\n"};
-
-if ($value eq 'ALL'){$memvfohash{'ATT'} = "$att";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'ATT'} = "$att";}
+	else {
 return $att;
-     }
+     	     }
                      		      }
-
 
 if ($value eq 'IPO' || $value eq 'ALL'){
         $offset=0x02;
@@ -2524,14 +2294,11 @@ if ($value eq 'IPO' || $value eq 'ALL'){
         if ($output == '0') {$ipo = "OFF";}
         if ($output == '1') {$ipo = "ON";}
         if($verbose){print "VFO $vfo\[$band\] - IPO is $ipo\n"};
-
-if ($value eq 'ALL'){$memvfohash{'IPO'} = "$ipo";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'IPO'} = "$ipo";}
+	else {
 return $ipo;
-     }
+     	     }
                       		      }
-
 
 if ($value eq 'FMSTEP' || $value eq 'ALL'){
         $offset=0x03;
@@ -2540,12 +2307,10 @@ if ($value eq 'FMSTEP' || $value eq 'ALL'){
         $output = substr($output,5,3);
         ($fmstep) = grep { $FMSTEP{$_} eq $output } keys %FMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - FM STEP is $fmstep\n"};
-
-if ($value eq 'ALL'){$memvfohash{'FMSTEP'} = "$fmstep";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'FMSTEP'} = "$fmstep";}
+	else {
 return $fmstep;
-     }
+     	     }
                       			  }
 
 
@@ -2557,15 +2322,11 @@ if ($value eq 'AMSTEP' || $value eq 'ALL'){
         $output = substr($output,2,3);
         ($amstep) = grep { $AMSTEP{$_} eq $output } keys %AMSTEP;
         if($verbose){print "VFO $vfo\[$band\] - AM STEP is $amstep\n"};
-
-if ($value eq 'ALL'){$memvfohash{'AMSTEP'} = "$amstep";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'AMSTEP'} = "$amstep";}
+	else {
 return $amstep;
-     }
+     	     }
 	   			          }
-
-
 
 if ($value eq 'SSBSTEP' || $value eq 'ALL'){
         $offset=0x03;
@@ -2577,14 +2338,11 @@ if ($value eq 'SSBSTEP' || $value eq 'ALL'){
         if ($output == '01') {$ssbstep = '2.5';}
 	if ($output == '10') {$ssbstep = '5.0';}
         if($verbose){print "VFO $vfo\[$band\] - SSB STEP is $ssbstep\n"};
-
-if ($value eq 'ALL'){$memvfohash{'SSBSTEP'} = "$ssbstep";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'SSBSTEP'} = "$ssbstep";}
+	else {
 return $ssbstep;
-     }
+     	     }
 		                           }
-
 
 if ($value eq 'CTCSSTONE' || $value eq 'ALL'){
         $offset=0x06;
@@ -2594,15 +2352,11 @@ if ($value eq 'CTCSSTONE' || $value eq 'ALL'){
         my %newhash = reverse %CTCSSTONES;
         ($ctcsstone) = grep { $newhash{$_} eq $output } keys %newhash;
         if($verbose){print "VFO $vfo\[$band\] - CTCSS TONE is $ctcsstone\n"};
-
-if ($value eq 'ALL'){$memvfohash{'CTCSSTONE'} = "$ctcsstone";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'CTCSSTONE'} = "$ctcsstone";}
+	else {
 return $ctcsstone;
-     }
+     	     }
 		                             }
-
-
 
 if ($value eq 'DCSCODE' || $value eq 'ALL'){
         $offset=0x07;
@@ -2612,14 +2366,11 @@ if ($value eq 'DCSCODE' || $value eq 'ALL'){
         my %newhash = reverse %DCSCODES;
         ($dcscode) = grep { $newhash{$_} eq $output } keys %newhash;
         if($verbose){print "VFO $vfo\[$band\] - DCSCODE is $dcscode\n"};
-
-if ($value eq 'ALL'){$memvfohash{'DCSCODE'} = "$dcscode";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'DCSCODE'} = "$dcscode";}
+	else {
 return $dcscode;
-     }
+     	     }
 			                   }
-
 
 if ($value eq 'CLARIFIER' || $value eq 'ALL'){
         $offset=0x02;
@@ -2630,14 +2381,11 @@ if ($value eq 'CLARIFIER' || $value eq 'ALL'){
         if ($output == '1') {$clarifier = 'ON';}
         if ($output == '0') {$clarifier = 'OFF';}
         if($verbose){print "VFO $vfo\[$band\] - CLARIFIER is $clarifier\n"};
-
-if ($value eq 'ALL'){$memvfohash{'CLARIFIER'} = "$clarifier";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'CLARIFIER'} = "$clarifier";}
+	else {
 return $clarifier;
-     }
+     	     }
 			                     }
-
 
 if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
 
@@ -2666,16 +2414,12 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
                         $newvalue = join("","$part1",".","$part2");
                                      }
 		$newvalue = join("","$polarity","$newvalue");
-
        if($verbose){print "VFO $vfo\[$band\] - CLARIFIER OFFSET is $newvalue Khz\n";}
-
-if ($value eq 'ALL'){$memvfohash{'CLAROFFSET'} = "$newvalue";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'CLAROFFSET'} = "$newvalue";}
+	else {
 return $newvalue;
-     }
+     	     }
 		 		            }                       
-
 
 if ($value eq 'RXFREQ' || $value eq 'ALL'){
         $offset=0x0A;
@@ -2695,12 +2439,10 @@ if ($value eq 'RXFREQ' || $value eq 'ALL'){
 	substr($decvalue, -2, 0) = '.';
         substr($decvalue, -6, 0) = '.';
        if($verbose){print "VFO $vfo\[$band\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
-
-if ($value eq 'ALL'){$memvfohash{'RXFREQ'} = "$decvalue";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'RXFREQ'} = "$decvalue";}
+	else {
 return $decvalue;
-     }
+     	     }
 		       }	
 
 if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
@@ -2717,22 +2459,17 @@ if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
         my $decvalue = oct("0b".$binvalue);
         substr($decvalue, -4, 0) = '.';
        if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $decvalue Mhz\n";}
-
-if ($value eq 'ALL'){$memvfohash{'RPTOFFSETFREQ'} = "$decvalue";}
-
-else {
+	if ($value eq 'ALL'){$memvfohash{'RPTOFFSETFREQ'} = "$decvalue";}
+	else {
 return $decvalue;
-     }
+     	     }
                        }
-
 
 if ($value eq 'ALL'){ 
 return %memvfohash;
 		    }
 
-	
                }
-
 
 #################################
 # WRITE VALUES FROM EEPROM ADDR #
@@ -4302,11 +4039,9 @@ return 1;
         substr ($BYTE1, 5, 3, "$binvalue");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0065',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"APO Time set to $firstvalue sucessfull!\n";}
                 else {print"APO Time set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4626,6 +4361,370 @@ return 1;
 return $writestatus;
                  }
 
+# 6A ################################# SET DIG MIC
+###################################### CHANGE BITS 0-6 FROM ADDRESS 0X6A
+
+sub setDigmic {
+        my ($currentdigmic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentdigmic = $self->getDigmic();
+        $self->setVerbose(1);
+        if ($value eq $currentdigmic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                    }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('006A');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('006A',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"DIG MIC set to $firstvalue sucessfull!\n";}
+                else {print"DIG MIC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 6B ################################# SET PKT MIC
+###################################### CHANGE BITS 0-6 FROM ADDRESS 0X6B
+
+sub setPktmic {
+        my ($currentpktmic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentpktmic = $self->getPktmic();
+        $self->setVerbose(1);
+        if ($value eq $currentpktmic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                    }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('006B');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('006B',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"PKT MIC set to $firstvalue sucessfull!\n";}
+                else {print"PKT MIC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+
+# 6C ################################# SET 9600 MIC
+###################################### CHANGE BITS 0-6 FROM ADDRESS 0X6C
+
+sub set9600mic {
+        my ($current9600mic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $current9600mic = $self->get9600mic();
+        $self->setVerbose(1);
+        if ($value eq $current9600mic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                    }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('006C');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('006C',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"9600 MIC set to $firstvalue sucessfull!\n";}
+                else {print"9600 MIC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+
+# 6D-6E ################################# SET DIG SHIFT
+###################################### CHANGE ALL BITS FROM ADDRESS 0X6D, 0X6E
+
+sub setDigshift {
+       my ($currentdigshift,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+	$polarity = substr ($value,0,1);
+	$newvalue = substr ($value,1);
+	$endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 3000)){
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentdigshift = $self->getDigshift();
+        $self->setVerbose(1);
+
+        if ($value eq $currentdigshift){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        $binvalue = substr $binvalue, -16;
+	$bin1 = substr $binvalue, 0,8;
+	$bin2 = substr $binvalue, 8,8;
+        my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
+        my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
+        my $writestatus1 = $self->writeBlock('006D',"$NEWHEX1");
+        my $writestatus2 = $self->writeBlock('006E',"$NEWHEX2");
+	if ($writestatus1 eq $writestatus2) {
+		if ($writestatus1 eq 'OK'){print"DIG SHIFT set to $value sucessfull!\n"; $writestatus = 'OK';}
+					    }
+                else {print"DIG SHIFT set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                } 
+
+# 6F-70 ################################# SET DIG DISP
+###################################### CHANGE ALL BITS FROM ADDRESS 0X6F, 0X70
+
+sub setDigdisp {
+       my ($currentdigdisp,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        $endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 3000)){
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentdigdisp = $self->getDigdisp();
+        $self->setVerbose(1);
+
+        if ($value eq $currentdigdisp){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        $binvalue = substr $binvalue, -16;
+        $bin1 = substr $binvalue, 0,8;
+        $bin2 = substr $binvalue, 8,8;
+        my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
+        my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
+        my $writestatus1 = $self->writeBlock('006F',"$NEWHEX1");
+        my $writestatus2 = $self->writeBlock('0070',"$NEWHEX2");
+        if ($writestatus1 eq $writestatus2) {
+                if ($writestatus1 eq 'OK'){print"DIG DISP set to $value sucessfull!\n"; $writestatus = 'OK';}
+                                            }
+                else {print"DIG DISP set to $value failed!!!\n"; $writestatus = 'ERROR';}
+#print "N: $newvalue B: $binvalue B1: $bin1 B2: $bin2 H1: $NEWHEX1 H2: $NEWHEX2\n";
+return $writestatus;
+                }
+
+# 71 ################################# SET R LSB CAR
+###################################### CHANGE ALL BITS FROM ADDRESS 0X71
+
+sub setRlsbcar {
+       my ($currentrlsbcar,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        $endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+return 1;
+                                                                   }
+        $self->setVerbose(0);
+        $currentrlsbcar = $self->getRlsbcar();
+        $self->setVerbose(1);
+        if ($value eq $currentrlsbcar){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 256 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
+        my $writestatus1 = $self->writeBlock('0071',"$NEWHEX1");
+        if ($writestatus1 eq 'OK'){print"R LSB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
+        else {print"R LSB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                }
+
+# 72 ################################# SET R USB CAR
+###################################### CHANGE ALL BITS FROM ADDRESS 0X72
+
+sub setRusbcar {
+       my ($currentrusbcar,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        $endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+return 1;
+                                                                   }
+        $self->setVerbose(0);
+        $currentrusbcar = $self->getRusbcar();
+        $self->setVerbose(1);
+        if ($value eq $currentrusbcar){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 256 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
+        my $writestatus1 = $self->writeBlock('0072',"$NEWHEX1");
+        if ($writestatus1 eq 'OK'){print"R USB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
+        else {print"R USB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                }
+
+# 73 ################################# SET T LSB CAR
+###################################### CHANGE ALL BITS FROM ADDRESS 0X73
+
+sub setTlsbcar {
+       my ($currenttlsbcar,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        $endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+return 1;
+                                                                   }
+        $self->setVerbose(0);
+        $currenttlsbcar = $self->getTlsbcar();
+        $self->setVerbose(1);
+        if ($value eq $currenttlsbcar){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 256 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
+        my $writestatus1 = $self->writeBlock('0073',"$NEWHEX1");
+        if ($writestatus1 eq 'OK'){print"T LSB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
+        else {print"T LSB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                }
+
+# 74 ################################# SET T USB CAR
+###################################### CHANGE ALL BITS FROM ADDRESS 0X74
+
+sub setTusbcar {
+       my ($currenttusbcar,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        my $self=shift;
+        my $value=shift;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        $endvalue = substr ($value,-1,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+return 1;
+                                                                   }
+        $self->setVerbose(0);
+        $currenttusbcar = $self->getTusbcar();
+        $self->setVerbose(1);
+        if ($value eq $currenttusbcar){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                      }
+        $newvalue = $newvalue /10;
+        if ($polarity eq '-'){$newvalue = 256 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
+        my $writestatus1 = $self->writeBlock('0074',"$NEWHEX1");
+        if ($writestatus1 eq 'OK'){print"T USB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
+        else {print"T USB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                }
+
 # 79 ################################# SET ARTS ON/OFF
 ###################################### CHANGE BITS 7 FROM ADDRESS 0X79
 
@@ -4742,7 +4841,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_15
+Version 0.9.0_16
 
 =head1 SYNOPSIS
 
@@ -5159,6 +5258,13 @@ The output shows all of the transactions and modifications conducted by the syst
 	memory address up.
 
 
+=item get9600mic()
+
+                $b9600mic = $FT817->get9600mic();
+
+        MENU ITEM # 3 - Returns the setting of 9600 MIC 0-100
+
+
 =item getAgc()
 
 		$agc = $FT817->getAgc();
@@ -5356,12 +5462,33 @@ The output shows all of the transactions and modifications conducted by the syst
                          [TN-RN/TN-RIV/TIV-RN/TIV-RIV]
 
 
+=item getDigdisp()
+
+                $digdisp = $FT817->getDigdisp();
+
+        MENU ITEM # 24 - Shows the Digital Frequency Offset -3000 to +3000 Hz
+
+
+=item getDigmic()
+
+                $digmic = $FT817->getDigmic();
+
+        MENU ITEM # 25 - Returns the setting of DIG MIC 0-100
+
+
 =item getDigmode()
 
                 $digmode = $FT817->getDigmode();
 
         MENU ITEM # 26 - Returns the Setting of the Digital mode 
 			 [RTTY/PSK31-L/PSK31-U/USER-L/USER-U]
+
+
+=item getDigshift()
+
+                $digshift = $FT817->getDigshift();
+
+        MENU ITEM # 27 - Shows the Digital Shift -3000 to +3000 Hz
 
 
 =item getDsp()
@@ -5511,6 +5638,13 @@ With two arguments it will display information on a range of addresses
         MENU ITEM # 38 - Returns the OP Filter setting OFF / SSB / CW
 
 
+=item getPktmic()
+
+                $pktmic = $FT817->getPktmic();
+
+        MENU ITEM # 39 - Returns the setting of PKT MIC 0-100
+
+
 =item getPktrate()
 
                 $pktrate = $FT817->getPktrate();
@@ -5553,6 +5687,20 @@ With two arguments it will display information on a range of addresses
 	MENU ITEM # 45 - Returns the current Functionality of the RF-GAIN Knob : RFGAIN / SQUELCH
 
 
+=item getRlsbcar()
+
+                $rlsbcar = $FT817->getRlsbcar();
+
+        MENU ITEM # 54 - Shows the Rx Carrier point for LSB -000 to +300 Hz
+
+
+=item getRusbcar()
+
+                $rusbcar = $FT817->getRlsbcar();
+
+        MENU ITEM # 55 - Shows the Rx Carrier point for USB -000 to +300 Hz
+
+
 =item getScope()
 
                 $scope = $FT817->getScope();
@@ -5585,6 +5733,20 @@ With two arguments it will display information on a range of addresses
 	with a file name writes the output to a file.  It's a good idea to keep a copy of 
 	this in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
 	this information, you will have to send the radio back to the company for recalibration.
+
+
+=item getTlsbcar()
+
+                $tlsbcar = $FT817->getTlsbcar();
+
+        MENU ITEM # 56 - Shows the Tx Carrier point for LSB -000 to +300 Hz
+
+
+=item getTusbcar()
+
+                $tusbcar = $FT817->getTusbcar();
+
+        MENU ITEM # 57 - Shows the Tx Carrier point for USB -000 to +300 Hz
 
 
 =item getTottime()
@@ -5729,8 +5891,10 @@ With two arguments it will display information on a range of addresses
 		  [0055] [0057] [0058] [0059] [0060]
 		  [005B] [005C] [005D] [005E] [005F] 
 		  [0061] [0062] [0063] [0064] [0065]
-		  [0066] [0067] [0068] [0069] [0079]
-		  [007A] [007B]
+		  [0066] [0067] [0068] [0069] [006A]
+		  [006B] [006C] [006D] [006E] [006F]
+		  [0070] [0071] [0072] [0073] [0074]
+		  [0079] [007A] [007B]
 	
 	 are allowed
 
@@ -5743,6 +5907,21 @@ With two arguments it will display information on a range of addresses
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
+
+
+=item set9600mic()
+
+                $status = $FT817->set9600mic([0-100]);
+
+        MENU ITEM # 3 Sets the 9600 MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006C');
 
 
 =item setAgc()
@@ -5777,7 +5956,7 @@ With two arguments it will display information on a range of addresses
 
 =item setAmmic()
 
-                $status = $FT817->setAmnic([0-100]);
+                $status = $FT817->setAmmic([0-100]);
 
         MENU ITEM # 5 Sets the AM MIC
 
@@ -6153,6 +6332,41 @@ With two arguments it will display information on a range of addresses
 	Returns the argument sent to it on success.
 
 
+=item setDigdisp()
+
+                $output = $FT817->setDigdisp([0]);
+                $output = $FT817->setDigdisp([+/-][0-3000]);
+
+        MENU ITEM # 24
+
+        Sets the digital frequency offset shift in hz, in incriments of 10 takes 0 or +/- 0-3000
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        commands that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006F');
+        restoreEeprom('0070');
+
+
+=item setDigmic()
+
+                $output = $FT817->setDigmic([0-100]);
+
+        MENU ITEM # 25
+
+        Sets the DIG MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006A');
+
 =item setDigmode()
 
                 $output = $FT817->setDigmode([RTTY/PSK31-L/PSK31-U/USER-L/USER-U]);
@@ -6168,6 +6382,25 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0065');
+
+
+=item setDigshift()
+
+                $output = $FT817->setDigshift([0]); 
+		$output = $FT817->setDigshift([+/-][0-3000]); 
+
+        MENU ITEM # 27
+
+        Sets the digital shift in hz, in incriments of 10 takes 0 or +/- 0-3000
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        commands that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006D');
+        restoreEeprom('006E');
 
 
 =item setDsp()
@@ -6418,6 +6651,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005E');
 
 
+=item setPktmic()
+
+                $output = $FT817->setPktmic([0-100]);
+
+        MENU ITEM # 39
+
+        Sets the PKT MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006B');
+
+
 =item setPktrate()
 
                 $output = $FT817->setCwpaddle([NORMAL/REVERSE]);
@@ -6513,6 +6763,42 @@ With two arguments it will display information on a range of addresses
         Returns 'OK' on success. Any other output an error.
 
 
+=item setRlsbcar()
+
+                $output = $FT817->setRlsbcar([0]);
+                $output = $FT817->setRlsbcar([+/-][0-300]);
+
+        MENU ITEM # 54
+
+        Sets the Rx Carrier Point for LSB in hz, in incriments of 10 takes 0 or +/- 0-300
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0071');
+
+
+=item setRusbcar()
+
+                $output = $FT817->setRusbcar([0]);
+                $output = $FT817->setRusbcar([+/-][0-300]);
+
+        MENU ITEM # 55
+
+        Sets the Rx Carrier Point for USB in hz, in incriments of 10 takes 0 or +/- 0-300
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0072');
+
+
 =item setScope()
 
                 $output = $FT817->setScope([CONT/CHK]);
@@ -6562,6 +6848,42 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0067');
+
+
+=item setTlsbcar()
+
+                $output = $FT817->setTlsbcar([0]);
+                $output = $FT817->setTlsbcar([+/-][0-300]);
+
+        MENU ITEM # 56
+
+        Sets the Tx Carrier Point for LSB in hz, in incriments of 10 takes 0 or +/- 0-300
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0073');
+
+
+=item setTusbcar()
+
+                $output = $FT817->setTusbcar([0]);
+                $output = $FT817->setTusbcar([+/-][0-300]);
+
+        MENU ITEM # 57
+
+        Sets the Tx Carrier Point for USB in hz, in incriments of 10 takes 0 or +/- 0-300
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with the following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0074');
 
 
 =item setTottime()

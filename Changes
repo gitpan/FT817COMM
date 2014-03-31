@@ -195,3 +195,28 @@ Revision history for Ham-Device-FT817COMM
 	    Added function getMicscan
 	    Added function setFmmic
 	    Added function setMicscan
+
+0.9.0_16    31MARCH2014/1200
+	    Added RESTOREAREAS hash table
+	    restoreEeprom rewritten, uses hash table
+            Added [006B] [006C] [006D] [006E] [006F] [0070] 
+		  [0071] [0072] [0073] [0074]
+		  option to restoreEeprom
+	    Added function getDigmic
+	    Added function setDigmic
+	    Added function getPktmic
+	    Added function setPktmic
+	    Added function get9600mic
+	    Added function set9600mic
+	    Added function getDigshift
+	    Added function setDigshift
+	    Added function getDigdisp
+	    Added function setDigdisp
+	    Added function getRlsbcar
+	    Added function setRlsbcar
+	    Added function getRusbcar
+	    Added function setRusbcar
+            Added function getTlsbcar
+	    Added function setTlsbcar
+	    Added function getTusbcar
+	    Added function setTusbcar
