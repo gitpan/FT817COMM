@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-27 14:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-03-28 14:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -14,7 +14,7 @@ use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.0_14';
+our $VERSION = '0.9.0_15';
 
 BEGIN {
 	use Exporter ();
@@ -217,12 +217,21 @@ feature with regard to writing to the EEprom. The user of this program assumes a
 with using this software.\n
 \tIt is recommended that the software calibration settings be backed up to your computer in the event
 that the radio needs to be reset to factory default.  You should have done this anyway, to avoid
-sending the radio back to Yaesu to be recalibrated. Use software such as \'FT-817 commander\' to backup
-your software calibration. check the site http://wb8nut.com/downloads/ or google it.  The program is
-for windows but functions fine on Ubuntu linux and other possible variants under wine.\n
-\tHaving said that, If you accept this risk and have backed up your software calibration, you can use
-the following command agreewithwarning(1) before the command setWriteallow(1) in your software to get
-rid of this message and have the ability to write to the eeprom.
+sending the radio back to Yaesu to be recalibrated. FT817OS will automatically provide a calibration
+file on first startup.  You can also, within this library create a backup of the calibration using
+
+\$FT817->getSoftcal\(\"file\",\"filename\.txt\"\)\;
+
+You can also use software such as \'FT-817 commander\' to backup your software calibration. 
+Check the site http://wb8nut.com/downloads/ or google it.  The program is for windows but 
+functions fine on Ubuntu linux and other possible variants under wine.\n
+
+Have a look at restoreEeprom\(\) in the documentation to see how to set a memory address back to
+default in the event of a problem. 
+
+\tHaving said that, If you accept this risk and have backed up your software calibration, you
+can use the following command agreewithwarning(1) before the command setWriteallow(1) in your 
+software to get rid of this message and have the ability to write to the eeprom.
 ";					}
 	  
 		 }
@@ -482,10 +491,12 @@ return $writestatus;
 
 
 
-	    if (($area ne '0055') && ($area ne '0057') && ($area ne '005B') && ($area ne '005C') && ($area ne '005E') && 
-		($area ne '005F') && ($area ne '0060') && ($area ne '0061') && ($area ne '0062') && ($area ne '0063') &&
-		($area ne '0064') && ($area ne '007B') && ($area ne '007A') && ($area ne '0079') && ($area ne '005D') && 
-		($area ne '0058') && ($area ne '0059')){
+	    if (($area ne '0055') && ($area ne '0057') && ($area ne '0058') && ($area ne '0059') && ($area ne '005B') &&
+		($area ne '005C') && ($area ne '005D') && ($area ne '005E') && ($area ne '005F') && ($area ne '0060') &&
+		($area ne '0061') && ($area ne '0062') && ($area ne '0063') && ($area ne '0064') && ($area ne '0065') &&
+		($area ne '0066') && ($area ne '0067') && ($area ne '0068') && ($area ne '0069') && ($area ne '0079') &&
+	        ($area ne '007A') && ($area ne '007B')){
+
 		if($debug || $verbose){print "Address ($area) not supported for restore...\n";}
 		$writestatus = "Invalid memory address ($area)";
 return $writestatus;
@@ -619,6 +630,51 @@ return $writestatus;
                         print "\nDEFAULTS LOADED FOR 0x64\n";
                         print "________________________\n";
                         printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'Vox Delay','500 msec', 'Emergency','OFF', 'Cat rate','4800';
+                             }
+                          }
+
+        if ($area eq '0065'){
+                $restorevalue = '00';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x65\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'APO Time','OFF', 'MEM Groups','OFF', 'DIG Mode','RTTY';
+                             }
+                          }
+
+        if ($area eq '0066'){
+                $restorevalue = '00';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x66\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'TOT Time','OFF', 'DCS INV','TN-RN';
+                             }
+                          }
+
+        if ($area eq '0067'){
+                $restorevalue = 'B2';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x67\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n %-11s %-11s\n\n", 'SSB MIC','50' , 'MIC SCAN','ON';
+                             }
+                          }
+
+        if ($area eq '0068'){
+                $restorevalue = '32';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x68\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n%-11s %-11s\n\n", 'AM MIC','50', 'MIC KEY','OFF';
+                             }
+                          }
+
+        if ($area eq '0069'){
+                $restorevalue = '32';
+                if ($verbose){
+                        print "\nDEFAULTS LOADED FOR 0x69\n";
+                        print "________________________\n";
+                        printf "%-11s %-11s\n\n", 'FM MIC','50';
                              }
                           }
 
@@ -2032,6 +2088,162 @@ sub getCatrate {
                 print "CAT RATE is $catrate\n";
                     }
 return $catrate;
+               }
+
+# 65 ################################# GET APO TIME, MEM GROUP, DIG MODE ######
+###################################### READ BIT 0-2, 4, 5-7 FROM 0X65
+
+sub getApotime {
+        my ($apotime) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0065');
+        $apotime = substr($output,5,3);
+        my $HEX1 = sprintf("%X", oct( "0b$apotime" ) );
+        $apotime = hex($HEX1);
+	if ($apotime == '0'){$apotime = 'OFF';}
+
+        if($verbose){
+                print "APO Time is $apotime\n";
+                    }
+return $apotime;
+               }
+
+sub getMemgroup {
+        my ($memgroup) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0065');
+        $memgroup = substr($output,3,1);
+        if ($memgroup == '0'){$memgroup = 'OFF'};
+        if ($memgroup == '1'){$memgroup = 'ON'};
+
+        if($verbose){
+                print "Memory Groups is $memgroup\n";
+                    }
+return $memgroup;
+                 }
+
+sub getDigmode {
+        my ($digmode) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0065');
+        $digmode = substr($output,0,3);
+        if ($digmode == '000'){$digmode = 'RTTY'};
+        if ($digmode == '001'){$digmode = 'PSK31-L'};
+        if ($digmode == '010'){$digmode = 'PSK31-U'};
+        if ($digmode == '011'){$digmode = 'USER-L'};
+        if ($digmode == '100'){$digmode = 'USER-U'};
+        if($verbose){
+                print "Digital mode is $digmode\n";
+                    }
+return $digmode;
+                 }
+
+# 66 ################################# GET  TOT TIME , DCS INV######
+###################################### READ BIT 0-4, 6-7 FROM 0X66
+
+sub getTottime {
+        my ($tottime) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0066');
+        $tottime = substr($output,3,5);
+        my $HEX1 = sprintf("%X", oct( "0b$tottime" ) );
+        $tottime = hex($HEX1);
+	if ($tottime == 0){$tottime = 'OFF';}
+        if($verbose){
+                print "Time Out Timer Time is $tottime\n";
+                    }
+return $tottime;
+               }
+
+sub getDcsinv {
+        my ($dcsinv) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0066');
+        $dcsinv = substr($output,0,2);
+        if ($dcsinv == '00'){$dcsinv = 'TN-RN'};
+        if ($dcsinv == '01'){$dcsinv = 'TN-RIV'};
+        if ($dcsinv == '10'){$dcsinv = 'TIV-RN'};
+        if ($dcsinv == '11'){$dcsinv = 'TIV-RIV'};
+        if($verbose){
+                print "DCS Inversion is $dcsinv\n";
+                    }
+return $dcsinv;
+                 }
+
+# 67 ################################# GET SSB MIC, MIC SCAN  ######
+###################################### READ BIT 0-6, 7 FROM 0X67
+
+sub getSsbmic {
+        my ($ssbmic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0067');
+        $ssbmic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$ssbmic" ) );
+        $ssbmic = hex($HEX1);
+        if($verbose){
+                print "SSB MIC is $ssbmic\n";
+                    }
+return $ssbmic;
+               }
+
+sub getMicscan {
+        my ($micscan) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0067');
+        $micscan = substr($output,0,1);
+        if ($micscan == '0'){$micscan = 'OFF'};
+        if ($micscan == '1'){$micscan = 'ON'};
+
+        if($verbose){
+                print "MIC SCAN is $micscan\n";
+                    }
+return $micscan;
+               }
+
+# 68 ################################# GET AM MIC , MIC KEY ######
+###################################### READ BIT 0-6 AND 7 FROM 0X68
+
+sub getAmmic {
+        my ($ammic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0068');
+        $ammic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$ammic" ) );
+        $ammic = hex($HEX1);
+        if($verbose){
+                print "AM MIC is $ammic\n";
+                    }
+return $ammic;
+               }
+
+sub getMickey {
+        my ($mickey) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0068');
+        $mickey = substr($output,0,1);
+        if ($mickey == '0'){$mickey = 'OFF'};
+        if ($mickey == '1'){$mickey = 'ON'};
+
+        if($verbose){
+                print "MIC KEY is $mickey\n";
+                    }
+return $mickey;
+               }
+
+# 69 ################################# GET FM MIC , ######
+###################################### READ BIT 0-6 FROM 0X69
+
+sub getFmmic {
+        my ($fmmic) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0069');
+        $fmmic = substr($output,1,7);
+        my $HEX1 = sprintf("%X", oct( "0b$fmmic" ) );
+        $fmmic = hex($HEX1);
+        if($verbose){
+                print "FM MIC is $fmmic\n";
+                    }
+return $fmmic;
                }
 
 # 79 ################################# GET TX POWER AND ARTS ######
@@ -3995,7 +4207,6 @@ return 1;
 #print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0064',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Vox Delay set to $firstvalue sucessfull!\n";}
                 else {print"Vox Delay set failed: $writestatus\n";}
@@ -4061,6 +4272,355 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"CAT RATE Set to $value sucessfull!\n";}
                 else {print"CAT RATE set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 65 ################################# SET APO TIME , MEM GROUPS , DIG MODE
+###################################### CHANGE BITS 0-2, 4, 5-7 FROM ADDRESS 0X65
+
+sub setApotime {
+        my ($currentapotime) = @_;
+        my $self=shift;
+        my $value=shift;
+        if (($value ne 'OFF') && ($value < 1 || $value > 6)){
+                if($verbose){print "Value invalid: Choose a OFF or number between 1 and 6\n\n"; }
+return 1;
+                                           }
+        $self->setVerbose(0);
+        $currentapotime = $self->getApotime();
+        $self->setVerbose(1);
+        if ($value eq $currentapotime){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('0065');
+        $binvalue = substr("$binvalue", 5);
+        substr ($BYTE1, 5, 3, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0065',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"APO Time set to $firstvalue sucessfull!\n";}
+                else {print"APO Time set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setMemgroup {
+       my ($currentmemgroup) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentmemgroup = $self->getMemgroup();
+        $self->setVerbose(1);
+
+        if ($value eq $currentmemgroup){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0065','3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0065','3','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Memory Groups set to $value sucessfull!\n";}
+                else {print"Memory Groups set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
+
+####################
+
+sub setDigmode {
+        my ($currentdigmode) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'RTTY' && $value ne 'PSK31-L' && $value ne 'PSK31-U' && $value ne 'USER-L' && $value ne 'USER-U'){
+                if($verbose){print "Value invalid: Choose RTTY/PSK31-L/PSK31-U/USER-L/USER-U\n\n"; }
+return 1;
+                                                                  						       }
+        $self->setVerbose(0);
+        $currentdigmode = $self->getDigmode();
+        $self->setVerbose(1);
+        if ($value eq $currentdigmode){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('0065');
+        if ($value eq 'RTTY'){substr ($BYTE1, 0, 3, '000');}
+        if ($value eq 'PSK31-L'){substr ($BYTE1, 0, 3, '001');}
+        if ($value eq 'PSK31-U'){substr ($BYTE1, 0, 3, '010');}
+        if ($value eq 'USER-L'){substr ($BYTE1, 0, 3, '011');}
+        if ($value eq 'USER-U'){substr ($BYTE1, 0, 3, '100');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0065',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Digital Mode Set to $value sucessfull!\n";}
+                else {print"Digital Mode set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 66 ################################# SET TOT TIME , DCSINV
+###################################### CHANGE BITS 0-4 6-7 FROM ADDRESS 0X66
+
+sub setTottime {
+        my ($currenttottime) = @_;
+        my $self=shift;
+        my $value=shift;
+        if (($value ne 'OFF') && ($value < 1 || $value > 20)){
+                if($verbose){print "Value invalid: Choose OFF or a number between 1 and 20\n\n"; }
+return 1;
+                                                             }
+
+        $self->setVerbose(0);
+        $currenttottime = $self->getTottime();
+        $self->setVerbose(1);
+        if ($value eq $currenttottime){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+	if ($value eq 'OFF'){$value = 0;}
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+        my $BYTE1 = $self->eepromDecode('0066');
+        $binvalue = substr("$binvalue", 3);
+        substr ($BYTE1, 3, 5, "$binvalue");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0066',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"Time out Timer set to $firstvalue sucessfull!\n";}
+                else {print"Time out Timer set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setDcsinv {
+        my ($currentdcsinv) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'TN-RN' && $value ne 'TN-RIV' && $value ne 'TIV-RN' && $value ne 'TIV-RIV'){
+                if($verbose){print "Value invalid: Choose TN-RN/TN-RIV/TIV-RN/TIV-RIV\n\n"; }
+return 1;
+                                                                                                                       }
+        $self->setVerbose(0);
+        $currentdcsinv = $self->getDcsinv();
+        $self->setVerbose(1);
+        if ($value eq $currentdcsinv){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('0066');
+        if ($value eq 'TN-RN'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq 'TN-RIV'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq 'TIV-RN'){substr ($BYTE1, 0, 2, '10');}
+        if ($value eq 'TIV-RIV'){substr ($BYTE1, 0, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0066',"$NEWHEX");
+
+        if($verbose){
+                if ($writestatus eq 'OK') {print"DCS Inversion Set to $value sucessfull!\n";}
+                else {print"DCS Inversion set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+# 67 ################################# SET SSB MIC, MIC SCAN
+###################################### CHANGE BITS 0-6 , 7 FROM ADDRESS 0X67
+
+sub setSsbmic {
+        my ($currentssbmic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentssbmic = $self->getSsbmic();
+        $self->setVerbose(1);
+        if ($value eq $currentssbmic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('0067');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0067',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"SSB MIC set to $firstvalue sucessfull!\n";}
+                else {print"SSB MIC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setMicscan {
+       my ($currentmicscan) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentmicscan = $self->getMicscan();
+        $self->setVerbose(1);
+        if ($value eq $currentmicscan){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0067','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0067','0','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"MIC SCAN set to $value sucessfull!\n";}
+                else {print"MIC SCAN set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+# 68 ################################# SET AM MIC, MIC KEY
+###################################### CHANGE BITS 0-6 , 7 FROM ADDRESS 0X68
+
+sub setAmmic {
+        my ($currentammic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentammic = $self->getAmmic();
+        $self->setVerbose(1);
+        if ($value eq $currentammic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('0068');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0068',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"AM MIC set to $firstvalue sucessfull!\n";}
+                else {print"AM MIC set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
+
+sub setMickey {
+       my ($currentmickey) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentmickey = $self->getMickey();
+        $self->setVerbose(1);
+        if ($value eq $currentmickey){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0068','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0068','0','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"MIC KEY set to $value sucessfull!\n";}
+                else {print"MIC KEY set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+# 69 ################################# SET FM MIC
+###################################### CHANGE BITS 0-6 FROM ADDRESS 0X69
+
+sub setFmmic {
+        my ($currentfmmic) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value < 0 || $value > 100){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                       }
+
+        if (length($value) == 0){
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+return 1;
+                                }
+
+        $self->setVerbose(0);
+        $currentfmmic = $self->getFmmic();
+        $self->setVerbose(1);
+        if ($value eq $currentfmmic){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                    }
+        my $firstvalue = $value;
+        my $binvalue = dec2bin($value);
+#print "BV:    $binvalue\n";
+        my $BYTE1 = $self->eepromDecode('0069');
+        $binvalue = substr("$binvalue", 1);
+#print "BYTE:  $BYTE1\n";
+#print "NEWBV:    $binvalue\n";
+        substr ($BYTE1, 1, 7, "$binvalue");
+#print "BYT2:  $BYTE1\n";
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0069',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"FM MIC set to $firstvalue sucessfull!\n";}
+                else {print"FM MIC set failed: $writestatus\n";}
                 $writestatus = 'ERROR';
                     }
 return $writestatus;
@@ -4182,7 +4742,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_14
+Version 0.9.0_15
 
 =head1 SYNOPSIS
 
@@ -4613,6 +5173,13 @@ The output shows all of the transactions and modifications conducted by the syst
         MENU ITEM # 4 - Returns the Disable option of the AM/FM dial ENABLE / DISABLE
 
 
+=item getAmmic()
+
+                $ammic = $FT817->getAmmic();
+
+        MENU ITEM # 5 - Returns the setting of AM MIC 0-100
+
+
 =item getAntenna ()
 
                 $antenna = $FT817->getAntenna({HF/6M/FMBCB/AIR/VHF/UHF});
@@ -4623,6 +5190,13 @@ The output shows all of the transactions and modifications conducted by the syst
 	bands.  Returns one value when an argument is used.  If the argument ALL or no
 	argument is used will print a list of the configurations or all bands and returns
 	a hash or the configuration
+
+
+=item getApotime()
+
+                $apotime = $FT817->getApotime();
+
+        MENU ITEM # 8 - Returns the Auto Power Off time as OFF or 1 - 6 hours
 
 
 =item getArts ()
@@ -4774,6 +5348,22 @@ The output shows all of the transactions and modifications conducted by the syst
         MENU ITEM # 22 - Returns the Weight of CW [1:2.5 - 1:4.5]
 
 
+=item getDcsinv()
+
+                $dcsinv = $FT817->getDcsinv();
+
+        MENU ITEM # 53 - Returns the Setting DCS encoding, normal or inverted  
+                         [TN-RN/TN-RIV/TIV-RN/TIV-RIV]
+
+
+=item getDigmode()
+
+                $digmode = $FT817->getDigmode();
+
+        MENU ITEM # 26 - Returns the Setting of the Digital mode 
+			 [RTTY/PSK31-L/PSK31-U/USER-L/USER-U]
+
+
 =item getDsp()
 
 		$dsp = $FT817->getDsp();
@@ -4830,6 +5420,12 @@ With two arguments it will display information on a range of addresses
 	Returns the current status of the flags : DEBUG / VERBOSE / WRITE ALLOW / WARNED
 
 
+=item getFmmic()
+
+                $fmmic = $FT817->getFmmic();
+
+        MENU ITEM # 29 - Returns the setting of FM MIC 0-100
+
 
 =item getHome()
 
@@ -4864,6 +5460,27 @@ With two arguments it will display information on a range of addresses
                 $mainstep = $FT817->getMainstep();
 
         MENU ITEM # 33 - Returns the Main Step COURSE / FINE
+
+
+=item getMemgroup()
+
+                $memgroup = $FT817->getMemgroup();
+
+        MENU ITEM # 34 - Returns Status of Memory groups ON / OFF
+
+
+=item getMickey()
+
+                $mickey = $FT817->getMickey();
+
+        MENU ITEM # 36 - Returns Status of MIC KEY ON / OFF
+
+
+=item getMicscan()
+
+                $micscan = $FT817->getMicscan();
+
+        MENU ITEM # 37 - Returns Status of MIC SCAN ON / OFF
 
 
 =item getMtqmb()
@@ -4950,6 +5567,13 @@ With two arguments it will display information on a range of addresses
         MENU ITEM # 44 - Returns the Sidetone Volume 0-100
 
 
+=item getSsbmic()
+
+                $ssbmic = $FT817->getSsbmic();
+
+        MENU ITEM # 46 - Returns the Value of SSB MIC 0-100
+
+
 =item getSoftcal()
 
 		$softcal = $FT817->getSoftcal({console/digest/file filename.txt});
@@ -4961,6 +5585,13 @@ With two arguments it will display information on a range of addresses
 	with a file name writes the output to a file.  It's a good idea to keep a copy of 
 	this in case the eeprom gets corrupted and the radio factory defaults.  If you dont have 
 	this information, you will have to send the radio back to the company for recalibration.
+
+
+=item getTottime()
+
+                $tottime = $FT817->getTottime();
+
+        MENU ITEM # 49 - Returns the Value of the Time out Timer in Minutes
 
 
 =item getTuner()
@@ -5097,7 +5728,8 @@ With two arguments it will display information on a range of addresses
 	Currently 
 		  [0055] [0057] [0058] [0059] [0060]
 		  [005B] [005C] [005D] [005E] [005F] 
-		  [0061] [0062] [0063] [0064] [0079]
+		  [0061] [0062] [0063] [0064] [0065]
+		  [0066] [0067] [0068] [0069] [0079]
 		  [007A] [007B]
 	
 	 are allowed
@@ -5143,6 +5775,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0063');
 
 
+=item setAmmic()
+
+                $status = $FT817->setAmnic([0-100]);
+
+        MENU ITEM # 5 Sets the AM MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0068');
+
+
 =item setAntenna()
 
                 $status = $FT817->setAntenna([HF/6M/FMBCB/AIR/VHF/UHF] [FRONT/BACK]);
@@ -5156,6 +5803,21 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('007A');
+
+
+=item setApotime()
+
+                $status = $FT817->setApotime([OFF/1-6]);
+
+        MENU ITEM # 8 Sets the Auto Power Off time to OFF or 1-6 hours
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0065');
 
 
 =item setArs144()
@@ -5464,6 +6126,23 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005F');
 
 
+=item setDcsinv()
+
+                $output = $FT817->setDcsinv([TN-RN/TN-RIV/TIV-RN/TIV-RIV]);
+
+        MENU ITEM # 53
+
+        Sets the DCS Inversion
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0066');
+
+
 =item setDebug()
 
 		$debug = $FT817->setDebug([#]);
@@ -5472,6 +6151,23 @@ With two arguments it will display information on a range of addresses
 	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
+
+
+=item setDigmode()
+
+                $output = $FT817->setDigmode([RTTY/PSK31-L/PSK31-U/USER-L/USER-U]);
+
+        MENU ITEM # 26
+
+        Sets the Digital Mode type
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0065');
 
 
 =item setDsp()
@@ -5519,6 +6215,23 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0057');
+
+
+=item setFmmic()
+
+                $output = $FT817->setFmmic([0-100]);
+
+        MENU ITEM # 29
+
+        Sets the FM MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0069');
 
 
 =item setHome()
@@ -5594,6 +6307,51 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('005D');
+
+
+=item setMemgroup()
+
+                $status = $FT817->setMemgroup([ON/OFF]);
+
+        MENU ITEM # 33 Sets the Memory Groups ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0065');
+
+
+=item setMickey()
+
+                $status = $FT817->setMickey([ON/OFF]);
+
+        MENU ITEM # 36 Sets the MIC KEY ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0068');
+
+
+=item setMicscan()
+
+                $status = $FT817->setMicscan([ON/OFF]);
+
+        MENU ITEM # 37 Sets the MIC SCAN ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0067');
 
 
 =item setMtqmb()
@@ -5787,6 +6545,40 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0061');
+
+
+=item setSsbmic()
+
+                $output = $FT817->setSsbmic([0-100]);
+
+        MENU ITEM # 46
+
+        Sets the SSB MIC
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0067');
+
+
+=item setTottime()
+
+                $output = $FT817->setTottime([OFF/1-20]);
+
+        MENU ITEM # 49
+
+        Sets the Time out Timer OFF or in minutes from 1 to 20
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0066');
 
 
 =item setTuner()

@@ -142,7 +142,8 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.0_14    27MARCH2014/1200
 	    Pod Fixes
-            Added [005E] [0060] [0064] option to restoreEeprom
+	    Set ranges for set commands with numeric values
+            Added [005E] [0060] [0064] [0066] option to restoreEeprom
 	    Added function setCwspeed
 	    Added function getEmergency
 	    Added function getCatrate
@@ -170,3 +171,27 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setSidetonevol
 	    Added function setVoxgain
 	    Added function setAmfmdial
+
+0.9.0_15    28MARCH2014/1200
+	    Edited warning Message for writeallow
+	    Added [0065] [0067] [0068] [0069] option to restoreEeprom
+	    Added function getApotime
+	    Added function getMemgroup
+	    Added function getDigmode
+	    Added function setApotime
+	    Added function setMemgroup
+	    Added function setDigmode
+	    Added function getTottime
+	    Added function getDcsinv
+	    Added function setTottime
+	    Added function setDcsinv
+	    Added function getSsbmic
+	    Added function setSsbmic
+	    Added function getAmmic
+	    Added function getMickey
+	    Added function setAmmic
+	    Added function setMickey
+	    Added function getFmmic
+	    Added function getMicscan
+	    Added function setFmmic
+	    Added function setMicscan
