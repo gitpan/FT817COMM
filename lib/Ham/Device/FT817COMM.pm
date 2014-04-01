@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-03-28 14:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-04-1 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -13,16 +13,16 @@ package Ham::Device::FT817COMM;
 use strict;
 use 5.006;
 use Digest::MD5 qw(md5);
-use Data::Dumper;
-our $VERSION = '0.9.0_16';
+#use Data::Dumper;
+our $VERSION = '0.9.0_17';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
 		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS %RESTOREAREAS 
-		$catoutput $output $squelch $currentmode $out $vfo $home $tuneselect $nb $lock
-		$txpow $toggled $writestatus $testbyte $dsp $fasttuning $charger);
+		%BITWATCHER $catoutput $output $squelch $currentmode $out $vfo $home $tuneselect $nb
+		$bitwatch $lock $txpow $toggled $writestatus $testbyte $dsp $fasttuning $charger);
 
 my $ft817;
 my $catoutput;
@@ -34,7 +34,7 @@ our $syntaxerr = "SYNTAX ERROR, CHECK WITH VERBOSE('1')\n";
 our %RESTOREAREAS = ('0055' => '00', '0057' => '00', '0058' => '00', '0059' => '45', '005B' => '86', '005C' => 'B2', 
 		     '005D' => '42', '005E' => '08', '005F' => 'E5', '0060' => '19', '0061' => '32', '0062' => '48', 
 		     '0063' => 'B2', '0064' => '05', '0065' => '00', '0066' => '00', '0067' => 'B2', '0068' => '32',
-		     '0069' => '32', '006A' => '32', '006B' => 'B2', '006C' => '32', '006D' => '00', '006E' => '00',
+		     '0069' => '32', '006A' => '32', '006B' => '32', '006C' => '32', '006D' => '00', '006E' => '00',
 		     '006F' => '00', '0070' => '00', '0071' => '00', '0072' => '00', '0073' => '00', '0074' => '00',
 		     '0079' => '03', '007A' => '0F', '007B' => '08');
 
@@ -94,6 +94,33 @@ our %DCSCODES = ('0000000' => '023', '0000001' => '025', '0000010' => '026', '00
 		   '1011100' => '632', '1011101' => '654', '1011110' => '662', '1011111' => '664',
 		   '1100000' => '703', '1100001' => '712', '1100010' => '723', '1100011' => '731',
 		   '1100100' => '732', '1100101' => '734', '1100110' => '743', '1100111' => '754',);
+
+
+# Convention is ..... BYTE [76543210] 
+#
+# BIT 7 -> 0 , 6 -> 1, 5 -> 2, 4 -> 3, 3 -> 4, 2 -> 5, 1 -> 6, 0 -> 7 
+#
+# USE ALL => 76543210 for whole BYTE
+#
+# 'address' =>   {
+#                     'bit' => 'value'
+#               
+#
+#                } 
+%BITWATCHER = (
+    '0055' =>   {
+                       '4' => '0',
+                       '1' => '0'
+                },
+
+    '0056' =>   {
+                       'ALL' => '10000000'
+                },
+
+    '0057' =>   {
+                       '4' => '0'
+                }
+	      );
 
 
 our %TXPWR = (HIGH => '00', LOW3 => '01', LOW2 => '10', LOW1 => '11');
@@ -197,6 +224,17 @@ sub setDebug {
 return $debug;
              }
 
+#### sets bitwatcherflag if a value exists
+sub setBitwatch {
+        my $self = shift;
+        my $bitwatcherflag = shift;
+        if($bitwatcherflag == '1') {our $bitwatch = $bitwatcherflag;}
+        if($bitwatcherflag == '0') {our $bitwatch = undef;}
+        if($bitwatch){print "BIT WATCH IS ON\n";}
+        if(!$bitwatch){print "BIT WATCH IS OFF\n";}
+return $bitwatch;
+                }
+
 #### sets output of a set command
 sub setVerbose {
 	my $self = shift;
@@ -256,13 +294,14 @@ sub getFlags {
 	my $flags;
 	if ($value eq 'DEBUG'){$flags = "$debug";}
         if ($value eq 'VERBOSE'){$flags = "$verbose";}
+        if ($value eq 'BITWATCH'){$flags = "$bitwatch";}
         if ($value eq 'WRITEALLOW'){$flags = "$writeallow";}
 	if ($value eq 'WARNED'){$flags = "$agreewithwarning";}
-	if (!$value){$flags = "DEBUG\:$debug \/ VERBOSE\:$verbose \/ WRITE ALLOW:$writeallow \/ WARNED\:$agreewithwarning";}
+	if (!$value){$flags = "DEBUG\:$debug \/ VERBOSE\:$verbose \/ WRITE ALLOW:$writeallow \/ \/ BITWATCH:$bitwatch \/ WARNED\:$agreewithwarning";}
         if($verbose){
                 printf "\n%-11s %-11s\n", 'FLAG','VALUE';
                 print "_________________";
-                printf "\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'DEBUG', "$debug", 'VERBOSE', "$verbose", 'WRITE', "$writeallow", 'WARNED', "$agreewithwarning";
+                printf "\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n%-11s %-11s\n\n", 'DEBUG', "$debug", 'VERBOSE', "$verbose", 'BITWATCH', "$bitwatch", 'WRITE', "$writeallow", 'WARNED', "$agreewithwarning";
                     }
 return $flags;
              }
@@ -312,6 +351,33 @@ sub hexDiff {
 return $difference;
              }
 
+
+#### Function for checking the BITWATCHER hash
+sub bitCheck {
+        my $self  = shift;
+	my $bit;
+	my $testbit;
+	my $status = 'OK';
+	foreach my $key ( keys %BITWATCHER)  {
+		if ($debug){print "\n(bitCheck:DEBUG) - Monitors in address $key are: \n";}
+		my $memarea = $self->eepromDecode("$key");
+		foreach $bit (keys $BITWATCHER{$key}) {
+			if ($bit ne 'ALL') {$testbit = substr($memarea,"$bit",1);}
+			else {$testbit = $memarea;}
+			my $value = $BITWATCHER{$key}{$bit};
+                        if ($debug){print "(bitCheck:DEBUG) - $key: \[$memarea\]\n";}
+			if ($debug){print "(bitCheck:DEBUG) - AREA: $key BIT: $bit ---> VALUE: $value TESTBIT: $testbit\n";}
+			if ($value != $testbit){
+				if ($verbose){print "CHANGE FOUND IN MEMORY AREA [$key]: BIT $bit is $testbit, WAS $value\n";}			
+		                $status = 'CHANGE';
+				               }
+
+                                                     }
+		if ($status eq 'CHANGE'){print "\n";}
+                                           }
+	if ($status eq 'OK'){if ($verbose){print "\nNO CHANGES FOUND\n";}}
+return $status;
+	     }
 
 #### Send a CAT command and set the return byte size
 sub sendCat {
@@ -522,7 +588,7 @@ return $writestatus;
         if ($area eq '0068'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'AM MIC','50', 'MIC KEY','OFF';}
         if ($area eq '0069'){printf "%-11s %-11s\n\n", 'FM MIC','50';}
         if ($area eq '006A'){printf "%-11s %-11s\n\n", 'DIG MIC','50';}
-        if ($area eq '006B'){printf "%-11s %-11s\n\n", 'PKT MIC','50';}
+        if ($area eq '006B'){printf "%-11s %-11s\n%-11s %-11s\n\n", 'PKT MIC','50','EXT MENU','OFF';}
         if ($area eq '006C'){printf "%-11s %-11s\n\n", '9600 MIC','50';}
         if ($area eq '006D'){printf "%-11s %-11s\n\n", 'DIG SHIFT MSB','0';}
         if ($area eq '006E'){printf "%-11s %-11s\n\n", 'DIG SHIFT LSB','0';}
@@ -1940,8 +2006,8 @@ sub getDigmic {
 return $digmic;
                }
 
-# 6B ################################# GET PKT MIC , ######
-###################################### READ BIT 0-6 FROM 0X6B
+# 6B ################################# GET PKT MIC ,EXT MENU ######
+###################################### READ BIT 0-6,7 FROM 0X6B
 
 sub getPktmic {
         my ($pktmic) = @_;
@@ -1952,6 +2018,17 @@ sub getPktmic {
         $pktmic = hex($HEX1);
         if($verbose){print "PKT MIC is $pktmic\n";}
 return $pktmic;
+               }
+
+sub getExtmenu {
+        my ($extmenu) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('006B');
+        $extmenu = substr($output,0,1);
+        if ($extmenu == '0'){$extmenu = 'OFF'};
+        if ($extmenu == '1'){$extmenu = 'ON'};
+        if($verbose){print "EXT MENU is $extmenu\n";}
+return $extmenu;
                }
 
 # 6C ################################# GET 9600 MIC , ######
@@ -2068,8 +2145,8 @@ sub getTusbcar{
 return $newvalue;
                }
 
-# 79 ################################# GET TX POWER AND ARTS ######
-###################################### READ BIT 0-1 AND 7 FROM 0X79
+# 79 ################################# GET TX POWER, PRI, DW, SCN AND ARTS ######
+###################################### READ BIT 0-1, 3, 4, 5-6, AND 7 FROM 0X79
 
 sub getTxpower {
 	my $self=shift;
@@ -2079,6 +2156,40 @@ sub getTxpower {
         if($verbose){print "Tx power is $txpow\n";}
 return $txpow;
                }
+
+sub getPri {
+        my ($pri) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0079');
+        $pri = substr($output,3,1);
+        if ($pri == '0'){$pri = 'OFF'};
+        if ($pri == '1'){$pri = 'ON'};
+        if($verbose){print "PRI is $pri\n";}
+return $pri;
+            }
+
+sub getDw {
+        my ($dw) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0079');
+        $dw = substr($output,4,1);
+        if ($dw == '0'){$dw = 'OFF'};
+        if ($dw == '1'){$dw = 'ON'};
+        if($verbose){print "DW is $dw\n";}
+return $dw;
+          }
+
+sub getScn {
+        my ($scn) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('0079');
+        $scn = substr($output,1,2);
+        if ($scn == '00'){$scn = 'OFF'};
+        if ($scn == '10'){$scn = 'UP'};
+        if ($scn == '11'){$scn = 'DOWN'};
+        if($verbose){print "SCN is $scn\n";}
+return $scn;
+           }
 
 sub getArts {
         my ($artsis) = @_;
@@ -2091,8 +2202,8 @@ sub getArts {
 return $artsis;
             }
 
-# 7a ################################# GET ANTENNA STATUS ######
-###################################### READ 0-5 BITS FROM 0X7A
+# 7A ################################# GET ANTENNA STATUS, SPL ######
+###################################### READ 0-5, 7 BITS FROM 0X7A
 
 sub getAntenna {
         my ($antenna, %antennas, %returnant) = @_;
@@ -2127,6 +2238,17 @@ return %returnant;
 				       }
 return $ant;
                }
+
+sub getSpl {
+        my ($spl) = @_;
+        my $self=shift;
+        $output = $self->eepromDecode('007A');
+        $spl = substr($output,0,1);
+        if ($spl == '0'){$spl = 'OFF'};
+        if ($spl == '1'){$spl = 'ON'};
+        if($verbose){print "SPL is $spl\n";}
+return $spl;
+            }
 
 # 7b ################################# GET BATTERY CHARGE STATUS ######
 ###################################### READ BIT 0-3 and 4 FROM 0X7B
@@ -4154,7 +4276,7 @@ sub setDcsinv {
         if ($value ne 'TN-RN' && $value ne 'TN-RIV' && $value ne 'TIV-RN' && $value ne 'TIV-RIV'){
                 if($verbose){print "Value invalid: Choose TN-RN/TN-RIV/TIV-RN/TIV-RIV\n\n"; }
 return 1;
-                                                                                                                       }
+                                                                                                 }
         $self->setVerbose(0);
         $currentdcsinv = $self->getDcsinv();
         $self->setVerbose(1);
@@ -4404,8 +4526,8 @@ return 1;
 return $writestatus;
                  }
 
-# 6B ################################# SET PKT MIC
-###################################### CHANGE BITS 0-6 FROM ADDRESS 0X6B
+# 6B ################################# SET PKT MIC, EXT MENU
+###################################### CHANGE BITS 0-6, 7 FROM ADDRESS 0X6B
 
 sub setPktmic {
         my ($currentpktmic) = @_;
@@ -4447,6 +4569,32 @@ return 1;
 return $writestatus;
                  }
 
+####################
+
+sub setExtmenu {
+       my ($currentextmenu) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentextmenu = $self->getExtmenu();
+        $self->setVerbose(1);
+        if ($value eq $currentextmenu){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('006B','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('006B','0','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"EXT MENU set to $value sucessfull!\n";}
+                else {print"EXT MENU set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
 
 # 6C ################################# SET 9600 MIC
 ###################################### CHANGE BITS 0-6 FROM ADDRESS 0X6C
@@ -4725,8 +4873,128 @@ return 1;
 return $writestatus;
                 }
 
-# 79 ################################# SET ARTS ON/OFF
-###################################### CHANGE BITS 7 FROM ADDRESS 0X79
+# 79 ################################# SET TXPOWER, PRI, DW, SCN, ARTS ON/OFF
+###################################### CHANGE BITS 0-1, 3, 4, 5-6, 7 FROM ADDRESS 0X79
+
+sub setTxpower {
+
+       my ($currentpower, $testtxpwr) = @_;
+        my $self=shift;
+        my $value=shift;
+        my %newhash = reverse %TXPWR;
+        ($testtxpwr) = grep { $newhash{$_} eq $value } keys %newhash;
+        if ($testtxpwr eq'') {
+                if($verbose){print "\nChoose valid Option : [HIGH/LOW1/LOW2/LOW3]\n\n";}
+return 1;
+                               }
+        $self->setVerbose(0);
+        $currentpower = $self->getTxpower();
+        $self->setVerbose(1);
+        if ($currentpower eq $value) {
+                if($verbose){print "\nValue $value already selected for TX POWER\n\n"; }
+return 1;
+                                    }
+        my $BYTE1 = $self->eepromDecode('0079');
+        substr ($BYTE1, 6, 2, "$testtxpwr");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+         $writestatus = $self->writeBlock('0079',"$NEWHEX");
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"TX POWER $value set sucessfull!\n";}
+                else {print"TX POWER $value set failed!!!\n";}
+                     }
+return $writestatus;
+               }
+
+####################
+
+sub setPri {
+       my ($currentpri) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentpri = $self->getPri();
+        $self->setVerbose(1);
+
+        if ($value eq $currentpri){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','3','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"PRI set to $value sucessfull!\n";}
+                else {print"PRI set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+####################
+
+sub setDw {
+       my ($currentdw) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentdw = $self->getDw();
+        $self->setVerbose(1);
+
+        if ($value eq $currentdw){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','4','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','4','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"DW set to $value sucessfull!\n";}
+                else {print"DW set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+####################
+
+sub setScn {
+        my ($currentscn) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'OFF' && $value ne 'UP' && $value ne 'DOWN'){
+                if($verbose){print "Value invalid: Choose OFF/UP/DOWN\n\n";}
+return 1;
+                                                                  }
+        $self->setVerbose(0);
+        $currentscn = $self->getScn();
+        $self->setVerbose(1);
+        if ($value eq $currentscn){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                       }
+        my $BYTE1 = $self->eepromDecode('0079');
+        if ($value eq 'OFF'){substr ($BYTE1, 1, 2, '00');}
+        if ($value eq 'UP'){substr ($BYTE1, 1, 2, '10');}
+        if ($value eq 'DOWN'){substr ($BYTE1, 1, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        $writestatus = $self->writeBlock('0079',"$NEWHEX");
+        if($verbose){
+                if ($writestatus eq 'OK') {print"SCN Set to $value sucessfull!\n";}
+                else {print"SCN Inversion set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+####################
 
 sub setArts {
        my ($currentarts, $writestatus) = @_;
@@ -4756,8 +5024,8 @@ return 1;
 return $writestatus;
             }
 
-# 7a ################################# SET ANTENNA FRONT/BACK
-###################################### CHANGE BITS 0-5 FROM ADDRESS 0X7A
+# 7a ################################# SET ANTENNA FRONT/BACK, SPL
+###################################### CHANGE BITS 0-5, 7 FROM ADDRESS 0X7A
 
 sub setAntenna {
        my ($currentantenna, $antennabit) = @_;
@@ -4801,6 +5069,36 @@ return 1;
 return $writestatus;
  	       }
 
+####################
+
+sub setSpl {
+       my ($currentspl) = @_;
+        my $self=shift;
+        my $value=shift;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentspl = $self->getSpl();
+        $self->setVerbose(1);
+
+        if ($value eq $currentspl){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                   }
+
+        if($value eq 'ON'){$writestatus = $self->writeEeprom('007A','0','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom('007A','0','0');}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"SPL set to $value sucessfull!\n";}
+                else {print"SPL set to $value failed!!!\n";}
+                     }
+
+return $writestatus;
+            }
+
 # 7b ################################# SET CHARGER ON/OFF
 ###################################### CHANGE BITS 6-7 FROM ADDRESS 0X7b
 
@@ -4841,7 +5139,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_16
+Version 0.9.0_17
 
 =head1 SYNOPSIS
 
@@ -5058,6 +5356,27 @@ The output shows all of the transactions and modifications conducted by the syst
 	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
+
+
+=item bitCheck()
+
+                $output = $FT817->bitCheck();
+
+	The function that checks the BITWATCHER hash for changes and throws an Alarm if a change is found
+	showing what the change is. The BITWATCHER hash is hard coded in FT817COMM.pm as areas are discovered
+	they are removed from the hash.  If an alarm is thrown, look at what function was done in the history log
+	and output log to figire out why the value was changed
+
+	[FT817]@/dev/ttyUSB0/:$ bitcheck
+	CHANGE FOUND IN MEMORY AREA [0055]: BIT 4 is 0, WAS 1
+
+
+	If it finds no changes it will return the following
+	[FT817]@/dev/ttyUSB0/:$ bitcheck
+
+	NO CHANGES FOUND
+
+	Returns 'OK' when no change found, 'CHANGE' when a change was found
 
 
 =item catClarifier()
@@ -5498,6 +5817,13 @@ The output shows all of the transactions and modifications conducted by the syst
 	Returns the current setting of the Digital Signal Processor (if applicable) : ON / OFF
 
 
+=item getDw()
+
+                $dw = $FT817->getDw();
+
+        Returns the status of Dual Watch (DW) ON / OFF
+
+
 =item getEeprom()
 
 		$value = $FT817->getEeprom();
@@ -5531,6 +5857,13 @@ With two arguments it will display information on a range of addresses
                 $emergency = $FT817->getEmergency();
 
         MENU ITEM # 28 - Shows if Emergency is set to ON / OFF
+
+
+=item getExtmenu()
+
+                $extmenu = $FT817->getExtmenu();
+
+        MENU ITEM # 52 - Shows the Extended Menu Setting ON /OFF
 
 
 =item getFasttuning()
@@ -5659,6 +5992,13 @@ With two arguments it will display information on a range of addresses
         Returns the status of Pass Band Tuning: ON /OFF
 
 
+=item getPri()
+
+                $pri = $FT817->getPri();
+
+        Returns the status of Priority Scaning Feature: ON /OFF
+
+
 =item getPwrmtr()
 
                 $pwrmtr = $FT817->getPwrmtr();
@@ -5701,6 +6041,13 @@ With two arguments it will display information on a range of addresses
         MENU ITEM # 55 - Shows the Rx Carrier point for USB -000 to +300 Hz
 
 
+=item getScn()
+
+                $pwrmtr = $FT817->getScn();
+
+        Returns the current function of the Scan Feature : OFF / UP / DOWN
+
+
 =item getScope()
 
                 $scope = $FT817->getScope();
@@ -5713,6 +6060,13 @@ With two arguments it will display information on a range of addresses
                 $sidetonevol = $FT817->getSidetonevol();
 
         MENU ITEM # 44 - Returns the Sidetone Volume 0-100
+
+
+=item getSpl()
+
+                $spl = $FT817->getSpl();
+
+        Returns the current Status of SPL, Split Frequency : ON / OFF
 
 
 =item getSsbmic()
@@ -6102,6 +6456,19 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('005C');
 
 
+=item setBitwatch()
+
+                $bitwatch = $FT817->setBitwatch([#]);
+
+        Turns on and off the internal BITWATCHER. Sends an alert when a value in eeprom changed
+	from that lister in the BITWATCHER hash.  Will Dramatically slow down the software and is
+	there just to help in identifing unknown memory areas.  When in doubt, leave it set to off.
+
+        Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+
+        Returns the argument sent to it on success.
+
+
 =item setBk()
 
                 $status = $FT817->setBk([ON/OFF]);
@@ -6418,6 +6785,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
+=item setDw()
+
+                $status = $FT817->setDw([ON/OFF]);
+
+        Sets the Dual Watch (DW) ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0079');
+
+
 =item setEmergency()
 
                 $output = $FT817->setEmergency([ON/OFF]);
@@ -6433,6 +6815,23 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0064');
+
+
+=item setExtmenu()
+
+                $output = $FT817->setExtmenu([ON/OFF]);
+
+        MENU ITEM # 52
+
+        Sets the Emergency to ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('006B');
 
 
 =item setFasttuning()
@@ -6700,6 +7099,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0057');
 
 
+=item setPri()
+
+                $output = $FT817->setPri([ON/OFF]);
+
+        Sets the Priority Scanning ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0079');
+
+
 =item setPwrmtr()
 
                 $status = $FT817->setPwrmtr([PWR/ALC/SWR/MOD];
@@ -6799,6 +7213,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0072');
 
 
+=item setScn()
+
+                $output = $FT817->setScn([OFF/UP/DOWN]);
+
+        Sets the SCN, Scanningn to OFF UP or DOWN
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0079');
+
+
 =item setScope()
 
                 $output = $FT817->setScope([CONT/CHK]);
@@ -6831,6 +7260,21 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('0061');
+
+
+=item setSpl()
+
+                $status = $FT817->setSpl([ON/OFF]);
+
+        Sets the Split Frequency (SPL) ON or OFF
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('007A');
 
 
 =item setSsbmic()
@@ -6918,6 +7362,21 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0055');
 
         Returns 'OK' on success. Any other output an error.
+
+
+=item setTxpower()
+
+                $status = $FT817->setTxpower([HIGH/LOW1/LOW2/LOW3];
+
+        Sets the Transmitter Power
+
+        This is a WRITEEEPROM based function and requires both setWriteallow() and
+        agreeWithwarning() to be set to 1.
+
+        In the event of a failure, the memory area can be restored with. The following
+        command that also requires both flags previously mentioned set to 1.
+
+        restoreEeprom('0079');
 
 
 =item setVfo()

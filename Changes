@@ -220,3 +220,23 @@ Revision history for Ham-Device-FT817COMM
 	    Added function setTlsbcar
 	    Added function getTusbcar
 	    Added function setTusbcar
+
+0.9.0_17    1APR2014/1200
+	    Updated restoreEeprom [006B] for EXT MENU
+	    Added Hash of Hashes BITWATCHER
+	    Updated getFlags for BITWATCH
+            Added function getExtmenu
+	    Added function setExtmenu
+	    Added function setTxpower
+	    Added function getPri
+	    Added function setPri
+	    Added function getDw
+	    Added function setDw
+	    Added function getScn
+	    Added function setScn
+	    Added function getSpl
+	    Added function setSpl
+	    Added function setBitwatch
+	    Added function bitCheck
+	    Added some entry's into BITWATCHER HASH
+	        
