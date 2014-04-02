@@ -240,3 +240,11 @@ Revision history for Ham-Device-FT817COMM
 	    Added function bitCheck
 	    Added some entry's into BITWATCHER HASH
 	        
+0.9.0_18    1APR2014/1200
+	    bitcheck fully implimented in library
+	    BITWATCHER HASH fully loaded with missing addresses
+	    writeMemvfo function added
+	    BOUNDRIES hash added
+	    Function boundryCheck added
+	    Function quietToggle added
+	
