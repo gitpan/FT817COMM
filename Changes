@@ -248,3 +248,17 @@ Revision history for Ham-Device-FT817COMM
 	    Function boundryCheck added
 	    Function quietToggle added
 	
+
+0.9.0_18-1  Fixed package error in 0.9.0_18, no changes to code
+
+0.9.0_19    4APR2014/1200
+            Added [044F] option to restoreEeprom
+	    MTUNE and MTQMB addresses added to the VFOABASE Hash
+	    readMemvfo and writeMemvfo support MTQMB, MTUNE
+	    MTQMB and MTUNE added to BOUNDRIES hash
+	    Added function getCurrentmem
+	    Added function setCurrentmem
+	    Added hash MEMORYBASE
+	    Added hash MEMORYOPTS
+	    Added function readMemory
+	    Updated hexAdder to drop leading zero then length is 5 digits
