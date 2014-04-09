@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-04-4 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-09-4 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -11,17 +11,17 @@
 package Ham::Device::FT817COMM;
 
 use strict;
-use 5.006;
+use 5.14.0;
 use Digest::MD5 qw(md5);
-#use Data::Dumper;
-our $VERSION = '0.9.0_19';
+use Data::Dumper;
+our $VERSION = '0.9.0_20';
 
 BEGIN {
 	use Exporter ();
 	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
 		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS %RESTOREAREAS 
-		%BITWATCHER %BOUNDRIES %MEMORYBASE %MEMORYOPTS $catoutput $output $squelch
+		%BITWATCHER %BOUNDRIES %MEMORYBASE %MEMORYOPTS %FREQRANGE %CWID $catoutput $output $squelch
 		$currentmode $out $vfo $home $tuneselect $nb $bitwatch $bitcheck $lock $txpow
 		$toggled $writestatus $testbyte $dsp $fasttuning $charger);
 
@@ -56,6 +56,12 @@ our %MEMORYOPTS =  (MODE => '1', HFVHF => '2', TAG => '3', FREQRANGE  => '4', NA
 
 our %FMSTEP = ('5.0' => '000', '6.25' => '001', '10.0' => '010', '12.5' => '011', '15.0' => '100',
                '20.0' => '101', '25.0' => '110', '50.0' => '111');
+
+our %CWID = ('0' => '0', '1' => '1', '2' => '2', '3' => '3', '4' => '4', '5' => '5', '6' => '6', '7' => '7',
+	     '8' => '8', '9' => '9', 'A' => 'A', 'B' => 'B', 'C' => 'C', 'D' => 'D', 'E' => 'E', 'F' => 'F',  
+	     '10' => 'G', '11' => 'H', '12' => 'I', '13' => 'J', '14' => 'K', '15' => 'L', '16' => 'M', '17' => 'N',
+	     '18' => 'O', '19' => 'P', '1A' => 'Q', '1B' => 'R', '1C' => 'S', '1D' => 'T', '1E' => 'U', '1F' => 'V',
+	     '20' => 'W', '21' => 'X', '22' => 'Y', '23' => 'Z', '24' =>' ');
 
 our %AMSTEP = ('2.5' => '000', '5.0' => '001', '9.0' => '010', '10.0' => '011', '12.5' => '100',
                '25.0' => '101');
@@ -113,10 +119,11 @@ our %DCSCODES =   ('0000000' => '023', '0000001' => '025', '0000010' => '026', '
 our %BITWATCHER = (
     '0006' =>   {'ALL' => '10100101'},
     '0055' =>   {'4' => '0','1' => '0'},
-    '0056' =>   {'ALL' => '10000000'},
+    '0055' =>   {'4' => '0'},
+    '0056' =>   {'ALL' => '10000010'},
     '0057' =>   {'4' => '0'},
     '0058' =>   {'4' => '0'},
-    '005A' =>   {'ALL' => '01110111'},
+    '005A' =>   {'ALL' => '01110001'},
     '005B' =>   {'2' => '0'},
     '0061' =>   {'0' => '0'},
     '0065' =>   {'4' => '0'},
@@ -131,7 +138,117 @@ our %BITWATCHER = (
     '0079' =>   {'5' => '0'},
     '007A' =>   {'1' => '0'},
     '007B' =>   {'0' => '0','1' => '0','2' => '0'},
-    '007C' =>   {'ALL' => '00000000'}
+
+    '017A' =>   {'ALL' => '01001000'},
+    '017B' =>   {'ALL' => '00101101'},
+    '017C' =>   {'ALL' => '00110000'},
+    '017D' =>   {'ALL' => '00110000'},
+    '017E' =>   {'ALL' => '00110010'},
+    '017F' =>   {'ALL' => '00100000'},
+    '0180' =>   {'ALL' => '00100000'},
+
+    '03B5' =>   {'ALL' => '00110011'},
+    '03B6' =>   {'ALL' => '00110011'},
+    '03B7' =>   {'ALL' => '00110011'},
+    '03B8' =>   {'ALL' => '00100000'},
+    '03B9' =>   {'ALL' => '00100000'},
+    '03BA' =>   {'ALL' => '00100000'},
+    '03BB' =>   {'ALL' => '00100000'},
+    '03BC' =>   {'ALL' => '00100000'},
+
+    '03CF' =>   {'ALL' => '01001000'},
+    '03D0' =>   {'ALL' => '01001111'},
+    '03D1' =>   {'ALL' => '01001101'},
+    '03D2' =>   {'ALL' => '01000101'},
+    '03D3' =>   {'ALL' => '00101101'},
+    '03D4' =>   {'ALL' => '00110010'},
+    '03D5' =>   {'ALL' => '01001101'},
+    '03D6' =>   {'ALL' => '00100000'},
+
+    '0437' =>   {'ALL' => '11111111'},
+    '0438' =>   {'ALL' => '11111111'},
+    '0439' =>   {'ALL' => '11111111'},
+    '043A' =>   {'ALL' => '11111111'},
+    '043B' =>   {'ALL' => '11111111'},
+    '043C' =>   {'ALL' => '11111111'},
+    '043D' =>   {'ALL' => '11111111'},
+    '043E' =>   {'ALL' => '11111111'},
+    '043F' =>   {'ALL' => '00000000'},
+    '0440' =>   {'ALL' => '00000010'},
+    '0441' =>   {'ALL' => '10111111'},
+    '0442' =>   {'ALL' => '00100000'},
+    '0443' =>   {'ALL' => '00000000'},
+    '0444' =>   {'ALL' => '00000011'},
+    '0445' =>   {'ALL' => '00001101'},
+    '0446' =>   {'ALL' => '01000000'},
+    '0447' =>   {'ALL' => '00000000'},
+    '0448' =>   {'ALL' => '01001100'},
+    '0449' =>   {'ALL' => '01001011'},
+    '044A' =>   {'ALL' => '01000000'},
+    '044B' =>   {'ALL' => '00000000'},
+    '044C' =>   {'ALL' => '01010010'},
+    '044D' =>   {'ALL' => '01100101'},
+    '044E' =>   {'ALL' => '11000000'},
+
+    '046B' =>   {'ALL' => '00000000'},
+    '046C' =>   {'ALL' => '00000000'},
+    '046D' =>   {'ALL' => '00000000'},
+    '046E' =>   {'ALL' => '00000000'},
+    '046F' =>   {'ALL' => '00000000'},
+    '0470' =>   {'ALL' => '00000000'},
+    '0471' =>   {'ALL' => '00000000'},
+    '0472' =>   {'ALL' => '00000000'},
+    '0473' =>   {'ALL' => '00000000'},
+    '0474' =>   {'ALL' => '00000000'},
+    '0475' =>   {'ALL' => '00000000'},
+    '0476' =>   {'ALL' => '00000000'},
+    '0477' =>   {'ALL' => '00000000'},
+    '0478' =>   {'ALL' => '00000000'},
+    '0479' =>   {'ALL' => '00000000'},
+    '047A' =>   {'ALL' => '00000000'},
+    '047B' =>   {'ALL' => '00000000'},
+    '047C' =>   {'ALL' => '00000000'},
+    '047D' =>   {'ALL' => '00000000'},
+    '047E' =>   {'ALL' => '00000000'},
+    '047F' =>   {'ALL' => '00000000'},
+    '0480' =>   {'ALL' => '00000000'},
+    '0481' =>   {'ALL' => '00000000'},
+    '0482' =>   {'ALL' => '10000000'},
+    '0483' =>   {'ALL' => '00000000'},
+
+    '1908' =>   {'ALL' => '01100001'},
+    '1909' =>   {'ALL' => '00000000'},
+    '190A' =>   {'ALL' => '00000000'},    
+    '190B' =>   {'ALL' => '01001000'},
+    '190C' =>   {'ALL' => '00000000'},
+    '190D' =>   {'ALL' => '00000000'},
+    '190E' =>   {'ALL' => '00001000'},
+    '190F' =>   {'ALL' => '00000000'},
+    '1910' =>   {'ALL' => '00000000'},
+    '1911' =>   {'ALL' => '00000000'},
+    '1912' =>   {'ALL' => '00000000'},
+    '1913' =>   {'ALL' => '00000111'},
+    '1914' =>   {'ALL' => '11100010'},
+    '1915' =>   {'ALL' => '10001110'},
+    '1916' =>   {'ALL' => '00000000'},
+    '1917' =>   {'ALL' => '00000000'},
+    '1918' =>   {'ALL' => '00100111'},
+    '1919' =>   {'ALL' => '00010000'},
+    '191A' =>   {'ALL' => '11111111'},
+    '191B' =>   {'ALL' => '11111111'},
+    '191C' =>   {'ALL' => '11111111'},
+    '191D' =>   {'ALL' => '11111111'},
+    '191E' =>   {'ALL' => '11111111'},
+    '191F' =>   {'ALL' => '11111111'},
+    '1920' =>   {'ALL' => '11111111'},
+    '1921' =>   {'ALL' => '11111111'},
+
+#    '1922' =>   {'ALL' => '00100010'},
+#    '1923' =>   {'ALL' => '00001010'},
+#    '1924' =>   {'ALL' => '00001110'},
+#    '1925' =>   {'ALL' => '00011100'},
+#    '1926' =>   {'ALL' => '00011110'},
+#    '1927' =>   {'ALL' => '00100100'}
 	      );
 
 our %BOUNDRIES = (
@@ -149,9 +266,19 @@ our %BOUNDRIES = (
     'AIR'   =>   {'LOW' => '108.000.00','HIGH' => '137.000.00'},
     '2M'    =>   {'LOW' => '137.000.00','HIGH' => '154.000.00'},
     '70CM'  =>   {'LOW' => '420.000.00','HIGH' => '450.000.00'},
+    'UHF'  =>    {'LOW' => '420.000.00','HIGH' => '450.000.00'},
     'PHAN'  =>   {'LOW' => '1.000.00'  ,'HIGH' => '477.000.00'},
     'MTQMB' =>   {'LOW' => '1.000.00'  ,'HIGH' => '477.000.00'}
 	         );
+
+our %FREQRANGE = (
+    'HF'   => {'LOW' => '180000',  'HIGH' => '4999999'},
+    '6M'   => {'LOW' => '5000000', 'HIGH' => '5400000'},
+    'FMBC' => {'LOW' => '7600000', 'HIGH' => '10799999'},
+    'AIR'  => {'LOW' => '10800000','HIGH' => '13700000'},
+    '2M'   => {'LOW' => '13700000','HIGH' => '15400000'},
+    'UHF'  => {'LOW' => '42000000','HIGH' => '45000000'}
+		 );
 
 our %TXPWR = (HIGH => '00', LOW3 => '01', LOW2 => '10', LOW1 => '11');
 
@@ -400,6 +527,30 @@ sub quietToggle{
 return 0;
                }
 
+#### Does a toggle between MEMORY and VFO with no output
+sub quietTunetoggle{
+        my $self  = shift;
+        $self->setVerbose(0);
+        my $tuner = $self->getTuner();
+        $self->setVerbose(0);
+        if($tuner eq 'VFO'){$writestatus = $self->writeEeprom('0055','1','1');}
+        if($tuner eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','1','0');}
+        $self->setVerbose(1);
+return 0;
+                   }
+
+#### Does a toggle between MEMORY and VFO with no output
+sub quietHometoggle{
+        my $self  = shift;
+        $self->setVerbose(0);
+        my $tuner = $self->getHome();
+        $self->setVerbose(0);
+        if($tuner eq 'Y'){$writestatus = $self->writeEeprom('0055','3','0');}
+        if($tuner eq 'N'){$writestatus = $self->writeEeprom('0055','3','1');}
+        $self->setVerbose(1);
+return 0;
+                   }
+
 #### Function for checking boundries
 sub boundryCheck {
         my $self  = shift;
@@ -421,6 +572,23 @@ return 1;
 return $status;
 		 }
 
+#### Function for checking what range frequency is in
+sub rangeCheck {
+        my $self  = shift;
+        my $frequency  = shift;
+        $frequency =~ tr/.//d;
+        foreach my $key ( keys %FREQRANGE)  {
+        my $low = $FREQRANGE{"$key"}{'LOW'};
+        my $high = $FREQRANGE{"$key"}{'HIGH'};
+        if ($frequency >= $low && $frequency <= $high){
+                if($verbose){print "RANGE is $key\n\n";}
+return $key;					    
+						      }
+					    }
+        if($verbose){print "NOT FOUND!!! ERROR!!\n\n";}
+return 1;
+	      }
+
 #### Function for checking the BITWATCHER hash
 sub bitCheck {
         my $self  = shift;
@@ -428,10 +596,10 @@ sub bitCheck {
 	my $bit;
 	my $testbit;
 	my $status = 'OK';
-	foreach my $key ( keys %BITWATCHER)  {
+	foreach my $key ( sort keys %BITWATCHER)  {
 		if ($debug){print "\n(bitCheck:DEBUG) - Monitors in address $key are: \n";}
 		my $memarea = $self->eepromDecode("$key");
-		foreach $bit (keys $BITWATCHER{$key}) {
+		foreach $bit (sort keys $BITWATCHER{$key}) {
 			if ($bit ne 'ALL') {$testbit = substr($memarea,"$bit",1);}
 			else {$testbit = $memarea;}
 			my $value = $BITWATCHER{$key}{$bit};
@@ -443,8 +611,8 @@ sub bitCheck {
 		                $status = 'CHANGE';
 				               }
                                                      }
-		if ($status eq 'CHANGE'){print "\n";}
                                            }
+                if ($verbose && $status eq 'CHANGE'){print "\n";}
 	if ($status eq 'OK'){if ($debug){print "(bitCheck:DEBUG) - NO CHANGES FOUND\n";}}
 return $status;
 	     }
@@ -556,6 +724,14 @@ return $writestatus;
         $BYTE2 = unpack("H*", substr($output2,1,1));
         if ($debug){print "\n(writeEeprom:DEBUG) - SHOULD BE: ($NEWHEX1) ($OLDBYTE2)\n";}
         if ($debug){print "\n(writeEeprom:DEBUG) - IS: -----> ($BYTE1) ($BYTE2)\n";}
+
+# We make an exception for setTuner because 0056 bit 0 changes automatically when MEM/VFO is toggled
+
+                if ($address == '0055' && $BIT == '1'){
+                	if($debug){print "\n(writeEeprom:DEBUG) - TUNER EXEMPTION OK\n\n";}
+			$writestatus = 'OK';
+						      }
+		else {
         if (($NEWHEX1 == $BYTE1) && ($OLDBYTE2 == $BYTE2)) {
 		$writestatus = "OK";
 		if($debug){print "\n(writeEeprom:DEBUG) - VALUES MATCH!!!\n\n";}
@@ -565,6 +741,7 @@ return $writestatus;
 		if($debug){print "\n(writeEeprom:DEBUG) - NO MATCH!!!\n\n";}
 			  }
         if ($bitwatch){$self->bitCheck("$lastaction");}
+                     }
 return $writestatus;
                }
 
@@ -791,7 +968,7 @@ return 1;
         my %newhash = reverse %OPMODES;
         my ($mode) = grep { $newhash{$_} eq $newmode } keys %newhash;
         if ($mode eq'') {
-                if($verbose){print "\nChoose valid mode: ON/OFF\n\n"; }
+                if($verbose){print "\nChoose valid mode: USB/LSB/FM etc etc\n\n"; }
 return 1;
                         }
 	$catoutput = $self->sendCat("$mode","00","00","00",'07',1);
@@ -850,9 +1027,9 @@ return 1;
 			$catoutput = $self->sendCat("$p",'00',"$f1","$f2",'f5',1)}};
 
         if ($verbose){
-                print "Set Clarifier Frequency ($polarity:$badf) Failed. Must contain 4 digits 0-9.\n" if (! $frequency);
+                print "Set Clarifier Frequency ($polarity:$badf) Failed. Must contain 4 digits 0000-0999.\n" if (! $frequency);
 		print "Set Clarifier Frequency ($polarity:$frequency) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set Clarifier Frequency ($polarity:$frequency) Failed. $frequency out of range\?\n" if ($catoutput eq 'f0');
+		print "Set Clarifier Frequency ($polarity:$frequency) Failed. $frequency out of range? POS / NEG 0000 to 0999\n" if ($catoutput eq 'f0');
                      }
 return $catoutput;
                      }
@@ -929,11 +1106,12 @@ sub catOffsetfreq {
                 $badf = $frequency;
                 $frequency = undef;
              }
+print "F1: $f1 F2: $f2 $f3 $f4\n";
 	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'F9',1);
         if($verbose){
-                print "Set Offset Frequency ($badf) Failed. Must contain 8 digits 0-9.\n" if (! $frequency);
+                print "Set Offset Frequency ($badf) Failed. Must contain 8 digits 0000-9999.\n" if (! $frequency);
                 print "Set Offset Frequency ($frequency) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set Offset Frequency ($frequency) Failed. $frequency invalid or out of range\?\n" if ($catoutput eq 'f0');
+                print "Set Offset Frequency ($frequency) Failed. $frequency invalid or out of range or split frequency on\?\n" if ($catoutput eq 'f0');
                     }
 return $catoutput;
                  }
@@ -945,14 +1123,14 @@ sub catCtcssdcs {
         my $ctcssdcs = shift;
 	$data = undef;
 
-        if ($ctcssdcs ne 'DCS' && $ctcssdcs ne 'CTCSS' && $ctcssdcs ne 'ENCODER' && $ctcssdcs ne 'OFF') {
-                if($verbose){print "\nChoose valid option: DCS/CTCSS/ENCODER/OFF\n\n"; }
+        if ($ctcssdcs ne 'DCS' && $ctcssdcs ne 'CTCSS' && $ctcssdcs ne 'ON' && $ctcssdcs ne 'OFF') {
+                if($verbose){print "\nChoose valid option: DCS/CTCSS/ON/OFF\n\n"; }
 return 1;
                                                                                                         }
 
 	if ($ctcssdcs eq 'DCS'){$data = "0A";}
 	if ($ctcssdcs eq 'CTCSS'){$data = "2A";}
-	if ($ctcssdcs eq 'ENCODER'){$data = "4A";}
+	if ($ctcssdcs eq 'ON'){$data = "4A";}
 	if ($ctcssdcs eq 'OFF'){$data = "8A";}
         $catoutput = $self->sendCat("$data",'00','00','00','0A',1);
         if ($verbose){
@@ -974,6 +1152,7 @@ sub catCtcsstone {
 	 else {
 		$badf = $tonefreq;
 		$tonefreq = undef;
+                print "Set CTCSS Tone ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $tonefreq);
 return 1;
 	      }
 	if($tonefreq){$catoutput = $self->sendCat("$f1","$f2",'00','00','0B',1);}
@@ -982,7 +1161,7 @@ return 1;
                 print "Set CTCSS Tone ($tonefreq) Sucessfull.\n" if ($catoutput eq '00');
 
 	if ($catoutput eq 'f0'){
-		print "Set CTCSS ($tonefreq) Failed. $tonefreq is not a valid tone frequency\.\n\n";
+		print "Set CTCSS ($tonefreq) Failed. $tonefreq is not a valid tone frequency. Leading zero if necessary\n\n";
 		my $columns = 1;
 		foreach my $tones (sort keys %CTCSSTONES) {
     		printf "%-15s %s",$CTCSSTONES{$tones};
@@ -1007,6 +1186,7 @@ sub catDcscode {
          else {
                 $badf = $code;
                 $code = undef;
+                print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9. Leading zero if necessary\n" if (! $code);
 return 1;
               }
 	if($code){$catoutput = $self->sendCat("$f1","$f2",'00','00','0C',1);}
@@ -2243,7 +2423,7 @@ sub getPri {
         $pri = substr($output,3,1);
         if ($pri == '0'){$pri = 'OFF'};
         if ($pri == '1'){$pri = 'ON'};
-        if($verbose){print "PRI is $pri\n";}
+        if($verbose){print "Priority Scanning is $pri\n";}
 return $pri;
             }
 
@@ -2254,7 +2434,7 @@ sub getDw {
         $dw = substr($output,4,1);
         if ($dw == '0'){$dw = 'OFF'};
         if ($dw == '1'){$dw = 'ON'};
-        if($verbose){print "DW is $dw\n";}
+        if($verbose){print "Dual Watch is $dw\n";}
 return $dw;
           }
 
@@ -2266,7 +2446,7 @@ sub getScn {
         if ($scn == '00'){$scn = 'OFF'};
         if ($scn == '10'){$scn = 'UP'};
         if ($scn == '11'){$scn = 'DOWN'};
-        if($verbose){print "SCN is $scn\n";}
+        if($verbose){print "Scanning is $scn\n";}
 return $scn;
            }
 
@@ -2325,7 +2505,7 @@ sub getSpl {
         $spl = substr($output,0,1);
         if ($spl == '0'){$spl = 'OFF'};
         if ($spl == '1'){$spl = 'ON'};
-        if($verbose){print "SPL is $spl\n";}
+        if($verbose){print "Split Frequency is $spl\n";}
 return $spl;
             }
 
@@ -2693,13 +2873,86 @@ sub getCurrentmem {
         $output = $self->eepromDecode('044F');
         my $HEX1 = sprintf("%X", oct( "0b$output" ) );
         $output = hex($HEX1);
+	$output ++;
 	if ($output == '201'){$output = 'M-PL';}
         if ($output == '202'){$output = 'M-PU';}
         if($verbose){print "Current Memory Channel is $output\n";}
 return $output;
                   }
 
-# 389 - 40A / 484 - END ################################# GET MEMORY INFO ######
+# 0450 - 046A############################## GET MEMORY MAP ######
+###################################### READ ALL BITS FROM 0X44F
+
+sub getMemmap {
+        my $self=shift;
+	my $number = shift;
+	my $startaddress = '0450';
+	my $label = $number;
+	if ($number eq 'M-PL'){$number = 201;}
+        if ($number eq 'M-PU'){$number = 202;}
+	if ($number < 1 || $number > 202){
+        if($verbose){print "Memory [$number] invalid. Must be between 1 and 200 or M-PL / M-PU\n"};
+return 1;
+					 }
+ 	my $register = int(($number - 1) / 8);
+ 	my $checkbit = ($number - (8 * ($register + 1))) * -1;
+        my $address = $self->hexAdder("$register","$startaddress");
+	$output = $self->eepromDecode("$address");
+        my $test = substr($output,$checkbit,1);
+        if ($test == '0'){$output = 'INACTIVE';}
+        if ($test == '1'){$output = 'ACTIVE';}
+        if($verbose){print "Memory Channel $label is $output\n";}
+return $output;
+                  }
+
+sub getActivelist {
+        my $self=shift;
+	my $currentmem = 1;
+	my $memtag;
+	if($verbose){ 
+                        print "\nACTIVE MEMORY AREAS\n___________________\n\n";
+                printf "%-5s %-10s %-6s %-6s %-12s %-9s %-9s %-9s %-9s\n\n", '#','LABEL','SKIP', 'MODE','RXFREQ','ENCODER','TONE/DCS','SHIFT','RPTOFFSET'; 
+		    }
+        do {
+        $self->setVerbose(0);
+	$output = $self->getMemmap("$currentmem");
+        $self->setVerbose(1);
+	if ($output eq 'ACTIVE'){
+        $self->setVerbose(0);
+	my $label = $self->readMemory('MEM',"$currentmem",'LABEL');
+        my $mode = $self->readMemory('MEM',"$currentmem",'MODE');
+        my $rxfreq = $self->readMemory('MEM',"$currentmem",'RXFREQ');
+        my $memskip = $self->readMemory('MEM',"$currentmem",'MEMSKIP');
+        my $encoder = $self->readMemory('MEM',"$currentmem",'TONEDCS');
+        my $rptoffset = $self->readMemory('MEM',"$currentmem",'RPTOFFSET');
+        my $rptoffsetfreq = $self->readMemory('MEM',"$currentmem",'RPTOFFSETFREQ');
+	my $encoderval;
+
+	if ($encoder eq 'TONE' || $encoder eq 'TONETSQ'){
+		        $encoderval = $self->readMemory('MEM',"$currentmem",'CTCSSTONE');
+			       }
+        elsif ($encoder eq 'DCS'){
+                        $encoderval = $self->readMemory('MEM',"$currentmem",'DCSCODE');
+                               }
+
+	else {$encoderval = 'OFF';}
+
+	$memtag = $currentmem;
+	if ($currentmem == '201'){$memtag = 'M-PL'};
+        if ($currentmem == '202'){$memtag = 'M-PU'};
+        $self->setVerbose(1);
+        if($verbose){
+        	printf "%-5s %-10s %-6s %-6s %-12s %-9s %-9s %-9s %-9s\n","$memtag","$label","$memskip","$mode","$rxfreq","$encoder","$encoderval","$rptoffsetfreq Mhz","$rptoffset";
+		    }
+				}
+	$currentmem++;
+           }
+        while ($currentmem < '202');
+        if($verbose){print "\n";}
+return 0;
+		  }
+
+# 389 - 40A / 484 - 1907 ################################# GET MEMORY INFO ######
 ###################################### 
 
 sub readMemory {
@@ -3120,7 +3373,7 @@ if ($value eq 'LABEL' || $value eq 'ALL'){
 	my $letter = chr($decvalue);
 	$cycles ++;
 	$label .= "$letter";
-           }
+        }
     while ($cycles < 8);
 
 	if ($label eq '????????'){$label = '\-BLANK\-';} 
@@ -3135,6 +3388,30 @@ return %memoryhash;
                     }
 
    	       }
+
+# 1922 - 1927 ################################# GET ID for CWID ######
+###################################### 
+sub getId {
+        my $self=shift;
+	my $address = 1922; 
+	my $cycles = 0x00;
+	my $id;
+	my $letter;
+	my $hexvalue;
+    do {
+        my $newaddress = $self->hexAdder("$cycles","$address");
+        my $ADD = $self->eepromDecode("$newaddress");
+        my $hexvalue = sprintf("%X", oct( "0b$ADD" ) );
+	my %newhash = reverse %CWID;
+        ($letter) = grep { $newhash{$_} eq $hexvalue } keys %newhash;
+        $cycles ++;
+        $id .= "$letter";
+        }
+    while ($cycles < 6);
+        if($verbose){print "CW ID is $id\n";}
+return $id;
+          }
+
 #################################
 # WRITE VALUES FROM EEPROM ADDR #
 #################################
@@ -3154,9 +3431,9 @@ return 1;
         my $currentmtune = $self->getMtune();
         $self->setVerbose(1);
         if ($value eq $currentmtune){
-                if($verbose){print "Value $currentmtune already selected.\n\n"; }
+                if($verbose){print "Value $currentmtune already selected.\n\n";}
 return 1;
-                                  }
+                                    }
 
         if($value eq 'MTUNE'){$writestatus = $self->writeEeprom('0055','2','1');}
         if($value eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','2','0');}
@@ -6069,7 +6346,7 @@ return $writestatus;
         if ($option eq 'SSBSTEP') {
         my ($currentssbstep) = @_;
         if ($value ne '1.0' && $value ne '2.5' && $value ne '5.0'){
-                if($verbose){print "Value invalid: Choose 1/2.5/5\n\n"; }
+                if($verbose){print "Value invalid: Choose 1.0/2.5/5.0\n\n"; }
 return 1;
                                                                   }
         $self->setVerbose(0);
@@ -6265,10 +6542,12 @@ return 1;
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
         my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
         my $NEWHEX4 = sprintf("%X", oct( "0b$bin4" ) );
+        if ($musttoggle) {$self->quietToggle();}
         my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
         my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
         my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
         my $writestatus4 = $self->writeBlock("$address4","$NEWHEX4");
+        if ($musttoggle) {$self->quietToggle();}
         if ($writestatus1 eq $writestatus2) {
                 if ($writestatus1 eq 'OK'){print"RX Frequency set to $valuelabel sucessfull!\n"; $writestatus = 'OK';}
                                             }
@@ -6306,9 +6585,11 @@ return 1;
         my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
         my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
+        if ($musttoggle) {$self->quietToggle();}
         my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
         my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
         my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
+        if ($musttoggle) {$self->quietToggle();}
         if ($writestatus1 eq $writestatus2) {
                 if ($writestatus1 eq 'OK'){print"Repeater offset set to $value sucessfull!\n"; $writestatus = 'OK';}
                                             }
@@ -6327,6 +6608,7 @@ sub setCurrentmem {
 	my $firstvalue = $value;
 	if ($value eq 'M-PL'){$value = '201'};
         if ($value eq 'M-PU'){$value = '202'};	
+	$value--;
         if ($value < 0 || $value > 202){
                 if($verbose){print "Value invalid: Choose a number between 0 and 200, or M-PL / M-PU\n\n"; }
 return 1;
@@ -6354,6 +6636,928 @@ return 1;
 return $writestatus;
                  }
 
+
+# 450 - 46A  ############## ENABLE / DISABLE MEMORY AREA ######
+###################################### 
+
+sub setMemarea {
+        my $self=shift;
+        my $number = shift;
+        my $startaddress = '0450';
+        my $value = shift;
+        if ($number eq 'M-PL'){$number = 201;}
+        if ($number eq 'M-PU'){$number = 202;}
+        if ($number == 1){
+        if($verbose){print "Memory [$number] Cannot be changed, and must remain ACTIVE\n"};
+return 1;
+                         }
+
+        if ($number < 2 || $number > 202){
+        if($verbose){print "Memory [$number] invalid. Must be between 2 and 200 or M-PL / M-PU\n"};
+return 1;
+                                        }
+        if ($value ne 'ACTIVE' && $value ne 'INACTIVE') {
+                if($verbose){print "Option [$value] for Memory [$number] invalid. Choose ACTIVE / INACTIVE\n"};
+return 1;
+                                                        }
+        $self->setVerbose(0);
+        my $currentvalue = $self->getMemmap("$number");
+        $self->setVerbose(1);
+        if ($value eq $currentvalue) {
+                if($verbose){print "Memory [$number] Already $value\n"};
+return 1;
+                                     }
+        if ($value eq 'ACTIVE'){$value = '1';}
+        if ($value eq 'INACTIVE'){$value = '0';}
+        my $register = int(($number - 1) / 8);
+        my $checkbit = ($number - (8 * ($register + 1))) * -1;
+        my $address = $self->hexAdder("$register","$startaddress");
+        $writestatus = $self->writeEeprom("$address","$checkbit","$value"); 
+return $writestatus;
+               }
+
+# 389 - 40A / 484 - 1907 ############## WRITE MEMORY INFO ######
+###################################### 
+
+sub writeMemory {
+        my ($testvfoband, $address, $address2, $address3, $address4, $testoptions, $base, %baseaddress, $musttoggle, $hometoggle, $offset, $startaddress, $fmstep, $amstep, $ctcsstone, $dcscode, $polarity, $newvalue) = @_;
+        my $self=shift;
+        my $type=shift;
+        my $subtype=shift;
+	my $option = shift;
+	my $value=shift;
+	$type = uc($type);
+	$subtype = uc($subtype);
+        $option = uc($option);
+        if ($subtype eq 'M-PL') {$subtype = '201';}
+        if ($subtype eq 'M-PU') {$subtype = '202';}
+        my $memnum = $subtype;
+        my $multiple;
+        my %memoryhash = ();
+        if (!$value) {$value = 'ALL';}
+        if ($type ne 'HOME' && $type ne 'QMB' && $type ne 'M-PL' && $type ne 'M-PU' && $type ne 'MEM') {
+                if($verbose){print "Value invalid: Choose HOME / QMB / M-PL / M-PU / MEM\n\n";}
+return 1;
+                                                                                                       }
+        my %testhash = reverse %MEMORYOPTS;
+        ($testoptions) = grep { $testhash{$_} eq $option } keys %testhash;
+        if (!$testoptions && $value ne 'ALL'){
+                if($verbose){
+                print "Choose a valid option, or no option for ALL\.\n\n";
+                my $columns = 1;
+                foreach my $options (sort keys %testhash) {
+                printf "%-15s %s",$testhash{$options};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                            }
+                print "\n\n";
+                            }
+return 1;
+                                             }
+       if ($type eq 'HOME'){%baseaddress = reverse %HOMEBASE;}
+       if ($type eq 'QMB'){%baseaddress = reverse %MEMORYBASE; $subtype = 'QMB';}
+       if ($type eq 'MEM'){%baseaddress = reverse %MEMORYBASE; $subtype = 'MEM'}
+
+        ($base) = grep { $baseaddress{$_} eq $subtype } keys %baseaddress;
+        if ($type eq 'MEM'){
+                if ($memnum > 1) {
+                        $multiple = ($memnum - 1) * 26;
+                        $base = $self->hexAdder("$multiple","$base");
+                                 }
+                            }
+        if (!$base) {
+                if($verbose){print "Command is malformed, check your syntax!!!\n\n";}
+return 1;
+                    }
+
+	if ($type eq 'MEM') {$subtype = "$memnum";}
+        $self->setVerbose(0);
+        my $currenttuner = $self->getTuner();
+        my $ishome =  $self->getHome();
+	my $isqmb =  $self->getQmb();
+        $self->setVerbose(1);
+                if ($type eq 'HOME' && $ishome eq 'Y'){$hometoggle = 'TRUE';}
+        if ($currenttuner eq 'MEMORY') {
+                if ($type eq 'QMB' && $isqmb eq 'ON'){$musttoggle = 'TRUE';}
+                if ($type eq 'MEM'){$musttoggle = 'TRUE';}
+				       }
+
+############## MODE
+       if ($option eq 'MODE') {
+       my ($currentmode) = @_;
+        $self->setVerbose(0);
+        $currentmode = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentmode){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                   }
+        $offset=0x00;
+        $address = $self->hexAdder("$offset","$base");
+        my $mode;
+        my %modehash = reverse %MEMMODES;
+        ($mode) = grep { $modehash{$_} eq $value } keys %modehash;
+        if (!$mode){
+                if($verbose){
+                print "\nInvalid Option. Choose from the following\n\n";
+                my $columns = 1;
+                foreach my $codes (sort keys %modehash) {
+                printf "%-15s %s",$modehash{$codes};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                        }
+                print "\n\n";
+                             }
+return 1;
+                   }
+        my $BYTE1 = $self->eepromDecode("$address");
+        substr ($BYTE1, 5, 3, "$mode");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietTunetoggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($musttoggle) {$self->quietTunetoggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"MODE Set to $option sucessfull!\n";}
+                else {print"MODE set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                            }
+
+############## TAG
+
+       if ($option eq 'TAG') {
+       my ($currenttag) = @_;
+
+       if ($value ne 'LABEL' && $value ne 'FREQUENCY'){
+                if($verbose){print "Value invalid: Choose LABEL/FREQUENCY\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currenttag = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currenttag){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x00;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'LABEL'){$writestatus = $self->writeEeprom("$address",'2','1');}
+        if($value eq 'FREQUENCY'){$writestatus = $self->writeEeprom("$address",'2','0');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"TAG set to $value sucessfull!\n";}
+                else {print"TAG set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## NARFM
+
+       if ($option eq 'NARFM') {
+       my ($currentnarfm) = @_;
+
+       if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentnarfm = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentnarfm){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'4','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'4','0');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"NAR FM set to $value sucessfull!\n";}
+                else {print"NAR FM set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## NARCWDIG
+
+       if ($option eq 'NARCWDIG') {
+       my ($currentnarcwdig) = @_;
+
+       if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentnarcwdig = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentnarcwdig){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'3','0');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"NAR CW DIG set to $value sucessfull!\n";}
+                else {print"NAR CW DIG set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## RPTOFFSET
+
+       if ($option eq 'RPTOFFSET') {
+       my ($currentrptoffset) = @_;
+       if ($value ne 'SIMPLEX' && $value ne 'MINUS'  && $value ne 'PLUS' && $value ne 'NON-STANDARD'){
+                if($verbose){print "Value invalid: Choose SIMPLEX/MINUS/PLUS/NON-STANDARD\n\n"; }
+return 1;
+                                                                                                      }
+        $self->setVerbose(0);
+        $currentrptoffset = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentrptoffset){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+        $offset=0x01;
+        $address = $self->hexAdder("$offset","$base");
+        my $BYTE1 = $self->eepromDecode("$address");
+        if ($value eq 'SIMPLEX'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq 'MINUS'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq 'PLUS'){substr ($BYTE1, 0, 2, '10');}
+        if ($value eq 'NON-STANDARD'){substr ($BYTE1, 0, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"RPTOFFSET Set to $value sucessfull!\n";}
+                else {print"RPT OFFSET set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+############## TONEDCS
+
+       if ($option eq 'TONEDCS') {
+       my ($currenttonedcs) = @_;
+       if ($value ne 'OFF' && $value ne 'TONE'  && $value ne 'TONETSQ' && $value ne 'DCS'){
+                if($verbose){print "Value invalid: Choose OFF/TONE/TONETSQ/DCS\n\n"; }
+return 1;
+                                                                                           }
+        $self->setVerbose(0);
+        $currenttonedcs = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currenttonedcs){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+        $offset=0x04;
+        $address = $self->hexAdder("$offset","$base");
+        my $BYTE1 = $self->eepromDecode("$address");
+        if ($value eq 'OFF'){substr ($BYTE1, 6, 2, '00');}
+        if ($value eq 'TONE'){substr ($BYTE1, 6, 2, '01');}
+        if ($value eq 'TONETSQ'){substr ($BYTE1, 6, 2, '10');}
+        if ($value eq 'DCS'){substr ($BYTE1, 6, 2, '11');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"TONEDCS Set to $value sucessfull!\n";}
+                else {print"TONEDCS set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+############## ATT
+
+       if ($option eq 'ATT') {
+       my ($currentatt) = @_;
+
+       if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentatt = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentatt){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'3','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'3','0');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"ATT set to $value sucessfull!\n";}
+                else {print"ATT set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## IPO
+
+       if ($option eq 'IPO') {
+       my ($currentipo) = @_;
+
+       if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentipo = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentipo){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'2','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'2','0');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"IPO set to $value sucessfull!\n";}
+                else {print"IPO set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## FM STEP
+
+        if ($option eq 'FMSTEP') {
+        my ($currentfmstep) = @_;
+        $self->setVerbose(0);
+        $currentfmstep = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentfmstep){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                     }
+        $offset=0x03;
+        $address = $self->hexAdder("$offset","$base");
+        my $fmstep;
+        my %fmstephash = reverse %FMSTEP;
+        ($fmstep) = grep { $fmstephash{$_} eq $value } keys %fmstephash;
+        if (!$fmstep){
+                if($verbose){
+                print "\nInvalid Option. Choose from the following\n\n";
+                my $columns = 1;
+                foreach my $codes (sort keys %fmstephash) {
+                printf "%-15s %s",$fmstephash{$codes};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                          }
+                print "\n\n";
+                            }
+return 1;
+                     }
+        my $BYTE1 = $self->eepromDecode("$address");
+        substr ($BYTE1, 5, 3, "$fmstep");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"FM STEP Set to $option sucessfull!\n";}
+                else {print"FM STEP set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                             }
+
+############## AM STEP
+
+        if ($option eq 'AMSTEP') {
+        my ($currentamstep) = @_;
+        $self->setVerbose(0);
+        $currentamstep = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentamstep){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                     }
+         $offset=0x03;
+         $address = $self->hexAdder("$offset","$base");
+         my $amstep;
+         my %amstephash = reverse %AMSTEP;
+         ($amstep) = grep { $amstephash{$_} eq $value } keys %amstephash;
+         if (!$amstep){
+                if($verbose){
+                print "\nInvalid Option. Choose from the following\n\n";
+                my $columns = 1;
+                foreach my $codes (sort keys %amstephash) {
+                printf "%-15s %s",$amstephash{$codes};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                          }
+                print "\n\n";
+                           }
+return 1;
+                     }
+        my $BYTE1 = $self->eepromDecode("$address");
+        substr ($BYTE1, 2, 3, "$amstep");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($musttoggle) {$self->quietToggle();}
+       if($verbose){
+                if ($writestatus eq 'OK') {print"AM STEP Set to $option sucessfull!\n";}
+                else {print"AM STEP set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+
+        if ($option eq 'SSBSTEP') {
+        my ($currentssbstep) = @_;
+        if ($value ne '1.0' && $value ne '2.5' && $value ne '5.0'){
+                if($verbose){print "Value invalid: Choose 1.0/2.5/5.0\n\n"; }
+return 1;
+                                                                  }
+        $self->setVerbose(0);
+        $currentssbstep = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentssbstep){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                     }
+                $offset=0x03;
+                $address = $self->hexAdder("$offset","$base");
+        my $BYTE1 = $self->eepromDecode("$address");
+        if ($value eq '1.0'){substr ($BYTE1, 0, 2, '00');}
+        if ($value eq '2.5'){substr ($BYTE1, 0, 2, '01');}
+        if ($value eq '5.0'){substr ($BYTE1, 0, 2, '10');}
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"SSB STEP Set to $value sucessfull!\n";}
+                else {print"SSB STEP set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+############## CTCSSTONE
+ 
+        if ($option eq 'CTCSSTONE') {
+        my ($currenttone) = @_;
+        $self->setVerbose(0);
+        $currenttone = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currenttone){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                     }
+        $offset=0x06;
+        $address = $self->hexAdder("$offset","$base");
+        my $ctcsstone;
+        my %tonehash = reverse %CTCSSTONES;
+        ($ctcsstone) = grep { $CTCSSTONES{$_} eq $value } keys %CTCSSTONES;
+        if (!$ctcsstone){
+                if($verbose){
+                print "\nInvalid Option. Choose from the following\n\n";
+                my $columns = 1;
+                foreach my $tones (sort keys %CTCSSTONES) {
+                printf "%-15s %s",$CTCSSTONES{$tones};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                          }
+                print "\n\n";
+                            }
+return 1;
+                        }
+        my $BYTE1 = $self->eepromDecode("$address");
+        substr ($BYTE1, 2, 6, "$ctcsstone");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"CTCSS TONE Set to $option sucessfull!\n";}
+                else {print"CTCSS TONE set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+############## CLARIFTER
+
+        if ($option eq 'CLARIFIER') {
+        my ($currentclarifier) = @_;
+        if ($value ne 'ON' && $value ne 'OFF'){
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentclarifier = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentclarifier){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'1','1');}
+        if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'1','0');}
+        if ($musttoggle) {$self->quietToggle();}
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"CLARIFIER set to $value sucessfull!\n";}
+                else {print"CLARIFIER set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## CLAROFFSET
+
+        if ($option eq 'CLAROFFSET') {
+        my ($currentoffset,$polarity,$newvalue,$endvalue,$binvalue,$bin1,$bin2) = @_;
+        $polarity = substr ($value,0,1);
+        $newvalue = substr ($value,1);
+        if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (needs + or - with number)\n\n"; }
+return 1;
+                                                                  }
+
+        if ($newvalue < 0 || $newvalue > 999){
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (Multiple of 10)\n\n"; }
+return 1;
+                                                                    }
+        $self->setVerbose(0);
+        $currentoffset = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+
+        if ($value eq $currentoffset){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+        $offset=0x08;
+        $address = $self->hexAdder("$offset","$base");
+        $offset=0x09;
+        $address2 = $self->hexAdder("$offset","$base");
+        $newvalue =~ tr/.//d;
+        if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
+        $binvalue = unpack("B32", pack("N", $newvalue));
+        $binvalue = substr $binvalue, -16;
+        $bin1 = substr $binvalue, 0,8;
+        $bin2 = substr $binvalue, 8,8;
+        my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
+        my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
+        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
+        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        if ($writestatus1 eq $writestatus2) {
+                if ($writestatus1 eq 'OK'){print"Clarifier offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+                                            }
+                else {print"Clarifier offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+	   }
+
+############## DCSCODE
+
+        if ($option eq 'DCSCODE') {
+        my ($currentcode) = @_;
+        $self->setVerbose(0);
+        $currentcode = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentcode){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                     }
+        $offset=0x07;
+        $address = $self->hexAdder("$offset","$base");
+        my $dcscode;
+        my %codehash = reverse %DCSCODES;
+        ($dcscode) = grep { $DCSCODES{$_} eq $value } keys %DCSCODES;
+        if (!$dcscode){
+                if($verbose){
+                print "\nInvalid Option. Choose from the following\n\n";
+                my $columns = 1;
+                foreach my $codes (sort keys %DCSCODES) {
+                printf "%-15s %s",$DCSCODES{$codes};
+                $columns++;
+                if ($columns == 7){print "\n\n"; $columns = 1;}
+                                                        }
+                print "\n\n";
+                           }
+return 1;
+                     }
+
+        my $BYTE1 = $self->eepromDecode("$address");
+        substr ($BYTE1, 1, 7, "$dcscode");
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        if ($musttoggle) {$self->quietToggle();}
+        $writestatus = $self->writeBlock("$address","$NEWHEX");
+        if ($musttoggle) {$self->quietToggle();}
+        if($verbose){
+                if ($writestatus eq 'OK') {print"DCS CODE Set to $option sucessfull!\n";}
+                else {print"DCS CODE set failed: $writestatus\n";}
+                $writestatus = 'ERROR';
+                    }
+return $writestatus;
+                 }
+
+############## MEMSKIP
+
+       if ($option eq 'MEMSKIP') {
+       my ($currentmemskip) = @_;
+
+       if ($value ne 'YES' && $value ne 'NO'){
+                if($verbose){print "Value invalid: Choose YES/NO\n\n"; }
+return 1;
+                                              }
+        $self->setVerbose(0);
+        $currentmemskip = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentmemskip){
+                if($verbose){print "Value $value already selected.\n\n";}
+return 1;
+                                    }
+
+        $offset=0x02;
+        $address = $self->hexAdder("$offset","$base");
+        if ($musttoggle) {$self->quietToggle();}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if($value eq 'NO'){$writestatus = $self->writeEeprom("$address",'0','0');}
+        if($value eq 'YES'){$writestatus = $self->writeEeprom("$address",'0','1');}
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+
+        if ($verbose){
+                if ($writestatus eq 'OK') {print"Memory Skip set to $value sucessfull!\n";}
+                else {print"Memory Skip set to $value failed!!!\n";}
+                     }
+return $writestatus;
+            }
+
+############## RXFREQ
+
+       if ($option eq 'RXFREQ') {
+       my ($currentrxfreq,$binvalue,$bin1,$bin2,$bin3,$bin4) = @_;
+        $self->setVerbose(0);
+        $currentrxfreq = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentrxfreq){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+	if ($type eq 'HOME'){
+        my $test = $self->boundryCheck("$subtype","$value");
+        if ($test ne 'OK'){
+                if($verbose){print "Our of range\n\n"; }
+return 1;
+                          }
+			    }
+        $offset=0x0A;
+        $address = $self->hexAdder("$offset","$base");
+        $offset=0x0B;
+        $address2 = $self->hexAdder("$offset","$base");
+        $offset=0x0C;
+        $address3 = $self->hexAdder("$offset","$base");
+        $offset=0x0D;
+        $address4 = $self->hexAdder("$offset","$base");
+        my $valuelabel = $value;
+        $value =~ tr/.//d;
+        $binvalue = unpack("B32", pack("N", $value));
+        $bin1 = substr $binvalue, 0,8;
+        $bin2 = substr $binvalue, 8,8;
+        $bin3 = substr $binvalue, 16,8;
+        $bin4 = substr $binvalue, 24,8;
+        my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
+        my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
+        my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
+        my $NEWHEX4 = sprintf("%X", oct( "0b$bin4" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+#change the hf/vhf and uhf bits in here
+        my $tempaddress;
+        my $tempoffset=0x01;
+        $tempaddress = $self->hexAdder("$tempoffset","$base");
+	$self->setVerbose(0);
+        my $currentuhf = $self->readMemory("$type","$subtype",'UHF');
+	my $currenthfvhf = $self->readMemory("$type","$subtype",'HFVHF');
+	my $currentrange = $self->readMemory("$type","$subtype",'FREQRANGE');
+	my $newrange = $self->rangeCheck("$value");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+# sets UHF bit if needed
+	if ($value >= 42000000){
+		if ($currentuhf ne 'YES') {
+			$writestatus = $self->writeEeprom("$tempaddress",'2','1');}
+			                  }
+	else {
+		if ($currentuhf ne 'NO') {
+			$writestatus = $self->writeEeprom("$tempaddress",'2','0');}
+	     }
+#sets the HF/VHF bit if needed
+        $tempoffset=0x00;
+        $tempaddress = $self->hexAdder("$tempoffset","$base");
+        if ($value >= 5000000){
+                if ($currenthfvhf ne 'VHF') {$writestatus = $self->writeEeprom("$tempaddress",'2','0');}
+                               }
+
+        else {
+                if ($currenthfvhf ne 'HF') {$writestatus = $self->writeEeprom("$tempaddress",'2','1');}
+             }
+#sets the FREQ RANGE bits if needed
+        $tempoffset=0x01;
+        $tempaddress = $self->hexAdder("$tempoffset","$base");
+	if ($currentrange ne $newrange){
+		my $datablock;
+	        my $BYTE1 = $self->eepromDecode("$tempaddress");
+        	if ($newrange eq 'HF'){substr ($BYTE1, 5, 3, '000');}
+        	if ($newrange eq '6M'){substr ($BYTE1, 5, 3, '001');}
+        	if ($newrange eq 'FM-BCB'){substr ($BYTE1, 5, 3, '010');}
+        	if ($newrange eq 'AIR'){substr ($BYTE1,5, 3, '011');}
+        	if ($newrange eq '2M'){substr ($BYTE1, 5, 3, '100');}
+        	if ($newrange eq 'UHF'){substr ($BYTE1, 5, 3, '101');}
+        	my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        	$writestatus = $self->writeBlock("$tempaddress","$NEWHEX");
+				       }	
+
+	        $self->setVerbose(1);
+        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
+        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
+        my $writestatus4 = $self->writeBlock("$address4","$NEWHEX4");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        if ($writestatus1 eq $writestatus2) {
+                if ($writestatus1 eq 'OK'){print"RX Frequency set to $valuelabel sucessfull!\n"; $writestatus = 'OK';}
+                                            }
+                else {print"RX Frequency set to $valuelabel failed!!!\n"; $writestatus = 'ERROR';}
+return $writestatus;
+                }
+          
+############## RPTOFFSETFREQ
+
+       if ($option eq 'RPTOFFSETFREQ') {
+       my ($currentoffset,$binvalue,$bin1,$bin2,$bin3) = @_;
+       if ($value < 0 || $value > 9999){
+                if($verbose){print "Value invalid: Choose 0 to 99.99\n\n";}
+return 1;
+                                       }
+        $self->setVerbose(0);
+        $currentoffset = $self->readMemory("$type","$subtype","$option");
+        $self->setVerbose(1);
+        if ($value eq $currentoffset){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                     }
+        $offset=0x0F;
+        $address = $self->hexAdder("$offset","$base");
+        $offset=0x10;
+        $address2 = $self->hexAdder("$offset","$base");
+        $offset=0x11;
+        $address3 = $self->hexAdder("$offset","$base");
+        $value =~ tr/.//d;
+        $value = $value * 1000;
+        $binvalue = unpack("B32", pack("N", $value));
+        $bin1 = substr $binvalue, 8,8;
+        $bin2 = substr $binvalue, 16,8;
+        $bin3 = substr $binvalue, 24,8;
+        my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
+        my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
+        my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
+        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
+        if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        if ($writestatus1 eq $writestatus2) {
+                if ($writestatus1 eq 'OK'){
+			if ($verbose){print"Repeater offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+					  }
+                                            }
+        	else {
+			if($verbose){print"Repeater offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+		     }
+return $writestatus;
+                }
+
+############## LABEL
+
+       if ($option eq 'LABEL') {
+       my ($currentlabel,$binvalue,$bin1,$bin2,$bin3,$bin4) = @_;
+        $self->setVerbose(0);
+        $currentlabel = $self->readMemory("$type","$subtype","$option");
+	$self->setVerbose(1);
+	my $size = length($value);
+        if ($value eq $currentlabel){
+                if($verbose){print "Value $value already selected.\n\n"; }
+return 1;
+                                    }
+	if (length($value) > 11) {
+                if($verbose){print "Label is limited to 8 charcters.\n\n"; }
+return 1;
+				}
+
+	my @labelarray = split //, $value;
+        my $cycles = 0x00;
+        my $offset = 0x12;
+        my $address = $self->hexAdder("$offset","$base");
+	my $newaddress;
+	my $letter;
+	if ($verbose){print "Writing: Please Wait....\n";}
+do {
+	$letter = ord($labelarray["$cycles"]);
+        if ($letter == '0') {$letter = '32';}
+        my $letter = dec2bin("$letter");
+	$letter = sprintf("%X", oct( "0b$letter" ) );
+	$newaddress = $self->hexAdder("$cycles","$address");
+	if ($hometoggle) {$self->quietHometoggle();}
+        if ($musttoggle) {$self->quietToggle();}
+        my $writestatus1 = $self->writeBlock("$newaddress","$letter");
+	$cycles ++;
+   }
+while ($cycles < 8);
+        if ($verbose){print "DONE!\n";} 
+
+                }
+         }
+
+# 1922 - 1927 ################################# SET ID for CWID ######
+###################################### 
+
+sub setId {
+        my $self=shift;
+        my $value=shift;
+        if (length($value) > 9){
+                if($verbose){print "Limited to 6 Characters 0-9 A-Z\n\n";}
+return 1;
+                               }
+        $self->setVerbose(0);
+        my $currentid = $self->getId();
+        $self->setVerbose(1);
+        if ($value eq $currentid){
+                if($verbose){print "CW ID already set to $value\n\n"; }
+return 1;
+                                 }
+        $value = uc($value);
+        my @labelarray = split //, $value;
+        my $address = 1922;
+        my $cycles = 0x00;
+        my $newaddress;
+        my $letter;
+do {
+        $letter = $labelarray["$cycles"];
+        ($letter) = grep { $CWID{$_} eq $letter } keys %CWID;
+        $newaddress = $self->hexAdder("$cycles","$address");
+        my $writestatus1 = $self->writeBlock("$newaddress","$letter");
+        $cycles ++;
+   }
+while ($cycles < 6);
+        if ($verbose){print "DONE!\n";}
+return 0;
+          }
+
 ################################################## FIN
 
 
@@ -6364,7 +7568,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.0_19
+Version 0.9.0_20
 
 =head1 SYNOPSIS
 
@@ -6578,7 +7782,7 @@ The output shows all of the transactions and modifications conducted by the syst
 		$agree = $FT817->agreeWithwarning(#);
 
 	Turns on and off the internal flag that says. You undrstand the risks of writing to the EEPROM
-	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+	Activated when any value is in the (). Good practice says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
 
@@ -6818,6 +8022,26 @@ The output shows all of the transactions and modifications conducted by the syst
                 $b9600mic = $FT817->get9600mic();
 
         MENU ITEM # 3 - Returns the setting of 9600 MIC 0-100
+
+
+=item getActivelist()
+
+                $agc = $FT817->getActivelist();
+
+        Returns a list of all Active/Visible memory Channels
+
+	[FT817]@/dev/ttyUSB0/MEMORY[MEM]:# list
+	
+	ACTIVE MEMORY AREAS
+	___________________
+
+	#     LABEL      SKIP   MODE   RXFREQ       ENCODER   TONE/DCS  SHIFT     RPTOFFSET   
+
+	1     The Zoo    NO     FM     147.120.00   TONE      103.5     0.5 Mhz   PLUS     
+	2     N4FLA      NO     FM     140.000.00   TONE      103.5     0.5 Mhz   PLUS     
+	3     20M PSK    YES    USB    14.070.15    OFF       OFF       0 Mhz     SIMPLEX  
+	4     20M JT65   YES    USB    14.076.00    OFF       OFF       0 Mhz     SIMPLEX  
+	5     MAR MOBL   YES    USB    14.300.00    OFF       OFF       0 Mhz     SIMPLEX  	
 
 
 =item getAgc()
@@ -7137,6 +8361,13 @@ With two arguments it will display information on a range of addresses
 	Returns the current status of the rig being on the Home Frequency : Y/N
 
 
+=item getId()
+
+                $id = $FT817->getId();
+
+        MENU ITEM # 31 - Returns the charachers for CWID
+
+
 =item getKyr()
 
                 $kyr = $FT817->getKyr();
@@ -7170,6 +8401,13 @@ With two arguments it will display information on a range of addresses
                 $memgroup = $FT817->getMemgroup();
 
         MENU ITEM # 34 - Returns Status of Memory groups ON / OFF
+
+
+=item getMemmap()
+
+                $Memory = $FT817->getMemmap([1-200 / M-PL / M-PU]);
+
+        Returns the given memory number as Active or Inactive
 
 
 =item getMickey()
@@ -7452,6 +8690,33 @@ With two arguments it will display information on a range of addresses
 	Returns 0
 
 
+=item quietHometoggle()
+
+                $output = $FT817->quiettoggle();
+
+        This is an internal function to toggle the HOME with verbose off. To cut down on repetative code
+
+        Returns 0
+
+
+=item quietTunetoggle()
+
+                $output = $FT817->quiettoggle();
+
+        This is an internal function to toggle the MEMORY / VFO with verbose off. To cut down on repetative code
+
+        Returns 0
+
+
+=item rangeCheck()
+
+                $band = $FT817->rangeCheck([FREQNENCY]);
+
+        This is an internal function to check the FREQRANGE hash to see what band the given frequency is in
+
+        Returns BAND
+
+
 =item readMemvfo ()
 
 		my $option = $FT817->readMemvfo('[A/B]', '[BAND]', '[OPTION]');
@@ -7514,7 +8779,7 @@ With two arguments it will display information on a range of addresses
         TONEDCS       - Returns type type of tone being used
         ATT           - Returns if ATT is on if applicable, if not shows OFF
         IPO           - Returns if IPO is on if applicable, if not shows OFF
-	MEMSKIP       - Returns if the memory is active or should be skipped
+	MEMSKIP       - Returns if the memory is skipped on scan or not
         FMSTEP        - Returns the setting for FM STEP in KHZ
         AMSTEP        - Returns the setting for AM STEP in KHZ
         SSBSTEP       - Returns the setting for SSB STEP in KHZ
@@ -7763,7 +9028,7 @@ With two arguments it will display information on a range of addresses
 	from that lister in the BITWATCHER hash.  Will Dramatically slow down the software and is
 	there just to help in identifing unknown memory areas.  When in doubt, leave it set to off.
 
-        Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+        Activated when any value is in the (). Good practice says () or (1) for OFF and ON.
 
         Returns the argument sent to it on success.
 
@@ -8008,7 +9273,7 @@ With two arguments it will display information on a range of addresses
 		$debug = $FT817->setDebug([#]);
 
 	Turns on and off the internal debugger. Provides information on all serial transactions when on.
-	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+	Activated when any value is in the (). Good practice says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
 
@@ -8195,6 +9460,13 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0055');
 
 
+=item setId()
+
+                $output = $FT817->setId('CCCCCC');
+
+        MENU ITEM # 31 - Sets the charachers for CWID
+
+
 =item setKyr()
 
                 $output = $FT817->setKyr([ON/OFF]);
@@ -8253,6 +9525,14 @@ With two arguments it will display information on a range of addresses
         command that also requires both flags previously mentioned set to 1.
 
         restoreEeprom('005D');
+
+
+=item setMemarea()
+
+                $status = $FT817->setMemarea([2-200/M-PL/M-PU] [ACTIVE/INACTIVE]);
+
+	Sets the given memory area as active or inactive. You cannot set area 1 which
+	is always active.  
 
 
 =item setMemgroup()
@@ -8795,7 +10075,7 @@ With two arguments it will display information on a range of addresses
 
 	Turns on and off the write Flag. Provides a warning about writing to the EEPROM and
 	requires the agreeWithwarning()  to also be set to 1 after reading the warning
-	Activated when any value is in the (). Good practive says () or (1) for OFF and ON.
+	Activated when any value is in the (). Good practice says () or (1) for OFF and ON.
 
 	Returns the argument sent to it on success.
 
@@ -8810,6 +10090,47 @@ With two arguments it will display information on a range of addresses
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
 	You have been warned.
+
+
+=item writeMemory()
+
+                my $option = $FT817->writeMemory('[HOME]', '[BAND]', '[OPTION]','[VALUE]');
+                my $option = $FT817->writeMemory('[MEM]','[1-200/M-PL/M-PU]', '[OPTION]','[VALUE]');
+                my $option = $FT817->writeMemory('[QMB]','[OPTION]','[VALUE]');
+
+        Writes settings to the memory area given HOME [BAND] and an Option and value.
+        Writes settings to the memory area given MEM [1-200/M-PL/M-PU] and an Option and value.
+        Writes settings to the memory area given QMB and an Option and value.
+        
+	This is only for regular memory's and not the VFO Memories.
+
+        Valid options:
+
+        MODE          - Sets the mode in memory - update only appears after toggling the VFO
+        NARFM         - Sets if Narrow FM os ON or OFF
+        NARCWDIG      - Sets  if the CW or Digital Mode is on Narrow
+        RPTOFFSET     - Sets the Repeater offset
+	TAG           - Sets the radio display to show label or frequency
+	LABEL         - Sets the 8 character label for memory area
+	MEMSKIP       - Sets if the memory area is skipped on scan or not
+        TONEDCS       - Sets type type of tone being used
+        ATT           - Sets if ATT is on if applicable.
+        IPO           - Sets if IPO is on if applicable.
+        FMSTEP        - Sets the setting for FM STEP in KHZ
+        AMSTEP        - Sets the setting for AM STEP in KHZ
+        SSBSTEP       - Sets the setting for SSB STEP in KHZ
+        CTCSSTONE     - Sets the CTCSS Tone
+        DCSCODE       - Sets the DCS Code
+        CLARIFIER     - Sets the CLARIFIER on or off
+        CLAROFFSET    - Sets the polarity and offset frequency of the clarifier
+        RXFREQ        - Sets the stored Receive Frequency
+        RPTOFFSETFREQ - Sets the stored Repeater offset Frequency
+
+        The UHF / HF/VHF and FREQ RANGE options are set automatically by the RXFREQ option and should not be manually set
+
+        If you have never used the QMB/MTQMB option on the radio, the memory addresses will show garbled data.
+        Its simply easier to first send some arbitrary data to the channels in the radio by following the instructions
+        on manual page 44.  This is not a requirment, if you dont use QMB or MTQMB you do not need to do this.
 
 
 =item writeMemvfo ()

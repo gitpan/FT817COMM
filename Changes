@@ -251,9 +251,13 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.0_18-1  Fixed package error in 0.9.0_18, no changes to code
 
+
 0.9.0_19    4APR2014/1200
             Added [044F] option to restoreEeprom
 	    MTUNE and MTQMB addresses added to the VFOABASE Hash
+
+
+0.9.0_20    9 APR2014/1200
 	    readMemvfo and writeMemvfo support MTQMB, MTUNE
 	    MTQMB and MTUNE added to BOUNDRIES hash
 	    Added function getCurrentmem
@@ -262,3 +266,15 @@ Revision history for Ham-Device-FT817COMM
 	    Added hash MEMORYOPTS
 	    Added function readMemory
 	    Updated hexAdder to drop leading zero then length is 5 digits
+	    Added function getMemmap
+	    Added function quietTunetoggle
+	    Added function quietHometoggle
+	    writeEeprom: Added exception for address 0056 bit 0 on check when toggleing mem/vfo
+	    Added function getActivelist
+	    Added function writeMemory (supports HOME only)
+	    Added hash FREQRANGE
+	    Added internal function rangeCheck
+	    Added function setMemarea
+	    Added hash CWID
+	    Added function getID		
+	    Added function setID
