@@ -278,3 +278,10 @@ Revision history for Ham-Device-FT817COMM
 	    Added hash CWID
 	    Added function getID		
 	    Added function setID
+
+0.9.5       10 APR2014/1000
+	    Assorted bug fixes
+	    Added memory area formatter into writeMemory for new addresses
+            POD updates
+	    added NEWMEM array
+
