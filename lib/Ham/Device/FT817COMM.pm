@@ -2,11 +2,10 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-09-4 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-16-4 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
-
 
 package Ham::Device::FT817COMM;
 
@@ -14,7 +13,7 @@ use strict;
 use 5.14.0;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.5';
+our $VERSION = '0.9.6';
 
 BEGIN {
 	use Exporter ();
@@ -30,6 +29,7 @@ my $catoutput;
 my $currentmode;
 my $output;
 
+our $superverbose;
 our $syntaxerr = "SYNTAX ERROR, CHECK WITH VERBOSE('1')\n";
 
 our %RESTOREAREAS = ('0055' => '00', '0057' => '00', '0058' => '00', '0059' => '45', '005B' => '86', '005C' => 'B2', 
@@ -242,13 +242,6 @@ our %BITWATCHER = (
     '191F' =>   {'ALL' => '11111111'},
     '1920' =>   {'ALL' => '11111111'},
     '1921' =>   {'ALL' => '11111111'},
-
-#    '1922' =>   {'ALL' => '00100010'},
-#    '1923' =>   {'ALL' => '00001010'},
-#    '1924' =>   {'ALL' => '00001110'},
-#    '1925' =>   {'ALL' => '00011100'},
-#    '1926' =>   {'ALL' => '00011110'},
-#    '1927' =>   {'ALL' => '00100100'}
 	      );
 
 our %BOUNDRIES = (
@@ -335,7 +328,6 @@ our %PMETER = ('0' => '0000', '1' => '0001', '2' => '0010', '3' => '0011',
 		die "$@\n" if ($@);
              } 
     
-
 }#END BEGIN
 
 sub new {
@@ -343,9 +335,11 @@ sub new {
 	my $ob = bless \%options, $device;
 	if ($OS_win) {
 		$ob->{'port'} = Win32::SerialPort->new ($options{'serialport'});
+		if($verbose){print "WIN32 DETECTED\n";}
           	     }
 	else {
 		$ob->{'port'} = Device::SerialPort->new ($options{'serialport'},'true',$options{'lockfile'});
+		if($verbose){print "POSIX DETECTED\n";}
   	     }
 	die "Can't open serial port $options{'serialport'}: $^E\n" unless (ref $ob->{'port'});
 	$ob->{'port'}->baudrate(9600) unless ($options{'baud'});
@@ -366,7 +360,6 @@ sub moduleVersion {
 return $VERSION;
                   }
 
-
 sub closePort {
 	my $self  = shift;
 	die "\nCan't close the port $self->{'serialport'}....\n" unless $self->{'port'}->close;
@@ -380,8 +373,8 @@ sub setDebug {
 	my $debugflag = shift;
 	if($debugflag == '1') {our $debug = $debugflag;}
 	if($debugflag == '0') {our $debug = undef;}
-	if($debug){print "DEBUGGER IS ON\n";}
-        if(!$debug){print "DEBUGGER IS OFF\n";}
+	if($debug && $verbose){print "DEBUGGER IS ON\n";}
+        if(!$debug && $verbose){print "DEBUGGER IS OFF\n";}
 return $debug;
              }
 
@@ -391,8 +384,8 @@ sub setBitwatch {
         my $bitwatcherflag = shift;
         if($bitwatcherflag == '1') {our $bitwatch = $bitwatcherflag;}
         if($bitwatcherflag == '0') {our $bitwatch = undef;}
-        if($bitwatch){print "BIT WATCH IS ON\n";}
-        if(!$bitwatch){print "BIT WATCH IS OFF\n";}
+        if($bitwatch && $verbose){print "BIT WATCH IS ON\n";}
+        if(!$bitwatch && $verbose){print "BIT WATCH IS OFF\n";}
 return $bitwatch;
                 }
 
@@ -401,7 +394,6 @@ sub setVerbose {
 	my $self = shift;
 	my $verboseflag = shift;
 	if($verboseflag == '1') {our $verbose = $verboseflag;}
-        if($verboseflag == '2') {our $verbose = $verboseflag;}
 	if($verboseflag == '0') {$verbose = undef;}
 return $verbose;
                }
@@ -412,9 +404,9 @@ sub setWriteallow {
         my $writeflag = shift;
         if($writeflag == '1') {our $writeallow = $writeflag;}
         if($writeflag == '0') {our $writeallow = undef;}
-if ($writeallow){print "WRITING TO EEPROM ACTIVATED\n";}
-if (!$writeallow){print "WRITING TO EEPROM DEACTIVATED\n";}
-if (!$agreewithwarning and $writeallow){print "
+if ($writeallow && $verbose){print "WRITING TO EEPROM ACTIVATED\n";}
+if (!$writeallow && $verbose){print "WRITING TO EEPROM DEACTIVATED\n";}
+if (!$agreewithwarning && $writeallow && $verbose){print "
 \n*****NOTICE****** *****NOTICE****** *****NOTICE****** *****NOTICE****** *****NOTICE******
 \nYou have enabled the option setWriteallow!!!!\n 
 \tWhile the program does its best to ensure that data does not get corrupted, there is always 
@@ -480,7 +472,6 @@ sub hex2bin {
 	my $blen = $hlen * 4;
 return unpack("B$blen", pack("H$hlen", $h));
             }
-
 
 #### Add a HEX VALUE AND RETURN MSB/LSB
 sub hexAdder {
@@ -655,7 +646,6 @@ sub eepromDecode {
 return $output;
                  }
 
-
 #### Decodes eeprom values from a given address and stips off second byte
 sub eepromDecodenext {
         my $self  = shift;
@@ -671,7 +661,6 @@ sub eepromDecodenext {
 return $output;
                      }
 
-
 #### Writes data to the eeprom MSB,LSB,BIT# and VALUE,  REWRITES NEXT MEMORY ADDRESS
 sub writeEeprom {
         my $self=shift;
@@ -683,8 +672,7 @@ sub writeEeprom {
 	my $NEWHEX1;
 	my $NEWHEX2;
 	if ($writeallow != '1' and $agreewithwarning != '1') {
-		if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
-		if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
+		if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
 		$writestatus = "Write Disabled";
 return $writestatus;
 			  }
@@ -748,7 +736,6 @@ return $writestatus;
 return $writestatus;
                }
 
-
 #### Writes an entire byte of data to the eeprom, MSB LSB VALUE
 sub writeBlock {
         my $self=shift;
@@ -757,8 +744,7 @@ sub writeBlock {
         my $VALUE=shift;
         my $caller = ( caller(1) )[3];
         if ($writeallow != '1' and $agreewithwarning != '1') {
-                if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
-                if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
                 $writestatus = "Write Disabled";
 return $writestatus;
 				                             }
@@ -805,8 +791,6 @@ if ($debug){print "\n(writeBlock:DEBUG) - OUTPUT FROM [$address]\n";}
 return $writestatus;
                }
 
-
-
 #### Restores eprom memory address to pre written default value in case there was an error
 
 sub restoreEeprom {
@@ -814,8 +798,7 @@ sub restoreEeprom {
 	my $area=shift;
         my ($writestatus,$test,$restorevalue,$restorearea,$address) = @_;
         if ($writeallow != '1' and $agreewithwarning != '1') {
-                if($debug || $verbose == '2'){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
-                if ($verbose == '1'){ print "Writing to EEPROM disabled and must be enabled before use....\n";}
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
                 $writestatus = "Write Disabled";
 return $writestatus;
                                                              }
@@ -868,7 +851,6 @@ return $writestatus;
 ###############################
 #CAT COMMANDS IN ORDER BY BOOK#
 ###############################
-
 
 
 #### ENABLE/DISABLE LOCK VIA CAT
@@ -1189,7 +1171,7 @@ sub catDcscode {
          else {
                 $badf = $code;
                 $code = undef;
-                print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9. Leading zero if necessary\n" if (! $code);
+                if (!$code && $verbose){print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9. Leading zero if necessary\n";}
 return 1;
               }
 	if($code){$catoutput = $self->sendCat("$f1","$f2",'00','00','0C',1);}
@@ -1297,12 +1279,9 @@ sub catgetFrequency {
 		substr($freq,-6,0) = '.';
 		$freq .= " MHZ";
 				}
-
-        if ($verbose){
-                print "Frequency is $freq\n";
-                     }
+        if ($verbose){print "Frequency is $freq\n";}
 return $freq;
-                 }
+                    }
 
 #### GET CURRENT MODE USING CAT######
 sub catgetMode {
@@ -1311,11 +1290,9 @@ sub catgetMode {
 	$catoutput = $self->sendCat('00','00','00','00','03',5);
 	$currentmode = substr($catoutput,8,2);
 	my ($mode) = grep { $OPMODES{$_} eq $currentmode } keys %OPMODES;
-        if ($verbose){
-                print "Mode is $mode\n";
-                     }
+        if ($verbose){print "Mode is $mode\n";}
 return $mode;
-            }
+               }
 
 #### SETS RADIO POWER ON OR OFF VIA CAT
 sub catPower {
@@ -1346,10 +1323,6 @@ return $catoutput;
 ###############################
 
 
-
-
-
-
 ################################
 # READ VALUES FROM EEPROM ADDR #
 ################################
@@ -1363,36 +1336,27 @@ sub getEeprom {
 	my $address2 = shift;
 	my $base = $address1;
 	if (!$address2) {$address2 = $address1;}
-
         if ($verbose){
 		if (!$address1 || length($address1) != 4) {
                 print "Get EEPROM ($address1 $address2) Failed. Must contain  hex value 0-9 a-f. i.e. [005F] or  [005F 006A] for a range\n"; 
 return 1;
  			 			          }
-                 
                 if ($address2 && length($address2) != 4) {
                 print "Get EEPROM ($address1 $address2) Failed. Must contain  hex value 0-9 a-f. i.e. [005F] or  [005F 006A] for a range\n";
 return 1;
                                                           }
-
-
-
 		$times=$self->hexDiff("$address1","$address2");
                 if ($times < 0) {
                 print "The Secondary value [$address2] must be greater than the first [$address1]";
 return 1;
                                 }
                      }
-
-
                 print "\n";
                 printf "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
                 print "___________________________________________________\n";
 
 		$times++;
 		my $cycles = 0;
-
-
 	do {
 		my $valuebin = $self->eepromDecode("$address1");
                 my $valuehex = sprintf("%X", oct( "0b$valuebin" ) );
@@ -1403,7 +1367,6 @@ return 1;
                 $address1 = $self->hexAdder("$cycles","$base");
   	   }
 	        while ($cycles < $times);
-
 		print "\n";
 	if ($times == 1){
 return $valuehex;
@@ -1412,7 +1375,6 @@ return $valuehex;
 	else {
 return %valuehash;
 	     }
-
               }
 
 # 0-3 ################################# GET EEPROM CHECKSUM
@@ -1475,7 +1437,6 @@ sub getSoftcal {
 	my $startaddress = "07";
 	my $digestdata = undef;
 	my $memoryaddress;
-
 	if ($option eq 'CONSOLE') {
 		if ($verbose){
 		print "\n";
@@ -1483,11 +1444,9 @@ sub getSoftcal {
 		print "___________________________________________________\n";
 			     }
 	                          }
-
         if ($verbose && $option eq 'DIGEST'){
                 print "Generated an MD5 hash from software calibration values ";
                      }
-
         if ($option eq 'FILE'){
 		if (!$filename) {print"\nFilename required.     eg. /home/user/softcal.txt\n";return 0;}
 		if (-e $filename) {
@@ -1499,14 +1458,13 @@ sub getSoftcal {
 			if ($verbose){print "\nCreating calibration backup to $filename........\n";}
 			open  FILE , ">>", "$filename" or print"Can't open $filename. error\n";
 			print FILE "FT817 Software Calibration Backup\nUsing FT817COMM.pm version $VERSION\n";
-			print FILE "Created $localtime\n\n";
+			print FILE "Created $localtime\n";
+                        print FILE "Using FT817OS Format, Do not modify this file\n\n";
 			printf FILE "%-11s %-15s %-11s %-11s\n", 'ADDRESS', 'BINARY', 'DECIMAL', 'VALUE';
                 	print FILE "___________________________________________________\n";
 		     }
                               }
-
 	if ($option eq 'DIGEST') {
-
         do {
                 $memoryaddress = sprintf("%x",$startaddress);
                 my $size = length($memoryaddress);
@@ -1518,15 +1476,12 @@ sub getSoftcal {
                 $block++;
                 $startaddress ++;
            }
-        while ($block < '78');
-
+        while ($block < '77');
 		my $digest = md5($digestdata);
 		if ($verbose) {print "DIGEST: ---->$digest<----\n";}
 return $digest;
       			 }
-
 	else {
-
 	do {
 		$memoryaddress = sprintf("%x",$startaddress);
 		my $size = length($memoryaddress);
@@ -1534,6 +1489,8 @@ return $digest;
                 $memoryaddress = join("",'00',"$memoryaddress");
 		my $valuebin = $self->eepromDecode("$memoryaddress");
 		my $valuehex = sprintf("%x", oct( "0b$valuebin" ) );
+                my $hexsize = length($valuehex);
+                if ($hexsize < 2){$valuehex = join("",'0',"$valuehex");}
 		my $valuedec = hex($valuehex);
 	if ($option eq 'CONSOLE' || $verbose) {
 		printf "\n%-11s %-15s %-11s %-11s\n", "$memoryaddress", "$valuebin", "$valuedec", "$valuehex";
@@ -1544,9 +1501,8 @@ return $digest;
 		$block++;
 		$startaddress ++;
 	   }
-	while ($block < '78');
+	while ($block < '77');
            }
-
         if ($buildfile == '1'){
                 print FILE "\n\n---END OF Software Calibration Settings---\n";
                 close FILE;
@@ -1554,7 +1510,6 @@ return $digest;
                               }
 return $output;
                 }
-
 
 # 55 ################################# GET MTQMB, QMB, VFO A/B , HOME VFO OR MEMORY  VIA EEPROMDECODE
 ###################################### READ BIT 0,1,2,4 AND 8 FROM ADDRESS 0X55
@@ -1702,7 +1657,7 @@ sub getPwrmtr {
         if ($pwrmtr == '11'){$pwrmtr = 'MOD'};
         if($verbose){print "Power Meter set to $pwrmtr\n";}
 return $pwrmtr;
-	      }
+   	      }
 
 sub getCwpaddle {
         my ($cwpaddle) = @_;
@@ -1767,14 +1722,14 @@ sub getVfoband {
         my $self=shift;
         my $value=shift;
         if ($value ne 'A' && $value ne 'B'){
-                if($verbose){print "Value invalid: Choose A/B\n\n"; }
+                if($verbose){print "Value invalid: Choose A/B\n\n";}
 return 1;
-                                                                    }
+                                           }
         $output = $self->eepromDecode('0059');
 	if ($value eq 'A'){$vfobandvalue = substr($output,4,4);}
 	if ($value eq 'B'){$vfobandvalue = substr($output,0,4);}
         ($vfoband) = grep { $VFOBANDS{$_} eq $vfobandvalue } keys %VFOBANDS;
-        if($verbose == '1'){print "VFO Band is $vfoband\n";}
+        if($verbose){print "VFO Band is $vfoband\n";}
 return $vfoband;
                }
 
@@ -1864,9 +1819,9 @@ sub getPktrate {
         $pktrate = substr($output,5,1);
         if ($pktrate == '0'){$pktrate = '1200'};
         if ($pktrate == '1'){$pktrate = '9600'};
-        if($verbose){print "PKT RATE is ($pktrate)\n";}
+        if($verbose){print "PACKET RATE is ($pktrate)\n";}
 return $pktrate;
-                }
+               }
 
 sub getScope {
         my ($scope) = @_;
@@ -1877,7 +1832,7 @@ sub getScope {
         if ($scope == '1'){$scope = 'CHK'};
         if($verbose){print "SCOPE is ($scope)\n";}
 return $scope;
-                }
+             }
 
 sub getCwid {
         my ($cwid) = @_;
@@ -1897,7 +1852,7 @@ sub getMainstep {
         $mainstep = substr($output,2,1);
         if ($mainstep == '0'){$mainstep = 'FINE'};
         if ($mainstep == '1'){$mainstep = 'COURSE'};
-        if($verbose){print "Main Step is ($mainstep)\n";}
+        if($verbose){print "MAIN STEP is ($mainstep)\n";}
 return $mainstep;
                 }
 
@@ -1925,7 +1880,7 @@ sub getCwpitch {
         $pitch = hex($HEX1);
 	$pitch = $pitch * 50;
 	$pitch = $pitch + 300;
-        if($verbose){print "CW Pitch is $pitch\n";}
+        if($verbose){print "CW PITCH is $pitch\n";}
 return $pitch;
                }
 
@@ -1937,7 +1892,7 @@ sub getLockmode {
         if ($lockmode == '00'){$lockmode = 'DIAL'};
         if ($lockmode == '01'){$lockmode = 'FREQ'};
         if ($lockmode == '10'){$lockmode = 'PANEL'};
-        if($verbose){print "Lock Mode is $lockmode\n";}
+        if($verbose){print "LOCK MODE is $lockmode\n";}
 return $lockmode;
                 }
 
@@ -1949,7 +1904,7 @@ sub getOpfilter {
         if ($opfilter == '00'){$opfilter = 'OFF'};
         if ($opfilter == '01'){$opfilter = 'SSB'};
         if ($opfilter == '10'){$opfilter = 'CW'};
-        if($verbose){print "OP Filter is $opfilter\n";}
+        if($verbose){print "OP FILTER is $opfilter\n";}
 return $opfilter;
                 }
 
@@ -1959,14 +1914,15 @@ return $opfilter;
 sub getCwweight {
         my ($cwweight) = @_;
         my $self=shift;
+	my $option=shift;
         $output = $self->eepromDecode('005F');
         $cwweight = substr($output,3,5);
         my $HEX1 = sprintf("%X", oct( "0b$cwweight" ) );
         $cwweight = hex($HEX1);
 	$cwweight = $cwweight + 25;
         substr($cwweight, -1, 0) = '.';
-	$cwweight = join("",'1:',"$cwweight");	
-        if($verbose){print "CW Weight is $cwweight\n";}
+	if (!$option){$cwweight = join("",'1:',"$cwweight");}	
+        if($verbose){print "CW WEIGHT is $cwweight\n";}
 return $cwweight;
                  }
 
@@ -2028,7 +1984,7 @@ sub getSidetonevol {
         $sidetonevol = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$sidetonevol" ) );
         $sidetonevol = hex($HEX1);
-        if($verbose){print "Sidetone Volume is $sidetonevol\n";}
+        if($verbose){print "SIDETONE VOLUME is $sidetonevol\n";}
 return $sidetonevol;
                     }
 
@@ -2069,9 +2025,9 @@ sub getVoxgain {
         $voxgain = substr($output,1,7);
         my $HEX1 = sprintf("%X", oct( "0b$voxgain" ) );
         $voxgain = hex($HEX1);
-        if($verbose){print "VOX Gain is $voxgain\n";}
+        if($verbose){print "VOX GAIN is $voxgain\n";}
 return $voxgain;
-                }
+               }
 
 sub getAmfmdial {
         my ($disabledial, $value) = @_;
@@ -2080,9 +2036,9 @@ sub getAmfmdial {
         $disabledial = substr($output,0,1);
         if($disabledial == '0'){$value = 'ENABLE';}
         else {$value = 'DISABLE';}
-        if($verbose){print "Disable AM/FM Dial is set to $value\n";}
+        if($verbose){print "DISABLE AM/FM DIAL is set to $value\n";}
 return $value;
-           }
+                }
 
 # 64 ################################# GET VOX DELAY, EMERGENCY, CAT RATE ######
 ###################################### READ BIT 0-4, 5, 6-7 FROM 0X64
@@ -2095,9 +2051,9 @@ sub getVoxdelay {
         my $HEX1 = sprintf("%X", oct( "0b$voxdelay" ) );
         $voxdelay = hex($HEX1);
         $voxdelay = $voxdelay * 100;
-        if($verbose){print "VOX Delay is $voxdelay msec\n";}
+        if($verbose){print "VOX DELAY is $voxdelay msec\n";}
 return $voxdelay;
-               }
+                }
 
 sub getEmergency {
         my ($emergency) = @_;
@@ -2120,7 +2076,7 @@ sub getCatrate {
         if ($catrate == '10'){$catrate = '38400'};
         if($verbose){print "CAT RATE is $catrate\n";}
 return $catrate;
-                }
+               }
 
 # 65 ################################# GET APO TIME, MEM GROUP, DIG MODE ######
 ###################################### READ BIT 0-2, 4, 5-7 FROM 0X65
@@ -2133,7 +2089,7 @@ sub getApotime {
         my $HEX1 = sprintf("%X", oct( "0b$apotime" ) );
         $apotime = hex($HEX1);
 	if ($apotime == '0'){$apotime = 'OFF';}
-        if($verbose){print "APO Time is $apotime\n";}
+        if($verbose){print "APO TIME is $apotime\n";}
 return $apotime;
                }
 
@@ -2144,7 +2100,7 @@ sub getMemgroup {
         $memgroup = substr($output,3,1);
         if ($memgroup == '0'){$memgroup = 'OFF'};
         if ($memgroup == '1'){$memgroup = 'ON'};
-        if($verbose){print "Memory Groups is $memgroup\n";}
+        if($verbose){print "MEMORY GROUPS is $memgroup\n";}
 return $memgroup;
                  }
 
@@ -2158,7 +2114,7 @@ sub getDigmode {
         if ($digmode == '010'){$digmode = 'PSK31-U'};
         if ($digmode == '011'){$digmode = 'USER-L'};
         if ($digmode == '100'){$digmode = 'USER-U'};
-        if($verbose){print "Digital mode is $digmode\n";}
+        if($verbose){print "DIGITAL MODE is $digmode\n";}
 return $digmode;
                  }
 
@@ -2173,7 +2129,7 @@ sub getTottime {
         my $HEX1 = sprintf("%X", oct( "0b$tottime" ) );
         $tottime = hex($HEX1);
 	if ($tottime == 0){$tottime = 'OFF';}
-        if($verbose){print "Time Out Timer Time is $tottime\n";}
+        if($verbose){print "TIME OUT TIMER Time is $tottime\n";}
 return $tottime;
                }
 
@@ -2186,9 +2142,9 @@ sub getDcsinv {
         if ($dcsinv == '01'){$dcsinv = 'TN-RIV'};
         if ($dcsinv == '10'){$dcsinv = 'TIV-RN'};
         if ($dcsinv == '11'){$dcsinv = 'TIV-RIV'};
-        if($verbose){print "DCS Inversion is $dcsinv\n";}
+        if($verbose){print "DCS INVERSION is $dcsinv\n";}
 return $dcsinv;
-                 }
+              }
 
 # 67 ################################# GET SSB MIC, MIC SCAN  ######
 ###################################### READ BIT 0-6, 7 FROM 0X67
@@ -2202,7 +2158,7 @@ sub getSsbmic {
         $ssbmic = hex($HEX1);
         if($verbose){print "SSB MIC is $ssbmic\n";}
 return $ssbmic;
-               }
+              }
 
 sub getMicscan {
         my ($micscan) = @_;
@@ -2227,7 +2183,7 @@ sub getAmmic {
         $ammic = hex($HEX1);
         if($verbose){print "AM MIC is $ammic\n";}
 return $ammic;
-               }
+             }
 
 sub getMickey {
         my ($mickey) = @_;
@@ -2252,7 +2208,7 @@ sub getFmmic {
         $fmmic = hex($HEX1);
         if($verbose){print "FM MIC is $fmmic\n";}
 return $fmmic;
-               }
+             }
 
 # 6A ################################# GET DIG MIC , ######
 ###################################### READ BIT 0-6 FROM 0X6A
@@ -2266,7 +2222,7 @@ sub getDigmic {
         $digmic = hex($HEX1);
         if($verbose){print "DIG MIC is $digmic\n";}
 return $digmic;
-               }
+              }
 
 # 6B ################################# GET PKT MIC ,EXT MENU ######
 ###################################### READ BIT 0-6,7 FROM 0X6B
@@ -2280,7 +2236,7 @@ sub getPktmic {
         $pktmic = hex($HEX1);
         if($verbose){print "PKT MIC is $pktmic\n";}
 return $pktmic;
-               }
+              }
 
 sub getExtmenu {
         my ($extmenu) = @_;
@@ -2341,7 +2297,7 @@ sub getDigdisp{
         if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
         if($verbose){print "DIG DISP is $newvalue\n";}
 return $newvalue;
-               }
+              }
 
 # 71 ################################# GET R-LSB CAR ######
 ###################################### READ ALL BITS FROM 0X71
@@ -2357,7 +2313,7 @@ sub getRlsbcar{
         if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
         if($verbose){print "R-LSB CAR is $newvalue\n";}
 return $newvalue;
-               }
+              }
 
 # 72 ################################# GET R-USB CAR ######
 ###################################### READ ALL BITS FROM 0X72
@@ -2373,7 +2329,7 @@ sub getRusbcar{
         if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
         if($verbose){print "R-USB CAR is $newvalue\n";}
 return $newvalue;
-               }
+              }
 
 # 73 ################################# GET T-LSB CAR ######
 ###################################### READ ALL BITS FROM 0X73
@@ -2389,7 +2345,7 @@ sub getTlsbcar{
         if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
         if($verbose){print "T-LSB CAR is $newvalue\n";}
 return $newvalue;
-               }
+              }
 
 # 74 ################################# GET T-USB CAR ######
 ###################################### READ ALL BITS FROM 0X74
@@ -2405,7 +2361,7 @@ sub getTusbcar{
         if($newvalue != '0'){$newvalue = join("","$polarity","$newvalue");}
         if($verbose){print "T-USB CAR is $newvalue\n";}
 return $newvalue;
-               }
+              }
 
 # 79 ################################# GET TX POWER, PRI, DW, SCN AND ARTS ######
 ###################################### READ BIT 0-1, 3, 4, 5-6, AND 7 FROM 0X79
@@ -2415,7 +2371,7 @@ sub getTxpower {
 	$output = $self->eepromDecode('0079');
 	my $txpower = substr($output,6,2);
 	($txpow) = grep { $TXPWR{$_} eq $txpower } keys %TXPWR;
-        if($verbose){print "Tx power is $txpow\n";}
+        if($verbose){print "TRANSMIT POWER is $txpow\n";}
 return $txpow;
                }
 
@@ -2426,9 +2382,9 @@ sub getPri {
         $pri = substr($output,3,1);
         if ($pri == '0'){$pri = 'OFF'};
         if ($pri == '1'){$pri = 'ON'};
-        if($verbose){print "Priority Scanning is $pri\n";}
+        if($verbose){print "PRIORITY SCANNING is $pri\n";}
 return $pri;
-            }
+           }
 
 sub getDw {
         my ($dw) = @_;
@@ -2437,7 +2393,7 @@ sub getDw {
         $dw = substr($output,4,1);
         if ($dw == '0'){$dw = 'OFF'};
         if ($dw == '1'){$dw = 'ON'};
-        if($verbose){print "Dual Watch is $dw\n";}
+        if($verbose){print "DUAL WATCH is $dw\n";}
 return $dw;
           }
 
@@ -2449,7 +2405,7 @@ sub getScn {
         if ($scn == '00'){$scn = 'OFF'};
         if ($scn == '10'){$scn = 'UP'};
         if ($scn == '11'){$scn = 'DOWN'};
-        if($verbose){print "Scanning is $scn\n";}
+        if($verbose){print "SCANNING is $scn\n";}
 return $scn;
            }
 
@@ -2482,7 +2438,7 @@ sub getAntenna {
 	if ($antenna == 0){$ant = 'FRONT';}
         if ($antenna == 1){$ant = 'BACK';}
 	if ($value && $value ne 'ALL'){
-        if($verbose){print "Antenna [$value] is set to $ant\n";}
+        if($verbose){print "ANTENNA [$value] is set to $ant\n";}
 			              }
 	if (!$value || $value eq 'ALL'){
 	%antennas = ('HF', 7, '6M', 6, 'FMBCB', 5, 'AIR', 4, 'VHF', 3, 'UHF', 2);
@@ -2508,9 +2464,9 @@ sub getSpl {
         $spl = substr($output,0,1);
         if ($spl == '0'){$spl = 'OFF'};
         if ($spl == '1'){$spl = 'ON'};
-        if($verbose){print "Split Frequency is $spl\n";}
+        if($verbose){print "SPLIT FREQUENCY is $spl\n";}
 return $spl;
-            }
+           }
 
 # 7b ################################# GET BATTERY CHARGE STATUS ######
 ###################################### READ BIT 0-3 and 4 FROM 0X7B
@@ -2525,10 +2481,10 @@ sub getCharger {
         if ($test == '0') {$charger = "OFF";}
         if ($test == '1') {$charger = "ON";}
 	if ($charger eq 'OFF'){
-        if($verbose){print "Charger is [$charger]: Timer configured for $time hours\n";}
+        if($verbose){print "CHARGER is [$charger]: Timer configured for $time hours\n";}
 			      }
 	        if ($charger eq 'ON'){
-        if($verbose){print "Charging is [$charger]: Set for $time hours\n";}
+        if($verbose){print "CHARGING is [$charger]: Set for $time hours\n";}
                                      }
 return $charger;
                  }
@@ -2545,26 +2501,20 @@ sub readMemvfo {
 	my %memvfohash = ();
 	if (!$value) {$value = 'ALL';}
         if ($vfo ne 'A' && $vfo ne 'B' && $vfo ne 'MTQMB' && $vfo ne 'MTUNE'){
-                if($verbose){print "Value invalid: Choose A / B / MTQMB / MTUNE\n\n"; }
+                if($verbose){print "Value invalid: Choose A / B / MTQMB / MTUNE\n\n";}
 return 1;
 
-	                                                                    }
+	                                                                     }
         if ($vfo eq 'MTQMB') {$vfo = 'A'; $band = 'MTQMB';}
 	if ($vfo eq 'MTUNE') {$vfo = 'A'; $band = 'MTUNE';}
-
         my %newhash = reverse %VFOBANDS;
         ($testvfoband) = grep { $newhash{$_} eq $band } keys %newhash;
-
-
         if ($testvfoband eq'') {
 		if ($band ne 'MTQMB' && $band ne 'MTUNE'){
                 if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
-
 return 1;
                                                                            }
 			       }
-
-
         my %testhash = reverse %VFOMEMOPTS;
         ($testoptions) = grep { $testhash{$_} eq $value } keys %testhash;
         if (!$testoptions && $value ne 'ALL'){
@@ -2575,29 +2525,26 @@ return 1;
                 printf "%-15s %s",$testhash{$options};
                 $columns++;
                 if ($columns == 7){print "\n\n"; $columns = 1;}
-                                                            }
+                                                          }
                 print "\n\n";
                             }
 return 1;
                                            }
-
 	if ($vfo eq 'A'){%baseaddress = reverse %VFOABASE;}
         if ($vfo eq 'B'){%baseaddress = reverse %VFOBBASE;}
 	($base) = grep { $baseaddress{$_} eq $band } keys %baseaddress;
-
-if ($value eq 'MODE' || $value eq 'ALL'){
-	$offset=0x00;
-	$address = $self->hexAdder("$offset","$base");
-       	my $mode;
-       	$output = $self->eepromDecode("$address");
-       	$output = substr($output,5,3);
-       	($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
-	if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n"};
-	if ($value eq 'ALL'){$memvfohash{'MODE'} = "$mode";}
-
-	else {
+	if ($value eq 'MODE' || $value eq 'ALL'){
+		$offset=0x00;
+		$address = $self->hexAdder("$offset","$base");
+       		my $mode;
+       		$output = $self->eepromDecode("$address");
+       		$output = substr($output,5,3);
+       		($mode) = grep { $MEMMODES{$_} eq $output } keys %MEMMODES;
+		if($verbose){print "VFO $vfo\[$band\] - MODE is $mode\n"};
+		if ($value eq 'ALL'){$memvfohash{'MODE'} = "$mode";}
+		else {
 return $mode;
-     	     }
+     		     }
                                         }
 
 
@@ -2630,7 +2577,6 @@ if ($value eq 'NARCWDIG' || $value eq 'ALL'){
 return $narcw;
      	     }
                       			    }
-
 
 if ($value eq 'RPTOFFSET' || $value eq 'ALL'){
         $offset=0x01;
@@ -2679,7 +2625,7 @@ if ($value eq 'ATT' || $value eq 'ALL'){
 	else {
 return $att;
      	     }
-                     		      }
+                     		       }
 
 if ($value eq 'IPO' || $value eq 'ALL'){
         $offset=0x02;
@@ -2694,7 +2640,7 @@ if ($value eq 'IPO' || $value eq 'ALL'){
 	else {
 return $ipo;
      	     }
-                      		      }
+                      		       }
 
 if ($value eq 'FMSTEP' || $value eq 'ALL'){
         $offset=0x03;
@@ -2708,8 +2654,6 @@ if ($value eq 'FMSTEP' || $value eq 'ALL'){
 return $fmstep;
      	     }
                       			  }
-
-
 
 if ($value eq 'AMSTEP' || $value eq 'ALL'){
         $offset=0x03;
@@ -2794,7 +2738,7 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
 	my $binvalue = join("","$MSB","$LSB");
 	my $decvalue = oct("0b".$binvalue);
 	my $newvalue;
-         if ($decvalue > 999) {$newvalue = 65536 - $decvalue; $polarity = '-';}
+        if ($decvalue > 999) {$newvalue = 65536 - $decvalue; $polarity = '-';}
         if ($decvalue >= 0 && $decvalue <= 999) {$newvalue = $decvalue; $polarity = '+';}
 	my $vallength = length($newvalue);
 		if ($vallength == 1) {$newvalue = join("","0.0","$newvalue");}
@@ -2810,7 +2754,7 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
                         $newvalue = join("","$part1",".","$part2");
                                      }
 		$newvalue = join("","$polarity","$newvalue");
-       if($verbose){print "VFO $vfo\[$band\] - CLARIFIER OFFSET is $newvalue Khz\n";}
+        if($verbose){print "VFO $vfo\[$band\] - CLARIFIER OFFSET is $newvalue Khz\n";}
 	if ($value eq 'ALL'){$memvfohash{'CLAROFFSET'} = "$newvalue";}
 	else {
 return $newvalue;
@@ -2834,7 +2778,7 @@ if ($value eq 'RXFREQ' || $value eq 'ALL'){
         my $decvalue = oct("0b".$binvalue);
 	substr($decvalue, -2, 0) = '.';
         substr($decvalue, -6, 0) = '.';
-       if($verbose){print "VFO $vfo\[$band\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
+        if($verbose){print "VFO $vfo\[$band\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
 	if ($value eq 'ALL'){$memvfohash{'RXFREQ'} = "$decvalue";}
 	else {
 return $decvalue;
@@ -2854,13 +2798,12 @@ if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
         my $binvalue = join("","$ADD1","$ADD2","$ADD3");
         my $decvalue = oct("0b".$binvalue);
 	$decvalue = $decvalue / 100000;
-       if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $decvalue Mhz\n";}
+        if($verbose){print "VFO $vfo\[$band\] - REPEATER OFFSET is $decvalue Mhz\n";}
 	if ($value eq 'ALL'){$memvfohash{'RPTOFFSETFREQ'} = "$decvalue";}
 	else {
 return $decvalue;
      	     }
 			                         }
-
 if ($value eq 'ALL'){ 
 return %memvfohash;
 		    }
@@ -2913,7 +2856,7 @@ sub getActivelist {
 	my $currentmem = 1;
 	my $memtag;
 	if($verbose){ 
-                        print "\nACTIVE MEMORY AREAS\n___________________\n\n";
+                print "\nACTIVE MEMORY AREAS\n___________________\n\n";
                 printf "%-5s %-10s %-10s %-6s %-6s %-12s %-9s %-9s %-9s %-9s\n\n", '#','LABEL','READY','SKIP', 'MODE','RXFREQ','ENCODER','TONE/DCS','SHIFT','RPTOFFSET'; 
 		    }
         do {
@@ -2931,16 +2874,13 @@ sub getActivelist {
         my $rptoffsetfreq = $self->readMemory('MEM',"$currentmem",'RPTOFFSETFREQ');
 	my $ready = $self->readMemory('MEM',"$currentmem",'READY');
 	my $encoderval;
-
 	if ($encoder eq 'TONE' || $encoder eq 'TONETSQ'){
 		        $encoderval = $self->readMemory('MEM',"$currentmem",'CTCSSTONE');
 			       }
         elsif ($encoder eq 'DCS'){
                         $encoderval = $self->readMemory('MEM',"$currentmem",'DCSCODE');
                                }
-
 	else {$encoderval = 'OFF';}
-
 	$memtag = $currentmem;
 	if ($currentmem == '201'){$memtag = 'M-PL'};
         if ($currentmem == '202'){$memtag = 'M-PU'};
@@ -2985,16 +2925,14 @@ return 1;
                 printf "%-15s %s",$testhash{$options};
                 $columns++;
                 if ($columns == 7){print "\n\n"; $columns = 1;}
-                                                            }
+                                                          }
                 print "\n\n";
                             }
 return 1;
 					     }
-
-       if ($type eq 'HOME'){%baseaddress = reverse %HOMEBASE;}
-       if ($type eq 'QMB'){%baseaddress = reverse %MEMORYBASE; $subtype = 'QMB';}
-       if ($type eq 'MEM'){%baseaddress = reverse %MEMORYBASE; $subtype = 'MEM';}
-
+        if ($type eq 'HOME'){%baseaddress = reverse %HOMEBASE;}
+        if ($type eq 'QMB'){%baseaddress = reverse %MEMORYBASE; $subtype = 'QMB';}
+        if ($type eq 'MEM'){%baseaddress = reverse %MEMORYBASE; $subtype = 'MEM';}
         ($base) = grep { $baseaddress{$_} eq $subtype } keys %baseaddress;
 	if ($type eq 'MEM'){
 		if ($memnum > 1) {
@@ -3003,9 +2941,7 @@ return 1;
 		                 }
 		            }
 
-
 if ($value eq 'READY' || $value eq 'ALL'){
-#print "xxxxxFROM $base\n";
         $offset=0x00;
         $address = $self->hexAdder("$offset","$base");
         my $ready;
@@ -3061,7 +2997,6 @@ return $tag;
              }
                                        }
 
-
 if ($value eq 'FREQRANGE' || $value eq 'ALL'){
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
@@ -3074,7 +3009,6 @@ if ($value eq 'FREQRANGE' || $value eq 'ALL'){
         if ($output == '011') {$freqrange = "AIR";}
         if ($output == '100') {$freqrange = "2M";}
         if ($output == '101') {$freqrange = "UHF";}
-
         if($verbose){print "MEMORY $type\[$subtype\] - Frequency range is $freqrange\n"};
         if ($value eq 'ALL'){$memoryhash{'FREQRANGE'} = "$freqrange";}
         else {
@@ -3112,7 +3046,6 @@ return $narcw;
              }
                                             }
 
-
 if ($value eq 'UHF' || $value eq 'ALL'){
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
@@ -3144,7 +3077,6 @@ if ($value eq 'RPTOFFSET' || $value eq 'ALL'){
 return $rptoffset;
              }
                                             }
-
 
 if ($value eq 'TONEDCS' || $value eq 'ALL'){
         $offset=0x04;
@@ -3178,7 +3110,6 @@ return $att;
              }
                                       }
 
-
 if ($value eq 'IPO' || $value eq 'ALL'){
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
@@ -3193,7 +3124,6 @@ if ($value eq 'IPO' || $value eq 'ALL'){
 return $ipo;
              }
                                       }
-
 
 if ($value eq 'MEMSKIP' || $value eq 'ALL'){
         $offset=0x02;
@@ -3296,7 +3226,6 @@ return $clarifier;
                                              }
 
 if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
-
         $offset=0x08;
         $address = $self->hexAdder("$offset","$base");
         my $MSB = $self->eepromDecode("$address");
@@ -3306,7 +3235,7 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
         my $binvalue = join("","$MSB","$LSB");
         my $decvalue = oct("0b".$binvalue);
         my $newvalue;
-         if ($decvalue > 999) {$newvalue = 65536 - $decvalue; $polarity = '-';}
+        if ($decvalue > 999) {$newvalue = 65536 - $decvalue; $polarity = '-';}
         if ($decvalue >= 0 && $decvalue <= 999) {$newvalue = $decvalue; $polarity = '+';}
         my $vallength = length($newvalue);
                 if ($vallength == 1) {$newvalue = join("","0.0","$newvalue");}
@@ -3322,7 +3251,7 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
                         $newvalue = join("","$part1",".","$part2");
                                      }
                 $newvalue = join("","$polarity","$newvalue");
-       if($verbose){print "MEMORY $type\[$subtype\] - CLARIFIER OFFSET is $newvalue Khz\n";}
+        if($verbose){print "MEMORY $type\[$subtype\] - CLARIFIER OFFSET is $newvalue Khz\n";}
         if ($value eq 'ALL'){$memoryhash{'CLAROFFSET'} = "$newvalue";}
         else {
 return $newvalue;
@@ -3346,13 +3275,12 @@ if ($value eq 'RXFREQ' || $value eq 'ALL'){
         my $decvalue = oct("0b".$binvalue);
         substr($decvalue, -2, 0) = '.';
         substr($decvalue, -6, 0) = '.';
-       if($verbose){print "MEMORY $type\[$subtype\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
+        if($verbose){print "MEMORY $type\[$subtype\] - RECEIVE FREQUENCY is $decvalue Mhz\n";}
         if ($value eq 'ALL'){$memoryhash{'RXFREQ'} = "$decvalue";}
         else {
 return $decvalue;
              }
                                          }
-
 
 if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
         $offset=0x0F;
@@ -3374,15 +3302,12 @@ return $decvalue;
              }
                                                  }
 
-
 if ($value eq 'LABEL' || $value eq 'ALL'){
- 
 	my $cycles = 0x00;
 	my $offset = 0x12;
 	my $newaddress;
 	my $label;
         $address = $self->hexAdder("$offset","$base");
-
     do {
         $newaddress = $self->hexAdder("$cycles","$address");
         my $ADD = $self->eepromDecode("$newaddress");
@@ -3392,8 +3317,6 @@ if ($value eq 'LABEL' || $value eq 'ALL'){
 	$label .= "$letter";
         }
     while ($cycles < 8);
-#print "xxxxxxTO: ADD $address\n";
-
 	if ($label eq '????????'){$label = '\-BLANK\-';} 
         if($verbose){print "MEMORY $type\[$subtype\] - LABEL is $label\n";}
         if ($value eq 'ALL'){$memoryhash{'LABEL'} = "$label";}
@@ -3404,7 +3327,6 @@ return $label;
 if ($value eq 'ALL'){
 return %memoryhash;
                     }
-
    	       }
 
 # 1922 - 1927 ################################# GET ID for CWID ######
@@ -3434,6 +3356,362 @@ return $id;
 # WRITE VALUES FROM EEPROM ADDR #
 #################################
 
+# 07-52 ################################# RESTORES SOFTCAL ######
+###################################### ALL BITS
+
+sub rebuildSoftcal {
+	my $self=shift;        
+	my $calfile=shift;
+	my ($cal_line) =@_;
+	my $error;
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+return 1;
+							     }
+
+	if (!$calfile) {
+		if ($verbose){print "No filename given, using default (FT817.cal)\n";}
+		$calfile = 'FT817.cal';	
+		       }
+        open(CALFILE, "$calfile") or $error = '1';
+	if ($error){
+                if ($verbose){print "Failed to open file($calfile)\n";}
+return 1;
+		   }
+	else {
+	print "\n";
+	my @caldata = <CALFILE>;
+	my $linecount = 1;
+	$error = undef;
+	my @ln;
+	our $writestatus = undef;
+        my $cal_value = "$cal_line";
+	if ($verbose){print "Validating file [$calfile]: ";}
+	foreach $cal_line (@caldata) {
+	my $test = substr($cal_line,0,2);
+		if ($test ne '00'){next;}
+                @ln=split(" ",$cal_line);
+	if (length($ln[0]) + length($ln[3]) != 6){if($verbose){print "Error on line $linecount\n";} $error = 1;} 
+                $linecount++;
+                                     } 
+	if ($linecount != '77'){$error = 1;}
+	if ($error){
+		if($verbose){print"Errors were found in the CAL file $calfile. Will not Process it!";}
+return 1;
+		   }
+	else {
+		if($verbose){print "---> [OK]\n\n";}
+		$linecount = 1;
+		$error = undef;
+		if($verbose){print "Writing out 76 bytes to the radio. Do not power the unit off!!!!\n";}
+        	foreach $cal_line (@caldata) {
+        	my $test = substr($cal_line,0,2);
+                if ($test ne '00'){next;}
+                @ln=split(" ",$cal_line);
+		if($verbose){printf "%-2s %-8s %-5s", "$linecount",'of 76  WRITING',"\[$ln[3]\] TO ----> $ln[0] ";
+		print " [OK]\n";}
+        	$writestatus = $self->writeBlock("$ln[0]","$ln[3]");
+		if ($writestatus ne 'OK'){$error = 1;}
+                $linecount++;
+                                             }
+	     }
+        if(!$error){
+		if($verbose){print "\nSoftware calibration Loaded from $calfile sucessfull.\n";}
+return 0;
+	           }
+	else { if($verbose){print "\nSoftware calibration Loaded from $calfile failed.\n";}
+return 1;
+                   }
+            }
+               }
+
+##########################################################TEMPORARY LOCATION LOADCONFIG
+sub loadConfig {
+
+        my $self=shift;
+        my $cfgfile=shift;
+        my ($cfg_line) =@_;
+        my $error;
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+return 1;
+                                                             }
+        if (!$cfgfile) {
+                if ($verbose){print "No filename given, using default (FT817.cfg)\n";}
+                $cfgfile = 'FT817.cfg';
+                       }
+        open(CFGFILE, "$cfgfile") or $error = '1';
+        if ($error){
+                if ($verbose){print "Failed to open file($cfgfile)\n";}
+return 1;
+                   }
+
+        else {
+        print "\n";
+        my @cfgdata = <CFGFILE>;
+        my $linecount = 1;
+        $error = undef;
+        my @ln;
+        our $writestatus = undef;
+        my $cfg_value = "$cfg_line";
+        if ($verbose){print "Validating file [$cfgfile]: ";}
+        foreach $cfg_line (@cfgdata) {
+	        my $test = substr($cfg_line,0,2);
+        	if ($test < 1){next;}
+        	@ln=split(" ",$cfg_line);
+        	if (!$ln[0] && !$ln[1] && !$ln[2]){if($verbose){print "Error on line $linecount\n";} $error = 1;}
+                $linecount++;
+                                     }
+        if ($linecount != '50'){$error = 1;}
+        if ($error){
+                if($verbose){print"Errors were found in the CFG file $cfgfile. Will not Process it!";}
+return 1;
+                   }
+       else {
+                if($verbose){print "---> [OK]\n\n";}
+                $linecount = 1;
+                $error = undef;
+                if($verbose){print "Writing out 50 configurations to the radio. Do not power the unit off!!!!\n\n";}
+                foreach $cfg_line (@cfgdata) {
+                my $test = substr($cfg_line,0,2);
+                if ($test < 1){next;}
+                @ln=split(" ",$cfg_line);
+		$ln[1] = substr("$ln[1]",3);
+                if($verbose){printf "%-2s %-11s %-12s %-9s %-11s %-1s", "\[$ln[0]\]",'to 57  WRITING',"\[$ln[2]\]", "TO -->", "$ln[1]"," ";
+                print " [OK]\n";}
+		$ln[1] = join("",'set',"$ln[1]");
+		my $command = $ln[1];
+		my $value = $ln[2];
+                $self->setVerbose(0);
+                $self->$command("$value");
+                $self->setVerbose(1);
+		print "\n";
+                $linecount++;
+                                             }
+             }
+                if($verbose){print "\nConfiguration Loaded from $cfgfile sucessfull.\n";}
+return 0;
+            }
+	       }
+
+##########################################################TEMPORARY LOCATION SAVEMEMORY
+
+sub saveMemory {
+        my $self=shift;
+        my $value=shift;
+        my $localtime = localtime();
+	my $currentmem = 1;
+        if (!$value) {if($verbose){print"\nNo filename given using default filename FT817.mem\n";}$value = 'FT817.mem';}
+        if (-e $value) {unlink $value;}
+        open  FILE , ">>", "$value" or print"Can't open $value. error\n";
+        print FILE "FT817 Memory Backup\nUsing FT817COMM.pm version $VERSION\n";
+        print FILE "Created $localtime\n";
+        print FILE "Using FT817OS Format, Do not modify this file\n\n";
+        printf FILE "%-11s %-2s\n", 'ADDRESS', 'VALUE';
+        if($verbose){print"Saving Memory....\n";}
+
+        $self->setVerbose(0);
+   do {
+	my $ready = $self->readMemory('MEM',"$currentmem",'READY');
+	if ($ready eq 'YES'){
+	       my %baseaddress;
+	       my $base;
+	       my $multiple;
+	       %baseaddress = reverse %MEMORYBASE;
+	       ($base) = grep { $baseaddress{$_} eq 'MEM' } keys %baseaddress;
+	       if ($currentmem > 1) {
+               $multiple = ($currentmem - 1) * 26;
+               $base = $self->hexAdder("$multiple","$base");
+               		            }
+		my $cycles = 0x00;
+		my $offset = 0x00;
+        	my $address = $self->hexAdder("$offset","$base");
+                printf FILE "%-11s", "$currentmem";
+   do {
+		my $newaddress;
+        	my $HEXVALUE = $NEWMEM["$cycles"];
+        	if($verbose){print $cycles + 1;print " of 26 BYTES READ\n";}
+        	$newaddress = $self->hexAdder("$cycles","$address");
+        	my $val = $self->eepromDecode("$newaddress");
+		my $valuehex = sprintf("%X", oct( "0b$val" ) );
+                my $size = length($valuehex);
+                if ($size < 2){$valuehex = join("",'0',"$valuehex");}
+                printf FILE "%-2s", "$valuehex:";
+        	$cycles ++;
+      } while ($cycles < 26);
+		print FILE "\n";
+					    }	
+ 	        $currentmem ++;	
+      } while ($currentmem != 203);
+                print FILE "\n\n---END OF Memory Settings---\n";
+                close FILE;
+        $self->setVerbose(1);
+	if($verbose){print"Memory Saved to $value\n";}
+return 0;
+               }
+
+##########################################################TEMPORARY LOCATION LOADMEMORY
+
+sub loadMemory {
+        my $self=shift;
+        my $memfile=shift;
+        my ($mem_line) =@_;
+        my $error;
+	my $linecount = 1;
+	my $totallines;
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+return 1;
+                                                             }
+        if (!$memfile) {
+                if ($verbose){print "No filename given, using default (FT817.mem)\n";}
+                $memfile = 'FT817.mem';
+                       }
+        open(MEMFILE, "$memfile") or $error = '1';
+        if ($error){
+                if ($verbose){print "Failed to open file($memfile)\n";}
+return 1;
+                   }
+
+        else {
+        print "\n";
+        my @memdata = <MEMFILE>;
+        $error = undef;
+        my @ln;
+	my @hexvalues;
+        our $writestatus = undef;
+        my $mem_value = "$mem_line";
+        if ($verbose){print "Validating file [$memfile]: ";}
+        foreach $mem_line (@memdata) {
+		my $testnumber;
+                my $test = substr($mem_line,0,3);
+                if ($test < 1){next;}
+                @ln=split(" ",$mem_line);
+                if (!$ln[0] && !$ln[1]){if($verbose){print "Error on line $linecount\n";} $error = 1;}
+                @hexvalues=split(':',$ln[1]);
+		$testnumber = scalar @hexvalues;
+		if ($testnumber != '26'){if($verbose){print "Error on line $linecount\n";} $error = 1;}
+                $linecount++;
+                                     }
+        if ($error){
+                if($verbose){print"Errors were found in the MEM file $memfile. Will not Process it!";}
+return 1;
+                   }
+		 if($verbose){print "---> \[OK\]\n";}
+		$totallines = $linecount - 1;
+                if($verbose){print "Writing out $totallines memory areas to the radio. Do not power the unit off!!!!\n\n";}
+                my %baseaddress;
+                my $multiple;
+		my $base;
+                %baseaddress = reverse %MEMORYBASE;
+                ($base) = grep { $baseaddress{$_} eq 'MEM' } keys %baseaddress;
+        		foreach $mem_line (@memdata) {
+                	my $test = substr($mem_line,0,3);
+                	if ($test < 1){next;}
+                	@ln=split(" ",$mem_line);
+                	if ($ln[0] > 1) {
+                		$multiple = ($ln[0] - 1) * 26;
+                		$base = $self->hexAdder("$multiple","$base");
+                                	}
+		my $cycles = 0x00;
+                my $offset = 0x00;
+		my $data_line;
+		my $error = undef;
+                my $address = $self->hexAdder("$offset","$base");
+		if($verbose){print "Writing memory area \[$ln[0]\]  ";}
+		my @memorydata = split(':',$ln[1]);
+   do {
+			my $newaddress;
+			$newaddress = $self->hexAdder("$cycles","$address");
+			$writestatus = $self->writeBlock("$newaddress","$memorydata[$cycles]");			     
+			if ($writestatus ne 'OK'){if($verbose){print "---> FAILED"; $error = 1;}}
+		$cycles++;
+      } while ($cycles < 26);
+		if (!$error) {if($verbose){print "---> \[OK\]";}}
+		print "\n";
+						     }
+        if(!$error){
+                if($verbose){print "\nMemory Loaded from $memfile sucessfull.\n";}
+return 0;
+                   }
+       else { if($verbose){print "\nMemory Loaded from $memfile failed.\n";}
+return 1;
+                   }
+
+             }
+
+return 0;
+	       }
+##########################################################TEMPORARY LOCATION SAVEMEMORY
+
+sub saveConfig {
+        my $self=shift;
+        my $value=shift;
+        my $localtime = localtime();
+        if (!$value) {if($verbose){print"\nNo filename given using default filename FT817.cfg\n";}$value = 'FT817.cfg';}
+        $localtime = localtime();
+        if (-e $value) {unlink $value;}
+        	open  FILE , ">>", "$value" or print"Can't open $value. error\n";
+                print FILE "FT817 Config Backup\nUsing FT817COMM.pm version $VERSION\n";
+                print FILE "Created $localtime\n";
+                print FILE "Using FT817OS Format, Do not modify this file\n\n";
+                printf FILE "%-11s %-15s %-15s\n", 'NUMBER', 'TYPE', 'VALUE';
+         	$self->setVerbose(0);
+                printf FILE  "%-11s %-15s %-7s\n", '1', 'getArs144', $self->getArs144();
+                printf FILE  "%-11s %-15s %-7s\n", '2', 'getArs430', $self->getArs430();
+		printf FILE  "%-11s %-15s %-7s\n", '3', 'get9600mic', $self->get9600mic();
+		printf FILE  "%-11s %-15s %-7s\n", '4', 'getAmfmdial', $self->getAmfmdial();
+                printf FILE  "%-11s %-15s %-7s\n", '5', 'getAmmic', $self->getAmmic();
+                printf FILE  "%-11s %-15s %-7s\n", '8', 'getApotime', $self->getApotime();
+                printf FILE  "%-11s %-15s %-7s\n", '9', 'getArtsmode', $self->getArtsmode();
+                printf FILE  "%-11s %-15s %-7s\n", '10', 'getBacklight', $self->getBacklight();
+                printf FILE  "%-11s %-15s %-7s\n", '11', 'getChargetime', $self->getChargetime();
+                printf FILE  "%-11s %-15s %-7s\n", '12', 'getBeepfreq', $self->getBeepfreq();
+                printf FILE  "%-11s %-15s %-7s\n", '13', 'getBeepvol', $self->getBeepvol();
+                printf FILE  "%-11s %-15s %-7s\n", '14', 'getCatrate', $self->getCatrate();
+                printf FILE  "%-11s %-15s %-7s\n", '15', 'getColor', $self->getColor();
+                printf FILE  "%-11s %-15s %-7s\n", '16', 'getContrast', $self->getContrast();
+                printf FILE  "%-11s %-15s %-7s\n", '17', 'getCwdelay', $self->getCwdelay();
+                printf FILE  "%-11s %-15s %-7s\n", '18', 'getCwid', $self->getCwid();
+                printf FILE  "%-11s %-15s %-7s\n", '19', 'getCwpaddle', $self->getCwpaddle();
+                printf FILE  "%-11s %-15s %-7s\n", '20', 'getCwpitch', $self->getCwpitch();
+                printf FILE  "%-11s %-15s %-7s\n", '21', 'getCwspeed', $self->getCwspeed();
+                printf FILE  "%-11s %-15s %-7s\n", '22', 'getCwweight', $self->getCwweight('1');
+                printf FILE  "%-11s %-15s %-7s\n", '24', 'getDigdisp', $self->getDigdisp();
+                printf FILE  "%-11s %-15s %-7s\n", '25', 'getDigmic', $self->getDigmic();
+                printf FILE  "%-11s %-15s %-7s\n", '26', 'getDigmode', $self->getDigmode();
+                printf FILE  "%-11s %-15s %-7s\n", '27', 'getDigshift', $self->getDigshift();
+                printf FILE  "%-11s %-15s %-7s\n", '28', 'getEmergency', $self->getEmergency();
+                printf FILE  "%-11s %-15s %-7s\n", '29', 'getFmmic', $self->getFmmic();
+                printf FILE  "%-11s %-15s %-7s\n", '31', 'getId', $self->getId();
+                printf FILE  "%-11s %-15s %-7s\n", '32', 'getLockmode', $self->getLockmode();
+                printf FILE  "%-11s %-15s %-7s\n", '33', 'getMainstep', $self->getMainstep();
+                printf FILE  "%-11s %-15s %-7s\n", '34', 'getMemgroup', $self->getMemgroup();
+		printf FILE  "%-11s %-15s %-7s\n", '36', 'getMickey', $self->getMickey();
+		printf FILE  "%-11s %-15s %-7s\n", '37', 'getMicscan', $self->getMicscan();
+		printf FILE  "%-11s %-15s %-7s\n", '38', 'getOpfilter', $self->getOpfilter();
+		printf FILE  "%-11s %-15s %-7s\n", '39', 'getPktmic', $self->getPktmic();
+		printf FILE  "%-11s %-15s %-7s\n", '40', 'getPktrate', $self->getPktrate();
+                printf FILE  "%-11s %-15s %-7s\n", '41', 'getResumescan', $self->getResumescan();
+                printf FILE  "%-11s %-15s %-7s\n", '43', 'getScope', $self->getScope();
+                printf FILE  "%-11s %-15s %-7s\n", '44', 'getSidetonevol', $self->getSidetonevol();
+                printf FILE  "%-11s %-15s %-7s\n", '45', 'getRfknob', $self->getRfknob();
+                printf FILE  "%-11s %-15s %-7s\n", '46', 'getSsbmic', $self->getSsbmic();
+                printf FILE  "%-11s %-15s %-7s\n", '49', 'getTottime', $self->getTottime();
+		printf FILE  "%-11s %-15s %-7s\n", '50', 'getVoxdelay', $self->getVoxdelay();
+                printf FILE  "%-11s %-15s %-7s\n", '51', 'getVoxgain', $self->getVoxgain();
+                printf FILE  "%-11s %-15s %-7s\n", '52', 'getExtmenu', $self->getExtmenu();
+		printf FILE  "%-11s %-15s %-7s\n", '53', 'getDcsinv', $self->getDcsinv();
+                printf FILE  "%-11s %-15s %-7s\n", '54', 'getRlsbcar', $self->getRlsbcar();
+                printf FILE  "%-11s %-15s %-7s\n", '55', 'getRusbcar', $self->getRusbcar();
+                printf FILE  "%-11s %-15s %-7s\n", '56', 'getTlsbcar', $self->getTlsbcar();
+                printf FILE  "%-11s %-15s %-7s\n", '57', 'getTusbcar', $self->getTusbcar();
+                print FILE "\n\n---END OF Config Settings---\n";
+                close FILE;
+        $self->setVerbose(1);
+        if($verbose){print"Config Saved to $value\n";}
+return 0;
+	       }
 
 # 55 ################################# SET VFO A/B , MEM OR VFO, MTUNE OR MEMORY,MTQMB, QMB, HOME ######
 ###################################### SET BITS 0,1,2,4,5 AND 7 FROM 0X55
@@ -3444,7 +3722,7 @@ sub setMtune {
         if ($value ne 'MTUNE' && $value ne 'MEMORY'){
                 if($verbose){print "Value invalid: Choose MTUNE/MEMORY\n\n";}
 return 1;
-                                           }
+                                                    }
         $self->setVerbose(0);
         my $currentmtune = $self->getMtune();
         $self->setVerbose(1);
@@ -3452,15 +3730,12 @@ return 1;
                 if($verbose){print "Value $currentmtune already selected.\n\n";}
 return 1;
                                     }
-
         if($value eq 'MTUNE'){$writestatus = $self->writeEeprom('0055','2','1');}
         if($value eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','2','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"MTUNE set to $value sucessfull!\n";}
                 else {print"MTUNE set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -3472,23 +3747,20 @@ sub setMtqmb {
         if ($value ne 'ON' && $value ne 'OFF'){
                 if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                           }
+                                              }
         $self->setVerbose(0);
         my $currentmtqmb = $self->getMtqmb();
         $self->setVerbose(1);
         if ($value eq $currentmtqmb){
                 if($verbose){print "Value $currentmtqmb already selected.\n\n"; }
 return 1;
-                                  }
-
+                                    }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','6','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','6','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"MTQMB set to $value sucessfull!\n";}
                 else {print"MTQMB set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -3500,23 +3772,20 @@ sub setQmb {
         if ($value ne 'ON' && $value ne 'OFF'){
                 if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                           }
+                                              }
         $self->setVerbose(0);
         my $currentqmb = $self->getQmb();
         $self->setVerbose(1);
         if ($value eq $currentqmb){
-                if($verbose){print "Value $currentqmb already selected.\n\n"; }
+                if($verbose){print "Value $currentqmb already selected.\n\n";}
 return 1;
                                   }
-
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','5','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','5','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"QMB set to $value sucessfull!\n";}
                 else {print"QMB set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -3528,23 +3797,20 @@ sub setHome {
         if ($value ne 'ON' && $value ne 'OFF'){
                 if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                           }
+                                              }
         $self->setVerbose(0);
         my $currenthome = $self->getHome();
         $self->setVerbose(1);
         if ($value eq $currenthome){
                 if($verbose){print "Value $currenthome already selected.\n\n"; }
 return 1;
-                                  }
-
+                                   }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0055','3','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0055','3','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"HOME set to $value sucessfull!\n";}
                 else {print"HOME set to $value failed!!!\n";}
                      }
-
 return $writestatus;
 	    }
 
@@ -3564,15 +3830,12 @@ return 1;
                 if($verbose){print "Value $currentvfo already selected.\n\n"; }
 return 1;
 				  }
-
         if($value eq 'A'){$writestatus = $self->writeEeprom('0055','7','0');}
         if($value eq 'B'){$writestatus = $self->writeEeprom('0055','7','1');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"VFO set to $value sucessfull!\n";}
                 else {print"VFO set to $value failed!!!\n";}
                      }
-
 return $writestatus;
 	   }
 
@@ -3592,15 +3855,12 @@ return 1;
                 if($verbose){print "Value $currenttuner already selected.\n\n"; }
 return 1;
                                     }
-
         if($value eq 'MEMORY'){$writestatus = $self->writeEeprom('0055','1','1');}
         if($value eq 'VFO'){$writestatus = $self->writeEeprom('0055','1','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"TUNER set to $value sucessfull!\n";}
 		else {print"TUNER set to $value failed!!!\n";}
                      }
-
 return $writestatus;
 	 }
 
@@ -3611,17 +3871,16 @@ sub setAgc {
         my $self=shift;
 	my $value=shift;
         if ($value ne 'AUTO' && $value ne 'SLOW' && $value ne 'FAST' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose AUTO/SLOW/FAST/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose AUTO/SLOW/FAST/OFF\n\n";}
 return 1;
                                                                                         }
         $self->setVerbose(0);
         my $currentagc = $self->getAgc();
         $self->setVerbose(1);
         if ($value eq $currentagc){
-                if($verbose){print "Value $currentagc already selected.\n\n"; }
+                if($verbose){print "Value $currentagc already selected.\n\n";}
 return 1;
                                   }
-
         my $BYTE1 = $self->eepromDecode('0057');
         if ($value eq 'OFF'){substr ($BYTE1, 6, 2, '11');}
         if ($value eq 'SLOW'){substr ($BYTE1, 6, 2, '10');}
@@ -3632,7 +3891,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"AGC Set to $value sucessfull!\n";}
                 else {print"AGC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
            }
@@ -3644,28 +3902,23 @@ sub setNb {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentnb = $self->getNb();
         $self->setVerbose(1);
-
         if ($value eq $currentnb){
-                if($verbose){print "Value $currentnb already selected.\n\n"; }
+                if($verbose){print "Value $currentnb already selected.\n\n";}
 return 1;
-                                   }
-
+                                 }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','2','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','2','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Noise Block set to $value sucessfull!\n";}
                 else {print"Noise Block set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ####################
@@ -3675,28 +3928,23 @@ sub setDsp {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentdsp = $self->getDsp();
         $self->setVerbose(1);
-
         if ($value eq $currentdsp){
-                if($verbose){print "Value $currentdsp already selected.\n\n"; }
+                if($verbose){print "Value $currentdsp already selected.\n\n";}
 return 1;
-                                   }
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','5','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','5','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"DSP set to $value sucessfull!\n";}
                 else {print"DSP set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ####################
@@ -3706,28 +3954,23 @@ sub setPbt {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentpbt = $self->getPbt();
         $self->setVerbose(1);
-
         if ($value eq $currentpbt){
-                if($verbose){print "Value $currentpbt already selected.\n\n"; }
+                if($verbose){print "Value $currentpbt already selected.\n\n";}
 return 1;
-                                   }
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','3','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','3','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Pass Band Tuning set to $value sucessfull!\n";}
                 else {print"Pass Band Tuning set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ####################
@@ -3737,28 +3980,23 @@ sub setLock {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentlock = $self->getLock();
         $self->setVerbose(1);
-
         if ($value eq $currentlock){
-                if($verbose){print "Value $currentlock already selected.\n\n"; }
+                if($verbose){print "Value $currentlock already selected.\n\n";}
 return 1;
-                                     }
-
+                                   }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','1','0');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','1','1');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Lock set to $value sucessfull!\n";}
                 else {print"Lock set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ####################
@@ -3768,28 +4006,23 @@ sub setFasttuning {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currenttuning = $self->getFasttuning();
         $self->setVerbose(1);
-
         if ($value eq $currenttuning){
-                if($verbose){print "Value $currenttuning already selected.\n\n"; }
+                if($verbose){print "Value $currenttuning already selected.\n\n";}
 return 1;
                                      }
-
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0057','0','0');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0057','0','1');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Fast Tuning set to $value sucessfull!\n";}
                 else {print"Fast Tuning set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 # 58 ################################# SET PWR MTR MODE, CW PADDLE, KYR, BK, VLT, VOX ######
@@ -3801,15 +4034,14 @@ sub setPwrmtr {
         if ($value ne 'PWR' && $value ne 'ALC' && $value ne 'SWR' && $value ne 'MOD'){
                 if($verbose){print "Value invalid: Choose PWR/ALC/SWR/MOD\n\n"; }
 return 1;
-                                                                                        }
+                                                                                     }
         $self->setVerbose(0);
         my $currentpwrmtr = $self->getPwrmtr();
         $self->setVerbose(1);
         if ($value eq $currentpwrmtr){
-                if($verbose){print "Value $currentpwrmtr already selected.\n\n"; }
+                if($verbose){print "Value $currentpwrmtr already selected.\n\n";}
 return 1;
-                                  }
-
+                                     }
         my $BYTE1 = $self->eepromDecode('0058');
         if ($value eq 'PWR'){substr ($BYTE1, 6, 2, '00');}
         if ($value eq 'ALC'){substr ($BYTE1, 6, 2, '01');}
@@ -3820,10 +4052,9 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"Power Meter set to $value sucessfull!\n";}
                 else {print"Power Meter set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
-           }
+               }
 
 ########################
 
@@ -3832,31 +4063,23 @@ sub setCwpaddle {
         my $self=shift;
         my $value=shift;
         if ($value ne 'NORMAL' && $value ne 'REVERSE'){
-                if($verbose){print "Value invalid: Choose NORMAL/REVERSE\n\n"; }
+                if($verbose){print "Value invalid: Choose NORMAL/REVERSE\n\n";}
 return 1;
-                                              }
-
+                                                      }
         $self->setVerbose(0);
         $currentcwpaddle = $self->getCwpaddle();
         $self->setVerbose(1);
-
         if ($value eq $currentcwpaddle){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                   }
-
-
+                                       }
         if($value eq 'NORMAL'){$writestatus = $self->writeEeprom('0058','5','0');}
         if($value eq 'REVERSE'){$writestatus = $self->writeEeprom('0058','5','1');}
-
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"CW Paddle set to $value sucessfull!\n";}
                 else {print"CW Paddle set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ########################
@@ -3866,31 +4089,23 @@ sub setKyr {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
-
         $self->setVerbose(0);
         $currentkyr = $self->getKyr();
         $self->setVerbose(1);
-
         if ($value eq $currentkyr){
                 if($verbose){print "Value $value already selected.\n\n"; }
 return 1;
-                                   }
-
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','3','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','3','0');}
-
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Keyer (KYR) set to $value sucessfull!\n";}
                 else {print"Keyer (KYR) set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ########################
@@ -3900,31 +4115,23 @@ sub setBk {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
-
         $self->setVerbose(0);
         $currentbk = $self->getBk();
         $self->setVerbose(1);
-
         if ($value eq $currentbk){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                   }
-
-
+                                 }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','2','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','2','0');}
-
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Break-in (BK) set to $value sucessfull!\n";}
                 else {print"Break-in (BK) set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 ########################
@@ -3934,31 +4141,23 @@ sub setVlt {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
-
         $self->setVerbose(0);
         $currentvlt = $self->getVlt();
         $self->setVerbose(1);
-
         if ($value eq $currentvlt){
                 if($verbose){print "Value $value already selected.\n\n"; }
 return 1;
-                                   }
-
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','1','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','1','0');}
-
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Voltage readout set to $value sucessfull!\n";}
                 else {print"Voltage readout set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
           }
 
 ########################
@@ -3968,52 +4167,39 @@ sub setVox {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
-
         $self->setVerbose(0);
         $currentvox = $self->getVox();
         $self->setVerbose(1);
-
         if ($value eq $currentvox){
-                if($verbose){print "Value $currentvox already selected.\n\n"; }
+                if($verbose){print "Value $currentvox already selected.\n\n";}
 return 1;
-                                   }
-
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0058','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0058','0','0');}
-
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"VOX set to $value sucessfull!\n";}
                 else {print"VOX set to $value failed!!!\n";}
                      }
-
 return $writestatus;
-
            }
 
 # 59 ################################# SET VFOBAND ######
 ###################################### CHANGE ALL BITS FROM 0X59
 
 sub setVfoband {
-
-       my ($currentband, $writestatus, $vfoband, $testvfoband) = @_;
+        my ($currentband, $writestatus, $vfoband, $testvfoband) = @_;
         my $self=shift;
         my $vfo=shift;
         my $value=shift;
-
         if ($vfo ne 'A' && $vfo ne 'B'){
-                if($verbose){print "Value invalid: Choose VFO A/B\n\n"; }
+                if($verbose){print "Value invalid: Choose VFO A/B\n\n";}
 return 1;
-                                      }
-
+                                       }
         my %newhash = reverse %VFOBANDS;
         ($testvfoband) = grep { $newhash{$_} eq $value } keys %newhash;
-
-
         if ($testvfoband eq'') {
                 if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
 return 1;
@@ -4022,7 +4208,7 @@ return 1;
         $currentband = $self->getVfoband("$vfo");
         $self->setVerbose(1);
         if ($currentband eq $value) {
-                if($verbose){print "\nBand $currentband already selected for VFO $vfo\n\n"; }
+                if($verbose){print "\nBand $currentband already selected for VFO $vfo\n\n";}
 return 1;
                                     }
         my $BYTE1 = $self->eepromDecode('0059');
@@ -4034,7 +4220,6 @@ return 1;
                 if ($writestatus eq 'OK') {print"BAND $currentband on VFO $vfo set sucessfull!\n";}
                 else {print"BAND $currentband on VFO $vfo set failed!!!\n";}
                      }
-
 return $writestatus;
                }
 
@@ -4052,7 +4237,6 @@ return 1;
         $self->setVerbose(0);
         $currentcontrast = $self->getContrast();
         $self->setVerbose(1);
-
         if ($value eq $currentcontrast){
                 if($verbose){print "Value $currentcontrast already selected.\n\n"; }
 return 1;
@@ -4065,11 +4249,9 @@ return 1;
         substr ($BYTE1, 4, 4, "$binvalue");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005B',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Contrast set to $firstvalue sucessfull!\n";}
                 else {print"Contrast set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4083,23 +4265,20 @@ sub setColor {
         if ($value ne 'BLUE' && $value ne 'AMBER'){
                 if($verbose){print "Value invalid: Choose BLUE/AMBER\n\n"; }
 return 1;
-                                                      }
-
+                                                  }
         $self->setVerbose(0);
         $currentcolor = $self->getColor();
         $self->setVerbose(1);
         if ($currentcolor eq $value) {
-                if($verbose){print "\nSetting $value already selected for Screen Color\n\n"; }
+                if($verbose){print "Setting $value already selected for Screen Color\n\n";}
 return 1;
-                                    }
-
+                                     }
         if($value eq 'BLUE'){$writestatus = $self->writeEeprom('005B','3','0');}
         if($value eq 'AMBER'){$writestatus = $self->writeEeprom('005B','3','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Screen color set to $value sucessfull!\n";}
                 else {print"Screen Color set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4110,32 +4289,25 @@ sub setBacklight {
         my $self=shift;
         my $value=shift;
         if ($value ne 'OFF' && $value ne 'ON' && $value ne 'AUTO'){
-                if($verbose){print "Value invalid: Choose OFF/ON/AUTO\n\n"; }
+                if($verbose){print "Value invalid: Choose OFF/ON/AUTO\n\n";}
 return 1;
-                                                                    }
-
-
+                                                                  }
         $self->setVerbose(0);
         $currentbacklight = $self->getBacklight();
         $self->setVerbose(1);
-
         if ($value eq $currentbacklight){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
-
+                                        }
         my $BYTE1 = $self->eepromDecode('005B');
         if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
         if ($value eq 'ON'){substr ($BYTE1, 0, 2, '01');}
         if ($value eq 'AUTO'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
-
         $writestatus = $self->writeBlock('005B',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Back Light Set to $value sucessfull!\n";}
                 else {print"Back Light set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4148,27 +4320,22 @@ sub setBeepvol {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose (0 - 100)\n\n"; }
+                if($verbose){print "Value invalid: Choose (0 - 100)\n\n";}
 return 1;
-                                                                    }
-
-
+                                       }
         $self->setVerbose(0);
         $currentbeepvol = $self->getBeepvol();
         $self->setVerbose(1);
-
         if ($value eq $currentbeepvol){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
-
+                                      }
         my $binvalue = dec2bin($value);
         my $BYTE1 = $self->eepromDecode('005C');
         $binvalue = substr("$binvalue", 1);
         substr ($BYTE1, 1, 7, "$binvalue");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005C',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Beep Volume Set to $value sucessfull!\n";}
                 else {print"Beep Volume set failed: $writestatus\n";}
@@ -4184,25 +4351,22 @@ sub setBeepfreq {
         my $self=shift;
         my $value=shift;
         if ($value == '440' && $value == '880'){
-                if($verbose){print "Value invalid: Choose 440/880\n\n"; }
+                if($verbose){print "Value invalid: Choose 440/880\n\n";}
 return 1;
-                                                      }
-
+                                               }
         $self->setVerbose(0);
         $currentbeepfreq = $self->getBeepfreq();
         $self->setVerbose(1);
         if ($currentbeepfreq eq $value) {
-                if($verbose){print "\nSetting $value already selected for Beep Frequency\n\n"; }
+                if($verbose){print "Setting $value already selected for Beep Frequency\n\n";}
 return 1;
-                                    }
-
+                                        }
         if($value == '440'){$writestatus = $self->writeEeprom('005C','0','0');}
         if($value == '880'){$writestatus = $self->writeEeprom('005C','0','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Beep Frequency set to $value sucessfull!\n";}
                 else {print"Beep Frequency set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4214,33 +4378,26 @@ sub setResumescan {
         my $self=shift;
         my $value=shift;
         if ($value ne 'OFF' && $value ne '3' && $value ne '5' && $value ne '10'){
-                if($verbose){print "Value invalid: Choose OFF/3/5/10\n\n"; }
+                if($verbose){print "Value invalid: Choose OFF/3/5/10\n\n";}
 return 1;
-                                                                    }
-
-
+                                                                                }
         $self->setVerbose(0);
         $currentresumescan = $self->getResumescan();
         $self->setVerbose(1);
-
         if ($value eq $currentresumescan){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
-
+                                         }
         my $BYTE1 = $self->eepromDecode('005D');
         if ($value eq 'OFF'){substr ($BYTE1, 0, 2, '00');}
         if ($value eq '3'){substr ($BYTE1, 6, 2, '01');}
         if ($value eq '5'){substr ($BYTE1, 6, 2, '10');}
         if ($value eq '10'){substr ($BYTE1, 6, 2, '11');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
-
         $writestatus = $self->writeBlock('005D',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Resume (SCAN) Set to $value sucessfull!\n";}
                 else {print"Resume (SCAN) set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4252,25 +4409,22 @@ sub setPktrate {
         my $self=shift;
         my $value=shift;
         if ($value != '1200' && $value != '9600'){
-                if($verbose){print "Value invalid: Choose 1200/9600\n\n"; }
+                if($verbose){print "Value invalid: Choose 1200/9600\n\n";}
 return 1;
-                                                      }
-
+                                                 }
         $self->setVerbose(0);
         $currentpktrate = $self->getPktrate();
         $self->setVerbose(1);
         if ($currentpktrate eq $value) {
-                if($verbose){print "\nSetting $value already selected for PKT Rate\n\n"; }
+                if($verbose){print "Setting $value already selected for PKT Rate\n\n";}
 return 1;
-                                    }
-
+                                       }
         if($value == '1200'){$writestatus = $self->writeEeprom('005D','5','0');}
         if($value == '9600'){$writestatus = $self->writeEeprom('005D','5','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"PKT RATE set to $value sucessfull!\n";}
                 else {print"PKT RATE set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4281,25 +4435,22 @@ sub setScope {
         my $self=shift;
         my $value=shift;
         if ($value ne 'CONT' && $value ne 'CHK'){
-                if($verbose){print "Value invalid: Choose CONT/CHK\n\n"; }
+                if($verbose){print "Value invalid: Choose CONT/CHK\n\n";}
 return 1;
-                                                      }
-
+                                                }
         $self->setVerbose(0);
         $currentscope = $self->getScope();
         $self->setVerbose(1);
         if ($currentscope eq $value) {
-                if($verbose){print "\nSetting $value already selected for Scope\n\n"; }
+                if($verbose){print "Setting $value already selected for Scope\n\n";}
 return 1;
-                                    }
-
+                                     }
         if($value eq 'CONT'){$writestatus = $self->writeEeprom('005D','4','0');}
         if($value eq 'CHK'){$writestatus = $self->writeEeprom('005D','4','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Scope set to $value sucessfull!\n";}
                 else {print"Scope set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4310,25 +4461,22 @@ sub setCwid {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                                      }
-
+                                              }
         $self->setVerbose(0);
         $currentcwid = $self->getCwid();
         $self->setVerbose(1);
         if ($currentcwid eq $value) {
-                if($verbose){print "\nSetting $value already selected for CW-ID\n\n"; }
+                if($verbose){print "Setting $value already selected for CW-ID\n\n";}
 return 1;
                                     }
-
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('005D','3','0');}
         if($value eq 'ON'){$writestatus = $self->writeEeprom('005D','3','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"CW-ID set to $value sucessfull!\n";}
                 else {print"CW-ID set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4339,25 +4487,22 @@ sub setMainstep {
         my $self=shift;
         my $value=shift;
         if ($value ne 'COURSE' && $value ne 'FINE'){
-                if($verbose){print "Value invalid: Choose COURSE/FINE\n\n"; }
+                if($verbose){print "Value invalid: Choose COURSE/FINE\n\n";}
 return 1;
-                                                      }
-
+                                                   }
         $self->setVerbose(0);
         $currentmainstep = $self->getMainstep();
         $self->setVerbose(1);
         if ($currentmainstep eq $value) {
-                if($verbose){print "\nSetting $value already selected for Main Step\n\n"; }
+                if($verbose){print "Setting $value already selected for Main Step\n\n";}
 return 1;
-                                    }
-
+                                        }
         if($value eq 'FINE'){$writestatus = $self->writeEeprom('005D','2','0');}
         if($value eq 'COURSE'){$writestatus = $self->writeEeprom('005D','2','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Main Step set to $value sucessfull!\n";}
                 else {print"Main Step set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4368,14 +4513,14 @@ sub setArtsmode {
         my $self=shift;
         my $value=shift;
         if ($value ne 'OFF' && $value ne 'ALL' && $value ne 'RANGE'){
-                if($verbose){print "Value invalid: Choose OFF/ALL/RANGE\n\n"; }
+                if($verbose){print "Value invalid: Choose OFF/ALL/RANGE\n\n";}
 return 1;
 								    }
         $self->setVerbose(0);
         $currentartsmode = $self->getArtsmode();
         $self->setVerbose(1);
         if ($value eq $currentartsmode){
-                if($verbose){print "Value $currentartsmode already selected.\n\n"; }
+                if($verbose){print "Value $currentartsmode already selected.\n\n";}
 return 1;
                                        }
         my $BYTE1 = $self->eepromDecode('005D');
@@ -4384,7 +4529,6 @@ return 1;
         if ($value eq 'ALL'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005D',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"ARTS Mode Set to $value sucessfull!\n";}
                 else {print"ARTS Mode set failed: $writestatus\n";}
@@ -4401,22 +4545,19 @@ sub setCwpitch {
         my $self=shift;
         my $value=shift;
         if ($value < 300 || $value > 1000){
-                if($verbose){print "Value invalid: Choose a number between 300 and 1000\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 300 and 1000\n\n";}
 return 1;
                                           }
-
         my $testvalue =  substr("$value", -2, 2);
-
         if (($testvalue != '00') && ($testvalue !='50')){
-                if($verbose){print "Value invalid: Must be in incriments of 50\n\n"; }
+                if($verbose){print "Value invalid: Must be in incriments of 50\n\n";}
 return 1;
                                                         }
         $self->setVerbose(0);
         $currentcwpitch = $self->getCwpitch();
         $self->setVerbose(1);
-
         if ($value eq $currentcwpitch){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
         my $firstvalue = $value;
@@ -4428,11 +4569,9 @@ return 1;
         substr ($BYTE1, 4, 4, "$binvalue");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005E',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"CW Pitch set to $firstvalue sucessfull!\n";}
                 else {print"CW Pitch set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4444,14 +4583,14 @@ sub setLockmode {
         my $self=shift;
         my $value=shift;
         if ($value ne 'DIAL' && $value ne 'FREQ' && $value ne 'PANEL'){
-                if($verbose){print "Value invalid: Choose DIAL/FREQ/PANEL\n\n"; }
+                if($verbose){print "Value invalid: Choose DIAL/FREQ/PANEL\n\n";}
 return 1;
-                                                                    }
+                                                                      }
         $self->setVerbose(0);
         $currentlockmode = $self->getLockmode();
         $self->setVerbose(1);
         if ($value eq $currentlockmode){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                        }
         my $BYTE1 = $self->eepromDecode('005E');
@@ -4460,11 +4599,9 @@ return 1;
         if ($value eq 'PANEL'){substr ($BYTE1, 2, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005E',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Lock Mode Set to $value sucessfull!\n";}
                 else {print"Lock Mode set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4476,14 +4613,14 @@ sub setOpfilter {
         my $self=shift;
         my $value=shift;
         if ($value ne 'OFF' && $value ne 'SSB' && $value ne 'CW'){
-                if($verbose){print "Value invalid: Choose OFF/SSB/CW\n\n"; }
+                if($verbose){print "Value invalid: Choose OFF/SSB/CW\n\n";}
 return 1;
-                                                                    }
+                                                                 }
         $self->setVerbose(0);
         $currentopfilter = $self->getOpfilter();
         $self->setVerbose(1);
         if ($value eq $currentopfilter){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                        }
         my $BYTE1 = $self->eepromDecode('005E');
@@ -4492,11 +4629,9 @@ return 1;
         if ($value eq 'CW'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('005E',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Optional Filter Set to $value sucessfull!\n";}
                 else {print"Optional Filter set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4519,7 +4654,7 @@ return 1;
         $self->setVerbose(1);
 	my $testcwweight = join("",'1:',"$value");
         if ($currentcwweight eq $testcwweight){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                               }
         my $firstvalue = $value;
@@ -4534,7 +4669,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"CW Weight set to $firstvalue sucessfull!\n";}
                 else {print"CW Weight set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4546,25 +4680,22 @@ sub setArs144 {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                                      }
-
+                                              }
         $self->setVerbose(0);
         $currentars144 = $self->getArs144();
         $self->setVerbose(1);
         if ($currentars144 eq $value) {
-                if($verbose){print "\nSetting $value already selected for 144 ARS\n\n"; }
+                if($verbose){print "Setting $value already selected for 144 ARS\n\n";}
 return 1;
-                                    }
-
+                                      }
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('005F','1','0');}
         if($value eq 'ON'){$writestatus = $self->writeEeprom('005F','1','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"144 ARS set to $value sucessfull!\n";}
                 else {print"144 ARS set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4575,25 +4706,22 @@ sub setArs430 {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                                      }
-
+                                              }
         $self->setVerbose(0);
         $currentars430 = $self->getArs430();
         $self->setVerbose(1);
         if ($currentars430 eq $value) {
-                if($verbose){print "\nSetting $value already selected for 430 ARS\n\n"; }
+                if($verbose){print "Setting $value already selected for 430 ARS\n\n";}
 return 1;
-                                    }
-
+                                      }
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('005F','2','0');}
         if($value eq 'ON'){$writestatus = $self->writeEeprom('005F','2','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"430 ARS set to $value sucessfull!\n";}
                 else {print"430 ARS set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4604,25 +4732,22 @@ sub setRfknob {
         my $self=shift;
 	my $value=shift;
         if ($value ne 'RFGAIN' && $value ne 'SQUELCH'){
-                if($verbose){print "Value invalid: Choose RFGAIN/SQUELCH\n\n"; }
+                if($verbose){print "Value invalid: Choose RFGAIN/SQUELCH\n\n";}
 return 1;
 	                                              }
-
         $self->setVerbose(0);
         $currentknob = $self->getRfknob();
         $self->setVerbose(1);
         if ($currentknob eq $value) {
-                if($verbose){print "\nSetting $currentknob already selected for RFGAIN Knob\n\n"; }
+                if($verbose){print "Setting $currentknob already selected for RFGAIN Knob\n\n";}
 return 1;
                                     }
-
         if($value eq 'RFGAIN'){$writestatus = $self->writeEeprom('005F','0','0');}
         if($value eq 'SQUELCH'){$writestatus = $self->writeEeprom('005F','0','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"RFGAIN Knob set to $value sucessfull!\n";}
                 else {print"RFGAIN Knob set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4634,35 +4759,29 @@ sub setCwdelay {
         my $self=shift;
         my $value=shift;
         if ($value < 10 || $value > 2500){
-                if($verbose){print "Value invalid: Choose a number between 10 and 2500\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 10 and 2500\n\n";}
 return 1;
-                                          }
-
+                                         }
         my $testvalue =  substr("$value", -1, 1);
-
         if ($testvalue != '0'){
-                if($verbose){print "Value invalid: Must be in incriments of 10\n\n"; }
+                if($verbose){print "Value invalid: Must be in incriments of 10\n\n";}
 return 1;
                               }
         $self->setVerbose(0);
         $currentcwdelay = $self->getCwdelay();
         $self->setVerbose(1);
-
         if ($value eq $currentcwdelay){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
-
         my $firstvalue = $value;
         $value = $value / 10;
         my $binvalue = dec2bin($value);
         my $NEWHEX = sprintf("%X", oct( "0b$binvalue" ) );
         $writestatus = $self->writeBlock('0060',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"CW Delay set to $firstvalue sucessfull!\n";}
                 else {print"CW Delay set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4675,34 +4794,30 @@ sub setSidetonevol {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
-
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $currentsidetonevol = $self->getSidetonevol();
         $self->setVerbose(1);
         if ($value eq $currentsidetonevol){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                          }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
         my $BYTE1 = $self->eepromDecode('0061');
         $binvalue = substr("$binvalue", 1);
         substr ($BYTE1, 1, 7, "$binvalue");
-       my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0061',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Sidetone Volume set to $firstvalue sucessfull!\n";}
                 else {print"Sidetone Volume set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4715,19 +4830,17 @@ sub setCwspeed {
         my $self=shift;
         my $value=shift;
         if ($value < 4 || $value > 60){
-                if($verbose){print "Value invalid: Choose a number between 4 and 60\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 4 and 60\n\n";}
 return 1;
-                                            }
-
-
+                                      }
         $self->setVerbose(0);
         $currentcwspeed = $self->getCwspeed();
         $self->setVerbose(1);
 
         if ($value eq $currentcwspeed){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         my $firstvalue = $value;
         $value = $value - 4;
         my $binvalue = dec2bin($value);
@@ -4736,11 +4849,9 @@ return 1;
         substr ($BYTE1, 2, 6, "$binvalue");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0062',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"CW Speed set to $firstvalue sucessfull!\n";}
                 else {print"CW Speed set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4756,13 +4867,12 @@ sub setChargetime {
 	print "Checking : ";
 	my $chargerstatus = $self->getCharger();
         if ($chargerstatus eq 'ON'){
-                if($verbose){print "Charger is running: You must disable it first before setting an new chargetime.\n\n"; }
+                if($verbose){print "Charger is running: You must disable it first before setting an new chargetime.\n\n";}
 return 1;
-                                                       }
+                                   }
         if($debug){print "Currently set at value ($chargebits) at 0x62\n";}
 	if ($value != 10 && $value != 6 && $value != 8){
 	        if($verbose){print "Time invalid: Use 6 or 8 or 10.\n\n"; }
-
 return 1;
 	 					       }
 	else {
@@ -4772,35 +4882,27 @@ return 1;
 			    ($value == 10 && $chargebits == $ten)) {
 				print "Current charge time $value already set.\n";
 return 1;
-								 }
+							 	   }
 	     }
-
         if($debug){print "Writing New BYTES to 0x62\n";}
-
 	my $BYTE1 = $self->eepromDecode('0062');
 	if ($value == '6'){substr ($BYTE1, 0, 2, '00');}
         if ($value == '8'){substr ($BYTE1, 0, 2, '01');}
         if ($value == '10'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
 	$writestatus = $self->writeBlock('0062',"$NEWHEX");
-
         if($debug){print "Writing New BYTES to 0x62\n";}
         if($debug){print "Writing New BYTES to 0x7b\n";}
-
         $BYTE1 = $self->eepromDecode('007B');
         if ($value == '6'){substr ($BYTE1, 4, 4, '0110');}
         if ($value == '8'){substr ($BYTE1, 4, 4, '1000');}
         if ($value == '10'){substr ($BYTE1, 4, 4, '1010');}
         $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );	
-         $writestatus2 = $self->writeBlock('007B',"$NEWHEX");
-
-
+        $writestatus2 = $self->writeBlock('007B',"$NEWHEX");
         if($verbose){
                 if (($writestatus eq 'OK' && $writestatus2 eq 'OK')) {print"Chargetime Set to $value sucessfull!\n";}
                 else {print"Chargetime set failed: $writestatus\n";}
-		$writestatus = 'ERROR';
                     }
-
 return $writestatus;
                       }
 
@@ -4812,28 +4914,26 @@ sub setVoxgain {
         my $self=shift;
         my $value=shift;
         if ($value < 1 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
         $self->setVerbose(0);
         $currentvoxgain = $self->getVoxgain();
         $self->setVerbose(1);
         if ($value eq $currentvoxgain){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
         my $BYTE1 = $self->eepromDecode('0063');
         $binvalue = substr("$binvalue", 1);
         substr ($BYTE1, 1, 7, "$binvalue");
-       my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
+        my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0063',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"VOX Gain set to $firstvalue sucessfull!\n";}
                 else {print"VOX Gain set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4845,25 +4945,22 @@ sub setAmfmdial {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ENABLE' && $value ne 'DISABLE'){
-                if($verbose){print "Value invalid: Choose ENABLE/DISABLE\n\n"; }
+                if($verbose){print "Value invalid: Choose ENABLE/DISABLE\n\n";}
 return 1;
                                                       }
-
         $self->setVerbose(0);
         $currentdial = $self->getAmfmdial();
         $self->setVerbose(1);
         if ($currentdial eq $value) {
-                if($verbose){print "\nSetting $value already selected\n\n"; }
+                if($verbose){print "Setting $value already selected\n\n";}
 return 1;
                                     }
-
         if($value eq 'ENABLE'){$writestatus = $self->writeEeprom('0063','0','0');}
         if($value eq 'DISABLE'){$writestatus = $self->writeEeprom('0063','0','1');}
         if ($verbose){
                 if ($writestatus eq 'OK') {print"AM/FM Dial set to $value sucessfull!\n";}
                 else {print"AM/FM Dial set to $value failed!!!\n";}
                      }
-
 return $writestatus;
                   }
 
@@ -4875,38 +4972,32 @@ sub setVoxdelay {
         my $self=shift;
         my $value=shift;
         if ($value < 100 || $value > 2500){
-                if($verbose){print "Value invalid: Choose a number between 100 and 2500\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 100 and 2500\n\n";}
 return 1;
-                                           }
+                                          }
 	my $testvalue =  substr("$value", -2, 2);
-
         if ($testvalue != '00'){
-                if($verbose){print "Value invalid: Must be in incriments of 100\n\n"; }
+                if($verbose){print "Value invalid: Must be in incriments of 100\n\n";}
 return 1;
                                }
         $self->setVerbose(0);
         $currentvoxdelay = $self->getVoxdelay();
         $self->setVerbose(1);
         if ($value eq $currentvoxdelay){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                        }
         my $firstvalue = $value;
         $value = $value / 100;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('0064');
         $binvalue = substr("$binvalue", 3);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 3, 5, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0064',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"Vox Delay set to $firstvalue sucessfull!\n";}
                 else {print"Vox Delay set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4918,26 +5009,22 @@ sub setEmergency {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentemergency = $self->getEmergency();
         $self->setVerbose(1);
-
         if ($value eq $currentemergency){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                    }
-
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0064','2','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0064','2','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Emergency set to $value sucessfull!\n";}
                 else {print"Emergency set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -4948,27 +5035,25 @@ sub setCatrate {
         my $self=shift;
         my $value=shift;
         if ($value != '4800' && $value != '9600' && $value != '38400'){
-                if($verbose){print "Value invalid: Choose 4800/9600/38400\n\n"; }
+                if($verbose){print "Value invalid: Choose 4800/9600/38400\n\n";}
 return 1;
-                                                                    }
+                                                                      }
         $self->setVerbose(0);
         $currentcatrate = $self->getCatrate();
         $self->setVerbose(1);
         if ($value eq $currentcatrate){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         my $BYTE1 = $self->eepromDecode('0064');
         if ($value == '4800'){substr ($BYTE1, 0, 2, '00');}
         if ($value == '9600'){substr ($BYTE1, 0, 2, '01');}
         if ($value == '38400'){substr ($BYTE1, 0, 2, '10');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0064',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"CAT RATE Set to $value sucessfull!\n";}
                 else {print"CAT RATE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -4981,16 +5066,16 @@ sub setApotime {
         my $self=shift;
         my $value=shift;
         if (($value ne 'OFF') && ($value < 1 || $value > 6)){
-                if($verbose){print "Value invalid: Choose a OFF or number between 1 and 6\n\n"; }
+                if($verbose){print "Value invalid: Choose a OFF or number between 1 and 6\n\n";}
 return 1;
-                                           }
+                                                            }
         $self->setVerbose(0);
         $currentapotime = $self->getApotime();
         $self->setVerbose(1);
         if ($value eq $currentapotime){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
         my $BYTE1 = $self->eepromDecode('0065');
@@ -5008,30 +5093,26 @@ return $writestatus;
 ####################
 
 sub setMemgroup {
-       my ($currentmemgroup) = @_;
+        my ($currentmemgroup) = @_;
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentmemgroup = $self->getMemgroup();
         $self->setVerbose(1);
-
         if ($value eq $currentmemgroup){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                   }
-
+                                       }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0065','3','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0065','3','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Memory Groups set to $value sucessfull!\n";}
                 else {print"Memory Groups set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -5049,9 +5130,9 @@ return 1;
         $currentdigmode = $self->getDigmode();
         $self->setVerbose(1);
         if ($value eq $currentdigmode){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         my $BYTE1 = $self->eepromDecode('0065');
         if ($value eq 'RTTY'){substr ($BYTE1, 0, 3, '000');}
         if ($value eq 'PSK31-L'){substr ($BYTE1, 0, 3, '001');}
@@ -5060,11 +5141,9 @@ return 1;
         if ($value eq 'USER-U'){substr ($BYTE1, 0, 3, '100');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0065',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"Digital Mode Set to $value sucessfull!\n";}
                 else {print"Digital Mode set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5077,17 +5156,16 @@ sub setTottime {
         my $self=shift;
         my $value=shift;
         if (($value ne 'OFF') && ($value < 1 || $value > 20)){
-                if($verbose){print "Value invalid: Choose OFF or a number between 1 and 20\n\n"; }
+                if($verbose){print "Value invalid: Choose OFF or a number between 1 and 20\n\n";}
 return 1;
                                                              }
-
         $self->setVerbose(0);
         $currenttottime = $self->getTottime();
         $self->setVerbose(1);
         if ($value eq $currenttottime){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
 	if ($value eq 'OFF'){$value = 0;}
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
@@ -5099,7 +5177,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"Time out Timer set to $firstvalue sucessfull!\n";}
                 else {print"Time out Timer set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5118,9 +5195,9 @@ return 1;
         $currentdcsinv = $self->getDcsinv();
         $self->setVerbose(1);
         if ($value eq $currentdcsinv){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                     }
         my $BYTE1 = $self->eepromDecode('0066');
         if ($value eq 'TN-RN'){substr ($BYTE1, 0, 2, '00');}
         if ($value eq 'TN-RIV'){substr ($BYTE1, 0, 2, '01');}
@@ -5128,11 +5205,9 @@ return 1;
         if ($value eq 'TIV-RIV'){substr ($BYTE1, 0, 2, '11');}
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0066',"$NEWHEX");
-
         if($verbose){
                 if ($writestatus eq 'OK') {print"DCS Inversion Set to $value sucessfull!\n";}
                 else {print"DCS Inversion set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5145,12 +5220,12 @@ sub setSsbmic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
 
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
 
@@ -5158,24 +5233,19 @@ return 1;
         $currentssbmic = $self->getSsbmic();
         $self->setVerbose(1);
         if ($value eq $currentssbmic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                     }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('0067');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0067',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"SSB MIC set to $firstvalue sucessfull!\n";}
                 else {print"SSB MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5187,19 +5257,18 @@ sub setMicscan {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentmicscan = $self->getMicscan();
         $self->setVerbose(1);
         if ($value eq $currentmicscan){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                      }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0067','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0067','0','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"MIC SCAN set to $value sucessfull!\n";}
                 else {print"MIC SCAN set to $value failed!!!\n";}
@@ -5215,37 +5284,31 @@ sub setAmmic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
 
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $currentammic = $self->getAmmic();
         $self->setVerbose(1);
         if ($value eq $currentammic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                    }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('0068');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0068',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"AM MIC set to $firstvalue sucessfull!\n";}
                 else {print"AM MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5257,19 +5320,18 @@ sub setMickey {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentmickey = $self->getMickey();
         $self->setVerbose(1);
         if ($value eq $currentmickey){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0068','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0068','0','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"MIC KEY set to $value sucessfull!\n";}
                 else {print"MIC KEY set to $value failed!!!\n";}
@@ -5285,37 +5347,30 @@ sub setFmmic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
-
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $currentfmmic = $self->getFmmic();
         $self->setVerbose(1);
         if ($value eq $currentfmmic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                     }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('0069');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('0069',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"FM MIC set to $firstvalue sucessfull!\n";}
                 else {print"FM MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5328,37 +5383,30 @@ sub setDigmic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
-
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $currentdigmic = $self->getDigmic();
         $self->setVerbose(1);
         if ($value eq $currentdigmic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                     }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('006A');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('006A',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"DIG MIC set to $firstvalue sucessfull!\n";}
                 else {print"DIG MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5371,37 +5419,30 @@ sub setPktmic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
-
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $currentpktmic = $self->getPktmic();
         $self->setVerbose(1);
         if ($value eq $currentpktmic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                     }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('006B');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('006B',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"PKT MIC set to $firstvalue sucessfull!\n";}
                 else {print"PKT MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5413,19 +5454,18 @@ sub setExtmenu {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentextmenu = $self->getExtmenu();
         $self->setVerbose(1);
         if ($value eq $currentextmenu){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                      }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('006B','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('006B','0','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"EXT MENU set to $value sucessfull!\n";}
                 else {print"EXT MENU set to $value failed!!!\n";}
@@ -5441,37 +5481,30 @@ sub set9600mic {
         my $self=shift;
         my $value=shift;
         if ($value < 0 || $value > 100){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                        }
-
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 100\n\n";}
 return 1;
                                 }
-
         $self->setVerbose(0);
         $current9600mic = $self->get9600mic();
         $self->setVerbose(1);
         if ($value eq $current9600mic){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                      }
         my $firstvalue = $value;
         my $binvalue = dec2bin($value);
-#print "BV:    $binvalue\n";
         my $BYTE1 = $self->eepromDecode('006C');
         $binvalue = substr("$binvalue", 1);
-#print "BYTE:  $BYTE1\n";
-#print "NEWBV:    $binvalue\n";
         substr ($BYTE1, 1, 7, "$binvalue");
-#print "BYT2:  $BYTE1\n";
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         $writestatus = $self->writeBlock('006C',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"9600 MIC set to $firstvalue sucessfull!\n";}
                 else {print"9600 MIC set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5488,20 +5521,18 @@ sub setDigshift {
 	$newvalue = substr ($value,1);
 	$endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 3000)){
-                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n";}
 return 1;
                                                                     }
         $self->setVerbose(0);
         $currentdigshift = $self->getDigshift();
         $self->setVerbose(1);
-
         if ($value eq $currentdigshift){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                        }
         $newvalue = $newvalue /10;
@@ -5515,9 +5546,9 @@ return 1;
         my $writestatus1 = $self->writeBlock('006D',"$NEWHEX1");
         my $writestatus2 = $self->writeBlock('006E',"$NEWHEX2");
 	if ($writestatus1 eq $writestatus2) {
-		if ($writestatus1 eq 'OK'){print"DIG SHIFT set to $value sucessfull!\n"; $writestatus = 'OK';}
+		if ($writestatus1 eq 'OK'){if($verbose){print"DIG SHIFT set to $value sucessfull!\n";}}
 					    }
-                else {print"DIG SHIFT set to $value failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"DIG SHIFT set to $value failed!!!\n";}}
 return $writestatus;
                 } 
 
@@ -5532,22 +5563,20 @@ sub setDigdisp {
         $newvalue = substr ($value,1);
         $endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 3000)){
-                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -3000 to +3000 (Multiple of 10)\n\n";}
 return 1;
                                                                     }
         $self->setVerbose(0);
         $currentdigdisp = $self->getDigdisp();
         $self->setVerbose(1);
-
         if ($value eq $currentdigdisp){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                      }
         $newvalue = $newvalue /10;
         if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
         $binvalue = unpack("B32", pack("N", $newvalue));
@@ -5559,10 +5588,9 @@ return 1;
         my $writestatus1 = $self->writeBlock('006F',"$NEWHEX1");
         my $writestatus2 = $self->writeBlock('0070',"$NEWHEX2");
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"DIG DISP set to $value sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"DIG DISP set to $value sucessfull!\n";}}
                                             }
-                else {print"DIG DISP set to $value failed!!!\n"; $writestatus = 'ERROR';}
-#print "N: $newvalue B: $binvalue B1: $bin1 B2: $bin2 H1: $NEWHEX1 H2: $NEWHEX2\n";
+                else {if($verbose){print"DIG DISP set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -5577,19 +5605,18 @@ sub setRlsbcar {
         $newvalue = substr ($value,1);
         $endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
-                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n";}
 return 1;
                                                                    }
         $self->setVerbose(0);
         $currentrlsbcar = $self->getRlsbcar();
         $self->setVerbose(1);
         if ($value eq $currentrlsbcar){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
         $newvalue = $newvalue /10;
@@ -5597,8 +5624,8 @@ return 1;
         $binvalue = unpack("B32", pack("N", $newvalue));
         my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
         my $writestatus1 = $self->writeBlock('0071',"$NEWHEX1");
-        if ($writestatus1 eq 'OK'){print"R LSB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
-        else {print"R LSB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+        if ($writestatus1 eq 'OK'){if($verbose){print"R LSB CAR set to $value sucessfull!\n";}}
+        else {if($verbose){print"R LSB CAR set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -5613,19 +5640,18 @@ sub setRusbcar {
         $newvalue = substr ($value,1);
         $endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
-                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n";}
 return 1;
                                                                    }
         $self->setVerbose(0);
         $currentrusbcar = $self->getRusbcar();
         $self->setVerbose(1);
         if ($value eq $currentrusbcar){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
         $newvalue = $newvalue /10;
@@ -5633,8 +5659,8 @@ return 1;
         $binvalue = unpack("B32", pack("N", $newvalue));
         my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
         my $writestatus1 = $self->writeBlock('0072',"$NEWHEX1");
-        if ($writestatus1 eq 'OK'){print"R USB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
-        else {print"R USB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+        if ($writestatus1 eq 'OK'){if($verbose){print"R USB CAR set to $value sucessfull!\n";}}
+        else {if($verbose){print"R USB CAR set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -5649,19 +5675,18 @@ sub setTlsbcar {
         $newvalue = substr ($value,1);
         $endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
-                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n";}
 return 1;
                                                                    }
         $self->setVerbose(0);
         $currenttlsbcar = $self->getTlsbcar();
         $self->setVerbose(1);
         if ($value eq $currenttlsbcar){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
         $newvalue = $newvalue /10;
@@ -5669,8 +5694,8 @@ return 1;
         $binvalue = unpack("B32", pack("N", $newvalue));
         my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
         my $writestatus1 = $self->writeBlock('0073',"$NEWHEX1");
-        if ($writestatus1 eq 'OK'){print"T LSB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
-        else {print"T LSB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+        if ($writestatus1 eq 'OK'){if($verbose){print"T LSB CAR set to $value sucessfull!\n";}}
+        else {if($verbose){print"T LSB CAR set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -5685,19 +5710,18 @@ sub setTusbcar {
         $newvalue = substr ($value,1);
         $endvalue = substr ($value,-1,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($endvalue != '0' || ($newvalue < 0 || $newvalue > 300)){
-                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -300 to +300 (Multiple of 10)\n\n";}
 return 1;
                                                                    }
         $self->setVerbose(0);
         $currenttusbcar = $self->getTusbcar();
         $self->setVerbose(1);
         if ($value eq $currenttusbcar){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                       }
         $newvalue = $newvalue /10;
@@ -5705,8 +5729,8 @@ return 1;
         $binvalue = unpack("B32", pack("N", $newvalue));
         my $NEWHEX1 = sprintf("%X", oct( "0b$binvalue" ) );
         my $writestatus1 = $self->writeBlock('0074',"$NEWHEX1");
-        if ($writestatus1 eq 'OK'){print"T USB CAR set to $value sucessfull!\n"; $writestatus = 'OK';}
-        else {print"T USB CAR set to $value failed!!!\n"; $writestatus = 'ERROR';}
+        if ($writestatus1 eq 'OK'){if($verbose){print"T USB CAR set to $value sucessfull!\n";}}
+        else {if($verbose){print"T USB CAR set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -5723,14 +5747,14 @@ sub setTxpower {
         if ($testtxpwr eq'') {
                 if($verbose){print "\nChoose valid Option : [HIGH/LOW1/LOW2/LOW3]\n\n";}
 return 1;
-                               }
+                             }
         $self->setVerbose(0);
         $currentpower = $self->getTxpower();
         $self->setVerbose(1);
         if ($currentpower eq $value) {
                 if($verbose){print "\nValue $value already selected for TX POWER\n\n"; }
 return 1;
-                                    }
+                                     }
         my $BYTE1 = $self->eepromDecode('0079');
         substr ($BYTE1, 6, 2, "$testtxpwr");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
@@ -5749,7 +5773,7 @@ sub setPri {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
@@ -5757,13 +5781,11 @@ return 1;
         $self->setVerbose(1);
 
         if ($value eq $currentpri){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                   }
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','3','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','3','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"PRI set to $value sucessfull!\n";}
                 else {print"PRI set to $value failed!!!\n";}
@@ -5778,21 +5800,18 @@ sub setDw {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
         $currentdw = $self->getDw();
         $self->setVerbose(1);
-
         if ($value eq $currentdw){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                   }
-
+                                 }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','4','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','4','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"DW set to $value sucessfull!\n";}
                 else {print"DW set to $value failed!!!\n";}
@@ -5814,9 +5833,9 @@ return 1;
         $currentscn = $self->getScn();
         $self->setVerbose(1);
         if ($value eq $currentscn){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                       }
+                                  }
         my $BYTE1 = $self->eepromDecode('0079');
         if ($value eq 'OFF'){substr ($BYTE1, 1, 2, '00');}
         if ($value eq 'UP'){substr ($BYTE1, 1, 2, '10');}
@@ -5826,7 +5845,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"SCN Set to $value sucessfull!\n";}
                 else {print"SCN Inversion set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -5838,7 +5856,7 @@ sub setArts {
         my $self=shift;
         my $value=shift;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
 					      }
         $self->setVerbose(0);
@@ -5846,18 +5864,15 @@ return 1;
         $self->setVerbose(1);
 
         if ($value eq $currentarts){
-                if($verbose){print "Value $currentarts already selected.\n\n"; }
+                if($verbose){print "Value $currentarts already selected.\n\n";}
 return 1;
                                    }
-
         if($value eq 'ON'){$writestatus = $self->writeEeprom('0079','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('0079','0','0');}
-
 	if ($verbose){
                 if ($writestatus eq 'OK') {print"ARTS set to $value sucessfull!\n";}
                 else {print"ARTS set to $value failed!!!\n";}
 		     }
-
 return $writestatus;
             }
 
@@ -5882,14 +5897,11 @@ return 1;
         $self->setVerbose(0);
 	$currentantenna = $self->getAntenna("$value");
 	$self->setVerbose(1);
-
 	if ($currentantenna eq $value2) {
                 if($verbose){print "\nAntenna for $value is already set to $value2\n\n"; }
 return 1;
 					}
-
 	my $valuelabel = $value2;
-
 	if ($value2 eq 'BACK'){$value2 = 1;}
         if ($value2 eq 'FRONT'){$value2 = 0;}
 	if ($value eq 'HF'){$antennabit = 7;}
@@ -5898,11 +5910,9 @@ return 1;
         if ($value eq 'AIR'){$antennabit = 4;}
         if ($value eq 'VHF'){$antennabit = 3;}
         if ($value eq 'UHF'){$antennabit = 2;}
-
         $writestatus = $self->writeEeprom('007A',"$antennabit","$value2");
-
-                if($verbose && $writestatus eq 'OK'){print "\nAntenna for $value set to $valuelabel: $writestatus\n\n"; }
-                if($verbose && $writestatus ne 'OK'){print "\nError setting antenna: $writestatus\n\n"; }
+        if($verbose && $writestatus eq 'OK'){print "\nAntenna for $value set to $valuelabel: $writestatus\n\n"; }
+        if($verbose && $writestatus ne 'OK'){print "\nError setting antenna: $writestatus\n\n"; }
 return $writestatus;
  	       }
 
@@ -5919,20 +5929,16 @@ return 1;
         $self->setVerbose(0);
         $currentspl = $self->getSpl();
         $self->setVerbose(1);
-
         if ($value eq $currentspl){
                 if($verbose){print "Value $value already selected.\n\n"; }
 return 1;
-                                   }
-
+                                  }
         if($value eq 'ON'){$writestatus = $self->writeEeprom('007A','0','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom('007A','0','0');}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"SPL set to $value sucessfull!\n";}
                 else {print"SPL set to $value failed!!!\n";}
                      }
-
 return $writestatus;
             }
 
@@ -5943,25 +5949,21 @@ sub setCharger {
         my $self=shift;
         my $value=shift;
 	my $chargerstatus = $self->getCharger();
-
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Use ON or OFF.\n\n"; }
+                if($verbose){print "Value invalid: Use ON or OFF.\n\n";}
 
 return 1;
                                               }
-
 	if ($chargerstatus eq $value){
-		print "Staying $value\n";
+		if($verbose){print "Staying $value\n";}
 return 1;
 				     }
-
 	else {
-                print "Turning $value\n";
-        if ($value eq 'OFF'){$writestatus = $self->writeEeprom('007B','3','0');}
-	if ($value eq 'ON'){$writestatus = $self->writeEeprom('007B','3','1');}
+                if($verbose){print "Turning $value\n";}
+	        if ($value eq 'OFF'){$writestatus = $self->writeEeprom('007B','3','0');}
+		if ($value eq 'ON'){$writestatus = $self->writeEeprom('007B','3','1');}
 return 0;
 	     }
-
 return 1;
                }
 
@@ -5989,9 +5991,9 @@ return 1;
 		if ($band ne 'MTQMB' && $band ne 'MTUNE'){
                 if($verbose){print "\nChoose valid Band : [160M/75M/40M/30M/20M/17M/15M/12M/10M/6M/2M/70CM/FMBC/AIR/PHAN]\n\n";}
 return 1;
-				   					   }
+              					         }
                                }
-      my %testhash = reverse %VFOMEMOPTS;
+        my %testhash = reverse %VFOMEMOPTS;
         ($testoptions) = grep { $testhash{$_} eq $option } keys %testhash;
         if (!$testoptions){
                 if($verbose){
@@ -6006,7 +6008,6 @@ return 1;
 return 1;
 			    }
      		          }
- 
         if ($value != '0' && !$value){
                 if($verbose){print "A Value must be given\n\n";}
 return 1;
@@ -6020,8 +6021,8 @@ return 1;
         ($base) = grep { $baseaddress{$_} eq $band } keys %baseaddress;
 
 ############## MODE
-       if ($option eq 'MODE') {
-       my ($currentmode) = @_;
+        if ($option eq 'MODE') {
+        my ($currentmode) = @_;
         $self->setVerbose(0);
         $currentmode = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
@@ -6042,7 +6043,7 @@ return 1;
                 printf "%-15s %s",$modehash{$codes};
                 $columns++;
                 if ($columns == 7){print "\n\n"; $columns = 1;}
-                                                      }
+                                                        }
                 print "\n\n";
                            }
 return 1;
@@ -6056,7 +6057,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"MODE Set to $option sucessfull!\n";}
                 else {print"MODE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6065,11 +6065,10 @@ return $writestatus;
 
        if ($option eq 'NARFM') {
        my ($currentnarfm) = @_;
-
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentnarfm = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
@@ -6077,14 +6076,12 @@ return 1;
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                     }
-
 	$offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietToggle();}
         if($value eq 'ON'){$writestatus = $self->writeEeprom("$address",'4','1');}
         if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'4','0');}
         if ($musttoggle) {$self->quietToggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"NAR FM set to $value sucessfull!\n";}
                 else {print"NAR FM set to $value failed!!!\n";}
@@ -6097,17 +6094,16 @@ return $writestatus;
        if ($option eq 'NARCWDIG') {
        my ($currentnarcwdig) = @_;
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentnarcwdig = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
         if ($value eq $currentnarcwdig){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                       }
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietToggle();}
@@ -6126,16 +6122,16 @@ return $writestatus;
        if ($option eq 'RPTOFFSET') {
        my ($currentrptoffset) = @_;
        if ($value ne 'SIMPLEX' && $value ne 'MINUS'  && $value ne 'PLUS' && $value ne 'NON-STANDARD'){
-                if($verbose){print "Value invalid: Choose SIMPLEX/MINUS/PLUS/NON-STANDARD\n\n"; }
+                if($verbose){print "Value invalid: Choose SIMPLEX/MINUS/PLUS/NON-STANDARD\n\n";}
 return 1;
-  							                                              }
+  							                                             }
         $self->setVerbose(0);
         $currentrptoffset = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
         if ($value eq $currentrptoffset){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                        }
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         my $BYTE1 = $self->eepromDecode("$address");
@@ -6150,7 +6146,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"RPTOFFSET Set to $value sucessfull!\n";}
                 else {print"RPT OFFSET set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6162,14 +6157,14 @@ return $writestatus;
        if ($value ne 'OFF' && $value ne 'TONE'  && $value ne 'TONETSQ' && $value ne 'DCS'){
                 if($verbose){print "Value invalid: Choose OFF/TONE/TONETSQ/DCS\n\n"; }
 return 1;
-        					                                           }
+        					                                          }
         $self->setVerbose(0);
         $currenttonedcs = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
         if ($value eq $currenttonedcs){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                      }
         $offset=0x04;
         $address = $self->hexAdder("$offset","$base");
         my $BYTE1 = $self->eepromDecode("$address");
@@ -6184,7 +6179,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"TONEDCS Set to $value sucessfull!\n";}
                 else {print"TONEDCS set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6194,7 +6188,7 @@ return $writestatus;
 	if ($option eq 'CLARIFIER') {
         my ($currentclarifier) = @_;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
@@ -6203,7 +6197,7 @@ return 1;
         if ($value eq $currentclarifier){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                        }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietToggle();}
@@ -6219,10 +6213,10 @@ return $writestatus;
 
 ############## ATT
 
-        if ($option eq 'ATT') {
+        if ($option eq 'ATT'){
         my ($currentatt) = @_;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
@@ -6231,7 +6225,7 @@ return 1;
         if ($value eq $currentatt){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                  }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietToggle();}
@@ -6250,7 +6244,7 @@ return $writestatus;
         if ($option eq 'IPO') {
         my ($currentipo) = @_;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
@@ -6311,7 +6305,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"FM STEP Set to $option sucessfull!\n";}
                 else {print"FM STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                              }
@@ -6354,7 +6347,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"AM STEP Set to $option sucessfull!\n";}
                 else {print"AM STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6387,7 +6379,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"SSB STEP Set to $value sucessfull!\n";}
                 else {print"SSB STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6430,7 +6421,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"CTCSS TONE Set to $option sucessfull!\n";}
                 else {print"CTCSS TONE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6445,7 +6435,7 @@ return $writestatus;
         if ($value eq $currentcode){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                   }
         $offset=0x07;
         $address = $self->hexAdder("$offset","$base");
         my $dcscode;
@@ -6474,7 +6464,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"DCS CODE Set to $option sucessfull!\n";}
                 else {print"DCS CODE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6486,12 +6475,12 @@ return $writestatus;
         $polarity = substr ($value,0,1);
         $newvalue = substr ($value,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
 
         if ($newvalue < 0 || $newvalue > 999){
-                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (Multiple of 10)\n\n";}
 return 1;
                                                                     }
         $self->setVerbose(0);
@@ -6499,7 +6488,7 @@ return 1;
         $self->setVerbose(1);
 
         if ($value eq $currentoffset){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
 	$offset=0x08;
@@ -6517,9 +6506,9 @@ return 1;
         my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
         my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"Clarifier offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"Clarifier offset set to $value sucessfull!\n";}}
                                             }
-                else {print"Clarifier offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"Clarifier offset set to $value failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -6531,7 +6520,7 @@ return $writestatus;
         $currentrxfreq = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
         if ($value eq $currentrxfreq){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
 
@@ -6540,7 +6529,6 @@ return 1;
                 if($verbose){print "Our of range\n\n"; }
 return 1;
                           }
-
         $offset=0x0A;
         $address = $self->hexAdder("$offset","$base");
         $offset=0x0B;
@@ -6567,9 +6555,9 @@ return 1;
         my $writestatus4 = $self->writeBlock("$address4","$NEWHEX4");
         if ($musttoggle) {$self->quietToggle();}
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"RX Frequency set to $valuelabel sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"RX Frequency set to $valuelabel sucessfull!\n";}}
                                             }
-                else {print"RX Frequency set to $valuelabel failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"RX Frequency set to $valuelabel failed!!!\n";}}
 return $writestatus;
                 }
 
@@ -6585,7 +6573,7 @@ return 1;
         $currentoffset = $self->readMemvfo("$vfo","$band","$option");
         $self->setVerbose(1);
         if ($value eq $currentoffset){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
         $offset=0x0F;
@@ -6609,9 +6597,9 @@ return 1;
         my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
         if ($musttoggle) {$self->quietToggle();}
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"Repeater offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"Repeater offset set to $value sucessfull!\n"}}
                                             }
-                else {print"Repeater offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"Repeater offset set to $value failed!!!\n";}}
 return $writestatus;
                 }
                 }
@@ -6628,28 +6616,27 @@ sub setCurrentmem {
         if ($value eq 'M-PU'){$value = '202'};	
 	$value--;
         if ($value < 0 || $value > 202){
-                if($verbose){print "Value invalid: Choose a number between 0 and 200, or M-PL / M-PU\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 200, or M-PL / M-PU\n\n";}
 return 1;
                                        }
 
         if (length($value) == 0){
-                if($verbose){print "Value invalid: Choose a number between 0 and 200 or M-PL / M-PU\n\n"; }
+                if($verbose){print "Value invalid: Choose a number between 0 and 200 or M-PL / M-PU\n\n";}
 return 1;
                                 }
         $self->setVerbose(0);
         $currentcurrentmem = $self->getCurrentmem();
         $self->setVerbose(1);
         if ($value eq $currentcurrentmem + 1){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                             }
         my $binvalue = dec2bin($value);
         my $NEWHEX = sprintf("%X", oct( "0b$binvalue" ) );
         $writestatus = $self->writeBlock('044F',"$NEWHEX");
         if($verbose){
                 if ($writestatus eq 'OK') {print"Current Memory set to $firstvalue sucessfull!\n";}
                 else {print"Current Memory set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6663,13 +6650,17 @@ sub setMemarea {
         my $number = shift;
         my $startaddress = '0450';
         my $value = shift;
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+                $writestatus = "Write Disabled";
+return $writestatus;
+                          }
         if ($number eq 'M-PL'){$number = 201;}
         if ($number eq 'M-PU'){$number = 202;}
         if ($number == 1){
         if($verbose){print "Memory [$number] Cannot be changed, and must remain ACTIVE\n"};
 return 1;
                          }
-
         if ($number < 2 || $number > 202){
         if($verbose){print "Memory [$number] invalid. Must be between 2 and 200 or M-PL / M-PU\n"};
 return 1;
@@ -6692,9 +6683,7 @@ return 1;
         my $checkbit = ($number - (8 * ($register + 1))) * -1;
         my $address = $self->hexAdder("$register","$startaddress");
         $writestatus = $self->writeEeprom("$address","$checkbit","$value"); 
-                if($verbose){print "Memory area [$number] set to $valuetag\n"};
-
-#### check formatting here
+        if($verbose){print "Memory area [$number] set to $valuetag\n"};
         $self->setVerbose(0);
         my $isready = $self->readMemory('MEM',"$number",'READY');
 	if ($isready eq 'NO'){$self->writeMemory('MEM',"$number",'READY');}
@@ -6712,6 +6701,12 @@ sub writeMemory {
         my $subtype=shift;
 	my $option = shift;
 	my $value=shift;
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+                $writestatus = "Write Disabled";
+return $writestatus;
+                          }
+        my $newlabel = "CH-$subtype";
 	$type = uc($type);
 	$subtype = uc($subtype);
         $option = uc($option);
@@ -6735,15 +6730,14 @@ return 1;
                 printf "%-15s %s",$testhash{$options};
                 $columns++;
                 if ($columns == 7){print "\n\n"; $columns = 1;}
-                                                            }
+                                                          }
                 print "\n\n";
                             }
 return 1;
                                              }
-       if ($type eq 'HOME'){%baseaddress = reverse %HOMEBASE;}
-       if ($type eq 'QMB'){%baseaddress = reverse %MEMORYBASE; $subtype = 'QMB';}
-       if ($type eq 'MEM'){%baseaddress = reverse %MEMORYBASE; $subtype = 'MEM'}
-
+        if ($type eq 'HOME'){%baseaddress = reverse %HOMEBASE;}
+        if ($type eq 'QMB'){%baseaddress = reverse %MEMORYBASE; $subtype = 'QMB';}
+        if ($type eq 'MEM'){%baseaddress = reverse %MEMORYBASE; $subtype = 'MEM'}
         ($base) = grep { $baseaddress{$_} eq $subtype } keys %baseaddress;
         if ($type eq 'MEM'){
                 if ($memnum > 1) {
@@ -6755,14 +6749,13 @@ return 1;
                 if($verbose){print "Command is malformed, check your syntax!!!\n\n";}
 return 1;
                     }
-
 	if ($type eq 'MEM') {$subtype = "$memnum";}
         $self->setVerbose(0);
         my $currenttuner = $self->getTuner();
         my $ishome =  $self->getHome();
 	my $isqmb =  $self->getQmb();
         $self->setVerbose(1);
-                if ($type eq 'HOME' && $ishome eq 'Y'){$hometoggle = 'TRUE';}
+        if ($type eq 'HOME' && $ishome eq 'Y'){$hometoggle = 'TRUE';}
         if ($currenttuner eq 'MEMORY') {
                 if ($type eq 'QMB' && $isqmb eq 'ON'){$musttoggle = 'TRUE';}
                 if ($type eq 'MEM'){$musttoggle = 'TRUE';}
@@ -6774,7 +6767,6 @@ return 1;
         $self->setVerbose(1);
         if ($isready eq 'NO'){
                 if($verbose){print "This memory area has not yet been formatted. Loading default format...\nThis may take a minute....\n";}
-			my $newlabel = "CH-$subtype"; 
          		if ($hometoggle) {$self->quietHometoggle();}
         		if ($musttoggle) {$self->quietTunetoggle();}
         my $cycles = 0x00;
@@ -6793,7 +6785,7 @@ do {
         $cycles ++;
    }
 while ($cycles < 18);
-	print "\nWriting label $newlabel\n";
+	if($verbose){print "\nWriting label $newlabel\n";}
 	$self->writeMemory("$type","$subtype","LABEL","$newlabel");
 	if ($hometoggle) {$self->quietHometoggle();}
  	if ($musttoggle) {$self->quietTunetoggle();}
@@ -6839,7 +6831,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"MODE Set to $option sucessfull!\n";}
                 else {print"MODE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                             }
@@ -6850,17 +6841,16 @@ return $writestatus;
        my ($currenttag) = @_;
 
        if ($value ne 'LABEL' && $value ne 'FREQUENCY'){
-                if($verbose){print "Value invalid: Choose LABEL/FREQUENCY\n\n"; }
+                if($verbose){print "Value invalid: Choose LABEL/FREQUENCY\n\n";}
 return 1;
-                                              }
+                                                      }
         $self->setVerbose(0);
         $currenttag = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currenttag){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                  }
         $offset=0x00;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -6869,7 +6859,6 @@ return 1;
         if($value eq 'FREQUENCY'){$writestatus = $self->writeEeprom("$address",'0','0');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"TAG set to $value sucessfull!\n";}
                 else {print"TAG set to $value failed!!!\n";}
@@ -6883,9 +6872,9 @@ return $writestatus;
        my ($currentnarfm) = @_;
 
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentnarfm = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
@@ -6893,7 +6882,6 @@ return 1;
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                     }
-
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -6902,7 +6890,6 @@ return 1;
         if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'4','0');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"NAR FM set to $value sucessfull!\n";}
                 else {print"NAR FM set to $value failed!!!\n";}
@@ -6916,17 +6903,16 @@ return $writestatus;
        my ($currentnarcwdig) = @_;
 
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentnarcwdig = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentnarcwdig){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                       }
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -6935,7 +6921,6 @@ return 1;
         if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'3','0');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"NAR CW DIG set to $value sucessfull!\n";}
                 else {print"NAR CW DIG set to $value failed!!!\n";}
@@ -6950,14 +6935,14 @@ return $writestatus;
        if ($value ne 'SIMPLEX' && $value ne 'MINUS'  && $value ne 'PLUS' && $value ne 'NON-STANDARD'){
                 if($verbose){print "Value invalid: Choose SIMPLEX/MINUS/PLUS/NON-STANDARD\n\n"; }
 return 1;
-                                                                                                      }
+                                                                                                     }
         $self->setVerbose(0);
         $currentrptoffset = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentrptoffset){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                        }
         $offset=0x01;
         $address = $self->hexAdder("$offset","$base");
         my $BYTE1 = $self->eepromDecode("$address");
@@ -6974,7 +6959,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"RPTOFFSET Set to $value sucessfull!\n";}
                 else {print"RPT OFFSET set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -6986,14 +6970,14 @@ return $writestatus;
        if ($value ne 'OFF' && $value ne 'TONE'  && $value ne 'TONETSQ' && $value ne 'DCS'){
                 if($verbose){print "Value invalid: Choose OFF/TONE/TONETSQ/DCS\n\n"; }
 return 1;
-                                                                                           }
+                                                                                          }
         $self->setVerbose(0);
         $currenttonedcs = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currenttonedcs){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                      }
         $offset=0x04;
         $address = $self->hexAdder("$offset","$base");
         my $BYTE1 = $self->eepromDecode("$address");
@@ -7010,7 +6994,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"TONEDCS Set to $value sucessfull!\n";}
                 else {print"TONEDCS set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -7021,17 +7004,16 @@ return $writestatus;
        my ($currentatt) = @_;
 
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentatt = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentatt){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                  }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -7040,7 +7022,6 @@ return 1;
         if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'3','0');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"ATT set to $value sucessfull!\n";}
                 else {print"ATT set to $value failed!!!\n";}
@@ -7054,17 +7035,16 @@ return $writestatus;
        my ($currentipo) = @_;
 
        if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentipo = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentipo){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                  }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -7073,7 +7053,6 @@ return 1;
         if($value eq 'OFF'){$writestatus = $self->writeEeprom("$address",'2','0');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"IPO set to $value sucessfull!\n";}
                 else {print"IPO set to $value failed!!!\n";}
@@ -7121,7 +7100,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"FM STEP Set to $option sucessfull!\n";}
                 else {print"FM STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                              }
@@ -7166,16 +7144,13 @@ return 1;
        if($verbose){
                 if ($writestatus eq 'OK') {print"AM STEP Set to $option sucessfull!\n";}
                 else {print"AM STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
-                    }
+                   }
 return $writestatus;
                  }
-
-
         if ($option eq 'SSBSTEP') {
         my ($currentssbstep) = @_;
         if ($value ne '1.0' && $value ne '2.5' && $value ne '5.0'){
-                if($verbose){print "Value invalid: Choose 1.0/2.5/5.0\n\n"; }
+                if($verbose){print "Value invalid: Choose 1.0/2.5/5.0\n\n";}
 return 1;
                                                                   }
         $self->setVerbose(0);
@@ -7184,7 +7159,7 @@ return 1;
         if ($value eq $currentssbstep){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                      }
                 $offset=0x03;
                 $address = $self->hexAdder("$offset","$base");
         my $BYTE1 = $self->eepromDecode("$address");
@@ -7200,7 +7175,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"SSB STEP Set to $value sucessfull!\n";}
                 else {print"SSB STEP set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -7215,7 +7189,7 @@ return $writestatus;
         if ($value eq $currenttone){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                   }
         $offset=0x06;
         $address = $self->hexAdder("$offset","$base");
         my $ctcsstone;
@@ -7245,7 +7219,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"CTCSS TONE Set to $option sucessfull!\n";}
                 else {print"CTCSS TONE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -7255,7 +7228,7 @@ return $writestatus;
         if ($option eq 'CLARIFIER') {
         my ($currentclarifier) = @_;
         if ($value ne 'ON' && $value ne 'OFF'){
-                if($verbose){print "Value invalid: Choose ON/OFF\n\n"; }
+                if($verbose){print "Value invalid: Choose ON/OFF\n\n";}
 return 1;
                                               }
         $self->setVerbose(0);
@@ -7264,7 +7237,7 @@ return 1;
         if ($value eq $currentclarifier){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
+                                        }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -7287,20 +7260,18 @@ return $writestatus;
         $polarity = substr ($value,0,1);
         $newvalue = substr ($value,1);
         if ($value != '0' && $polarity ne '+' && $polarity ne '-'){
-                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (needs + or - with number)\n\n"; }
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (needs + or - with number)\n\n";}
 return 1;
                                                                   }
-
         if ($newvalue < 0 || $newvalue > 999){
-                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (Multiple of 10)\n\n"; }
+                if($verbose){print "Value invalid: Choose -9.99 to +9.99 (Multiple of 10)\n\n";}
 return 1;
-                                                                    }
+                                             }
         $self->setVerbose(0);
         $currentoffset = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
-
         if ($value eq $currentoffset){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
         $offset=0x08;
@@ -7322,9 +7293,9 @@ return 1;
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"Clarifier offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"Clarifier offset set to $value sucessfull!\n";}}
                                             }
-                else {print"Clarifier offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"Clarifier offset set to $value failed!!!\n";}}
 return $writestatus;
 	   }
 
@@ -7338,7 +7309,7 @@ return $writestatus;
         if ($value eq $currentcode){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                     }
+                                   }
         $offset=0x07;
         $address = $self->hexAdder("$offset","$base");
         my $dcscode;
@@ -7357,7 +7328,6 @@ return 1;
                            }
 return 1;
                      }
-
         my $BYTE1 = $self->eepromDecode("$address");
         substr ($BYTE1, 1, 7, "$dcscode");
         my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
@@ -7369,7 +7339,6 @@ return 1;
         if($verbose){
                 if ($writestatus eq 'OK') {print"DCS CODE Set to $option sucessfull!\n";}
                 else {print"DCS CODE set failed: $writestatus\n";}
-                $writestatus = 'ERROR';
                     }
 return $writestatus;
                  }
@@ -7378,19 +7347,17 @@ return $writestatus;
 
        if ($option eq 'MEMSKIP') {
        my ($currentmemskip) = @_;
-
        if ($value ne 'YES' && $value ne 'NO'){
-                if($verbose){print "Value invalid: Choose YES/NO\n\n"; }
+                if($verbose){print "Value invalid: Choose YES/NO\n\n";}
 return 1;
-                                              }
+                                             }
         $self->setVerbose(0);
         $currentmemskip = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentmemskip){
                 if($verbose){print "Value $value already selected.\n\n";}
 return 1;
-                                    }
-
+                                      }
         $offset=0x02;
         $address = $self->hexAdder("$offset","$base");
         if ($musttoggle) {$self->quietTunetoggle();}
@@ -7399,7 +7366,6 @@ return 1;
         if($value eq 'YES'){$writestatus = $self->writeEeprom("$address",'0','1');}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-
         if ($verbose){
                 if ($writestatus eq 'OK') {print"Memory Skip set to $value sucessfull!\n";}
                 else {print"Memory Skip set to $value failed!!!\n";}
@@ -7446,7 +7412,6 @@ return 1;
         my $NEWHEX4 = sprintf("%X", oct( "0b$bin4" ) );
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-#change the hf/vhf and uhf bits in here
         my $tempaddress;
         my $tempoffset=0x01;
         $tempaddress = $self->hexAdder("$tempoffset","$base");
@@ -7489,7 +7454,6 @@ return 1;
         	my $NEWHEX = sprintf("%X", oct( "0b$BYTE1" ) );
         	$writestatus = $self->writeBlock("$tempaddress","$NEWHEX");
 				       }	
-
 	        $self->setVerbose(1);
         my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
         my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
@@ -7498,9 +7462,9 @@ return 1;
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
         if ($writestatus1 eq $writestatus2) {
-                if ($writestatus1 eq 'OK'){print"RX Frequency set to $valuelabel sucessfull!\n"; $writestatus = 'OK';}
+                if ($writestatus1 eq 'OK'){if($verbose){print"RX Frequency set to $valuelabel sucessfull!\n";}}
                                             }
-                else {print"RX Frequency set to $valuelabel failed!!!\n"; $writestatus = 'ERROR';}
+                else {if($verbose){print"RX Frequency set to $valuelabel failed!!!\n";}}
 return $writestatus;
                 }
           
@@ -7516,7 +7480,7 @@ return 1;
         $currentoffset = $self->readMemory("$type","$subtype","$option");
         $self->setVerbose(1);
         if ($value eq $currentoffset){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                      }
         $offset=0x0F;
@@ -7543,11 +7507,11 @@ return 1;
         if ($musttoggle) {$self->quietTunetoggle();}
         if ($writestatus1 eq $writestatus2) {
                 if ($writestatus1 eq 'OK'){
-			if ($verbose){print"Repeater offset set to $value sucessfull!\n"; $writestatus = 'OK';}
+			if ($verbose){print"Repeater offset set to $value sucessfull!\n";}
 					  }
                                             }
         	else {
-			if($verbose){print"Repeater offset set to $value failed!!!\n"; $writestatus = 'ERROR';}
+			if($verbose){print"Repeater offset set to $value failed!!!\n";}
 		     }
 return $writestatus;
                 }
@@ -7561,14 +7525,13 @@ return $writestatus;
 	$self->setVerbose(1);
 	my $size = length($value);
         if ($value eq $currentlabel){
-                if($verbose){print "Value $value already selected.\n\n"; }
+                if($verbose){print "Value $value already selected.\n\n";}
 return 1;
                                     }
 	if (length($value) > 11) {
-                if($verbose){print "Label is limited to 8 charcters.\n\n"; }
+                if($verbose){print "Label is limited to 8 charcters.\n\n";}
 return 1;
-				}
-
+				 }
 	my @labelarray = split //, $value;
         my $cycles = 0x00;
         my $offset = 0x12;
@@ -7591,7 +7554,6 @@ while ($cycles < 8);
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
         if ($verbose){print "DONE!\n";} 
-
                 }
          }
 
@@ -7601,6 +7563,7 @@ while ($cycles < 8);
 sub setId {
         my $self=shift;
         my $value=shift;
+        $value = uc($value);
         if (length($value) > 9){
                 if($verbose){print "Limited to 6 Characters 0-9 A-Z\n\n";}
 return 1;
@@ -7609,10 +7572,9 @@ return 1;
         my $currentid = $self->getId();
         $self->setVerbose(1);
         if ($value eq $currentid){
-                if($verbose){print "CW ID already set to $value\n\n"; }
+                if($verbose){print "CW ID already set to $value\n\n";}
 return 1;
                                  }
-        $value = uc($value);
         my @labelarray = split //, $value;
         my $address = 1922;
         my $cycles = 0x00;
@@ -7633,21 +7595,19 @@ return 0;
 ################################################## FIN
 
 
-
 =head1 NAME
 
 Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.5
+Version 0.9.6
 
 =head1 SYNOPSIS
 
 use HAM::Device::FT817COMM;
 
 =head2 Constructor and Port Configurations
-
 
 	my $FT817 = new Ham::Device::FT817COMM (
 	serialport => '/dev/ttyUSB0',
@@ -7683,6 +7643,23 @@ The variable which is an instance of the device may be named at that point. In t
 The serialport must be a valid port and not locked.  You must consider that your login must have 
 permission to access the port either being added to the group or giving the user suffucient privilages.
 The baudrate 'baud' must match the baudrate of the radio B<CAT RATE> which is menu item B<14>.
+
+Note that you are not limited to one radio.  You can create more than one instance using a different name and serial port
+
+
+        my $anotherFT817 = new Ham::Device::FT817COMM (
+        serialport => '/dev/ttyUSB1',
+        baud => '38400',
+        lockfile => '/var/lock/ft817-2'
+                                                      );
+
+        my $port = $FT817->{'serialport'};
+        my $baud = $FT817->{'baud'};
+        my $lockfile = $FT817->{'lockfile'};
+        my $version = $FT817->moduleVersion;
+
+REMEMBER!!!! Each instance created needs its own destructor.
+
 
 Finally B<lockfile> is recommended to ensure that no other software may access the port at the same time.
 The lockfile is removed as part of the invocation of the destructor method.
@@ -8307,9 +8284,11 @@ The output shows all of the transactions and modifications conducted by the syst
 
 =item getCwweight()
 
-                $cwwtight = $FT817->getCwweight();
+                $cwweight = $FT817->getCwweight();
+	        $cwweight = $FT817->getCwweight('1');
 
-        MENU ITEM # 22 - Returns the Weight of CW [1:2.5 - 1:4.5]
+        MENU ITEM # 22 - Returns the Weight of CW [1:2.5 - 1:4.5] with no option
+			 Returns the Weight of CW [2.5 - 4.5] with no option
 
 
 =item getDcsinv()
@@ -8734,6 +8713,29 @@ With two arguments it will display information on a range of addresses
         Internal function to return decimal value as the difference between two hex numbers
 
 
+=item loadConfig()
+
+                $output = $FT817->loadConfig([filename]);
+
+        This will restore the radio configuration from a file using the FT817OS format overwriting 
+	the existing radio config
+
+        Without a filename this will load the config from the default file FT817.cfg 
+
+
+=item loadMemory()
+
+                $output = $FT817->loadMemory([filename]);
+
+        This will restore the radio memory from a file using the FT817OS format overlapping 
+        the existing radio memory.  Whichever valid memory areas were saved at the time will
+	be the ones overwritten.  If you create, between the last save, other memory areas 
+	within the radio they will not be updated.  If you want an accurate reload of the memory
+	be sure to use save memory after making changes to memory areas.
+
+        Without a filename this will load the config from the default file FT817.mem  
+
+
 =item moduleVersion()
 
 		$version = $FT817->moduleVersion();
@@ -8749,7 +8751,7 @@ With two arguments it will display information on a range of addresses
 		lockfile => '/var/lock/ft817'
 					               );
 
-	Creates an instance of the device that is the Radio.  Called at the begining of the program.
+	Creates an instance of the device that is the Radio.  Called at the beginning of the program.
 	See the Constructors section for more info.
 
 
@@ -8869,6 +8871,27 @@ With two arguments it will display information on a range of addresses
         on manual page 44.  This is not a requirment, if you dont use QMB or MTQMB you do not need to do this.
 
 
+=item rebuildSoftcal()
+
+		$status = $FT817->rebuildSoftcal([filename]);
+
+	This command is used to reload all of the software calibration settings for the FT817 in the event
+	that either the software calibration had become corrupted, or a master reset was needed for the rig.
+	This reload uses the FT817OS 'cal' file format to reload data.  If you did not backup your cal settings
+	then this will be of little use and the rig will have to go to the factory to be recalibrated.
+
+	You can call the command without an argument to use the default file name FT817.cal
+
+	The cal file must be in the directory where you are running the program which calls it.  The program will
+	ensure the file exists, and the data is correct before it attempts to write it to the Eeprom.  If it finds 
+	an error it will tell you what line of the cal file produced the error and stop.
+
+	Note that this will start writing data if the cal file is error free and not provide any user prompt
+
+	Returns 0 on sucessfull write of the 76 bytes
+	Returns 1 on Error
+
+
 =item restoreEeprom()
 
 		$restorearea = $FT817->restoreEeprom();
@@ -8892,6 +8915,29 @@ With two arguments it will display information on a range of addresses
 	restoreEeprom('005F'); 
 
 	Returns 'OK' on success. Any other output an error.
+
+
+=item saveConfig()
+
+		$output = $FT817->saveConfig([filename]);
+
+	This will backup the radio configuration to a file using the FT817OS format so that it can
+	be restored, if needed.
+
+	Without a filename this will write the config to the default file FT817.cfg and if that file
+	already exists, overwrite it.
+
+
+=item saveMemory()
+
+                $output = $FT817->saveMemory([filename]);
+
+        This will backup the regular memory areas 1-200 and M-PL M-PU to a file using the FT817OS
+        format so that it can be restored, if needed.  This will capture both active and inactive
+        memory areas provided the memory area is correctly formatted and the READY bit is high.
+
+        Without a filename this will write the memory to the default file FT817.mem and if that file
+        already exists, overwrite it.
 
 
 =item sendCat()
@@ -10047,6 +10093,16 @@ With two arguments it will display information on a range of addresses
         restoreEeprom('0079');
 
 
+=item setVerbose()
+
+                $debug = $FT817->setVerbose([#]);
+
+        Turns on and off the Verbose flag. Provides information where verbose is enabled
+        Activated when any value is in the (). Good practice says () or (1) for OFF and ON.
+
+        Returns the argument sent to it on success.
+
+
 =item setVfo()
 
                 $status = $FT817->setVfo([A/B];
@@ -10262,6 +10318,9 @@ You can find documentation for this module with the perldoc command.
 You can also look for information at:
 
 =over 4
+
+=item * Technologically Induced Coma
+L<http://technocoma.blogspot.com>
 
 =item * RT: CPAN's request tracker (report bugs here)
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Ham-Device-FT817COMM>

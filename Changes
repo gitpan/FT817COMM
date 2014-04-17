@@ -285,3 +285,12 @@ Revision history for Ham-Device-FT817COMM
             POD updates
 	    added NEWMEM array
 
+0.9.6      13 APR2014/2200
+	   Major code cleanup
+	   Removed verbose(2) code
+	   Remoded CWID addresses from bitwatcher
+	   function new detects windows or posix
+	   Added function rebuildSoftcal
+           Added function saveMemory
+	   Added function saveConfig
+	   Added function loadMemory
