@@ -294,3 +294,35 @@ Revision history for Ham-Device-FT817COMM
            Added function saveMemory
 	   Added function saveConfig
 	   Added function loadMemory
+
+0.9.7      17 APR2014/2200
+	   Added internal function writeDoubleblock (16 bit support!)
+	   Added internal function eepromDoubledecode (16 bit support!)
+	   Fixed multiplication error in loadMemory
+	   writememory [LABEL] uses writeDoubleblock
+	   writememory [RPTOFFSETFREQ] uses writeDoubleblock
+           writememory [RXFREQ] uses writeDoubleblock
+           writememory [CLAROFFSET] uses writeDoubleblock
+           writememory [READY] uses writeDoubleblock
+           writeMemvfo [CLAROFFSET] uses writeDoubleblock
+           writeMemvfo [RXFREQ] uses writeDoubleblock
+           writeMemvfo [RPTOFFSETFREQ] uses writeDoubleblock
+           readMemvfo [CLAROFFSET] uses eepromDoubledecode
+           readMemvfo [RXFREQ] uses eepromDoubledecode
+           readMemvfo [RPTOFFSETFREQ] uses eepromDoubledecode
+           readMemory [CLAROFFSET] uses eepromDoubledecode
+           readMemory [RXFREQ] uses eepromDoubledecode
+           readMemory [RPTOFFSETFREQ] uses eepromDoubledecode
+           readMemory [LABEL] uses eepromDoubledecode
+	   setDigshift uses writeDoubleblock
+           setDigdisp uses writeDoubleblock
+	   setId uses writeDoubleblock
+	   loadMemory uses writeDoubleblock
+           saveMemory uses eepromDoubledecode
+           rebuildSoftcal uses writeDoubleblock
+	   getId uses eepromDoubledecode
+           getChecksum uses eepromDoubledecode
+           getConfig uses eepromDoubledecode
+           getDigdisp uses eepromDoubledecode
+	   setId now supports all 7 digits!!!
+           getId now supports all 7 digits!!!

@@ -2,7 +2,7 @@
 # Written by Jordan Rubin 
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-16-4 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-19-4 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -13,7 +13,7 @@ use strict;
 use 5.14.0;
 use Digest::MD5 qw(md5);
 use Data::Dumper;
-our $VERSION = '0.9.6';
+our $VERSION = '0.9.7';
 
 BEGIN {
 	use Exporter ();
@@ -639,11 +639,38 @@ sub eepromDecode {
 	$data = pack( 'H[10]', "$data" );
 	$self->{'port'}->write($data);
 	$output = $self->{'port'}->read(2);
+        my $test = $output;
 	$output = unpack("H*", substr($output,0,1));
+        my $output2 = unpack("H*", substr($test,1,1));
         if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT HEX  -------> [$output]\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - NEXTBYTE HEX  -----> [$output2]\n";}
 	$output = hex2bin($output);
-        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT BIN  -------> [$output]\n\n";}
+        $output2 = hex2bin($output2);
+        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT BIN  -------> [$output]\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - NEXTBYTE BIN ------> [$output2]\n\n";}
 return $output;
+                 }
+
+#### Decodes eeprom values from a given address and stips off second byte
+sub eepromDoubledecode {
+        my $self  = shift;
+        my $address = shift;
+        if ($debug){print "\n(eepromDecode:DEBUG) - READING FROM ------> [$address]\n";}
+        my $data = join("","$address",'0000BB');
+        if ($debug){print "\n(eepromDecode:DEBUG) - PACKET BUILT ------> [$data]\n";}
+        $data = pack( 'H[10]', "$data" );
+        $self->{'port'}->write($data);
+        $output = $self->{'port'}->read(2);
+        my $test = $output;
+        $output = unpack("H*", substr($output,0,1));
+        my $output2 = unpack("H*", substr($test,1,1));
+        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT HEX  -------> [$output]\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - NEXTBYTE HEX  -----> [$output2]\n";}
+        $output = hex2bin($output);
+        $output2 = hex2bin($output2);
+        if ($debug){print "\n(eepromDecode:DEBUG) - OUTPUT BIN  -------> [$output]\n";}
+        if ($debug){print "\n(eepromDecode:DEBUG) - NEXTBYTE BIN ------> [$output2]\n\n";}
+return ("$output","$output2");
                  }
 
 #### Decodes eeprom values from a given address and stips off second byte
@@ -790,6 +817,64 @@ if ($debug){print "\n(writeBlock:DEBUG) - OUTPUT FROM [$address]\n";}
         if ($bitwatch){$self->bitCheck("$lastaction");}
 return $writestatus;
                }
+
+#### Writes an entire byte of data to the eeprom, MSB LSB VALUE
+sub writeDoubleblock {
+        my $self=shift;
+        my ($writestatus) = @_;
+        my $address=shift;
+        my $VALUE=shift;
+	my $VALUE2=shift;
+        my $caller = ( caller(1) )[3];
+        if ($writeallow != '1' and $agreewithwarning != '1') {
+                if($debug || $verbose){print"Writing to EEPROM disabled, use setWriteallow(1) to enable\n";}
+                $writestatus = "Write Disabled";
+return $writestatus;
+                                                             }
+
+        my $data = join("","$address",'0000BB');
+        if ($debug){print "\n(writeDoubleblock:DEBUG) - PACKET BUILT ------> [$data]\n";}
+        $data = pack( 'H[10]', "$data" );
+        $self->{'port'}->write($data);
+        my $output = $self->{'port'}->read(2);
+        my $BYTE1 = unpack("H*", substr($output,0,1));
+        my $BYTE2 = unpack("H*", substr($output,1,1));
+	 if ($debug){print "\n(writeDoubleblock:DEBUG) - CHECKING IF [$VALUE] needs padding\n";}
+        if (length($VALUE) < 2) {
+                   $VALUE = join("",'0', "$VALUE");
+                   if ($debug){print "\n(writeBlock:DEBUG) - Padded to [$VALUE]\n";}
+                                }
+ 	if ($debug){print "\n(writeDoubleblock:DEBUG) - CHECKING IF [$VALUE2] needs padding\n";}
+        if (length($VALUE2) < 2) {
+                   $VALUE2 = join("",'0', "$VALUE2");
+                   if ($debug){print "\n(writeDoubleblock:DEBUG) - Padded to [$VALUE2]\n";}
+                                 }
+        if ($debug){print "\n(writeDoubleblock:DEBUG) - WRITING  ----------> [$VALUE] [$VALUE2]\n";}
+        my $data2 = join("","$address","$VALUE","$VALUE2",'BC');
+        if ($debug){print "\n(writeBlock:DEBUG) - PACKET BUILT ------> [$data2]\n";}
+        our $lastaction = "writeDoubleblock: $data2 from $caller";
+	$data2 = pack( 'H[10]', "$data2" );
+        $self->{'port'}->write($data2);
+        $output = $self->{'port'}->read(2);
+        if ($debug){print "\n(writeDoubleblock:DEBUG) - VALUES WRITTEN, CHECKING...\n";}
+        $self->{'port'}->write($data);
+        my $output2 = $self->{'port'}->read(2);
+        my $NEWBYTE1 = unpack("H*", substr($output2,0,1));
+        my $NEWBYTE2 = unpack("H*", substr($output2,1,1));
+        if ($debug){print "\n(writeDoubleblock:DEBUG) - SHOULD BE: ($VALUE) ($VALUE2)\n";}
+        if ($debug){print "\n(writeDoubleblock:DEBUG) - IS: -----> ($NEWBYTE1) ($NEWBYTE2)\n";}
+        if (($VALUE == $NEWBYTE1) && ($VALUE2 == $NEWBYTE2)) {
+                $writestatus = "OK";
+                if($debug){print "\n(writeDoubleblock:DEBUG) - VALUES MATCH!!!\n\n";}
+                                                         }
+        else {
+                $writestatus = "1";
+                if($debug){print "\n(writeDoubleblock:DEBUG) - NO MATCH!!!\n\n";}
+                          }
+        if ($bitwatch){$self->bitCheck("$lastaction");}
+return $writestatus;
+
+		     }
 
 #### Restores eprom memory address to pre written default value in case there was an error
 
@@ -1091,7 +1176,6 @@ sub catOffsetfreq {
                 $badf = $frequency;
                 $frequency = undef;
              }
-print "F1: $f1 F2: $f2 $f3 $f4\n";
 	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'F9',1);
         if($verbose){
                 print "Set Offset Frequency ($badf) Failed. Must contain 8 digits 0000-9999.\n" if (! $frequency);
@@ -1383,10 +1467,8 @@ sub getChecksum {
         my ($checksumhex0,$checksumhex1,$checksumhex2,$checksumhex3) = @_;
         my $self=shift;
         my $type=shift;
-        my $output0 = $self->eepromDecode('0000');
-        my $output1 = $self->eepromDecode('0001');
-        my $output2 = $self->eepromDecode('0002');
-        my $output3 = $self->eepromDecode('0003');
+	my ($output0,$output1) = $self->eepromDoubledecode('0000');
+        my ($output2,$output3) = $self->eepromDoubledecode('0002');
         $checksumhex0 = sprintf("%X", oct( "0b$output0" ) );
         $checksumhex1 = sprintf("%X", oct( "0b$output1" ) );
         $checksumhex2 = sprintf("%X", oct( "0b$output2" ) );
@@ -1404,12 +1486,11 @@ return $configoutput;
 # 4-5 ################################# GET RADIO VERSION VIA EEPROMDECODE
 ###################################### READ ADDRESS 0X4 AND 0X5
 sub getConfig {
-        my ($confighex4,$confighex5,$output4,$output5) = @_;
+        my ($confighex4,$confighex5) = @_;
         my $self=shift;
 	my $type=shift;
-        $output4 = $self->eepromDecode('0004');
+        my($output4,$output5) = $self->eepromDoubledecode('0004');
 	$confighex4 = sprintf("%x", oct( "0b$output4" ) );
-        $output5 = $self->eepromDecode('0005');
         $confighex5 = sprintf("%x", oct( "0b$output5" ) );
 	my $configoutput = "[$confighex4][$confighex5]";
         $out = "\nHardware Jumpers created value of\n0x04[$output4]($confighex4)\n0x05[$output5]($confighex5)\n\n";
@@ -2287,8 +2368,7 @@ return $newvalue;
 sub getDigdisp{
         my ($newvalue,$polarity) = @_;
         my $self=shift;
-        my $MSB = $self->eepromDecode('006F');
-        my $LSB = $self->eepromDecode('0070');
+        my ($MSB,$LSB) = $self->eepromDoubledecode('006F');
         my $binvalue = join("","$MSB","$LSB");
         my $decvalue = oct("0b".$binvalue);
         if ($decvalue >= 0 && $decvalue <= 300) {$newvalue = $decvalue; $polarity = '+';}
@@ -2731,10 +2811,7 @@ if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
 
         $offset=0x08;
         $address = $self->hexAdder("$offset","$base");
-        my $MSB = $self->eepromDecode("$address");
-	$offset=0x09;
-        $address = $self->hexAdder("$offset","$base");
-        my $LSB = $self->eepromDecode("$address");
+        my ($MSB,$LSB) = $self->eepromDoubledecode("$address");
 	my $binvalue = join("","$MSB","$LSB");
 	my $decvalue = oct("0b".$binvalue);
 	my $newvalue;
@@ -2764,16 +2841,10 @@ return $newvalue;
 if ($value eq 'RXFREQ' || $value eq 'ALL'){
         $offset=0x0A;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD1 = $self->eepromDecode("$address");
-        $offset=0x0B;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD2 = $self->eepromDecode("$address");
+	 my ($ADD1,$ADD2) = $self->eepromDoubledecode("$address");
         $offset=0x0C;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD3 = $self->eepromDecode("$address");
-        $offset=0x0D;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD4 = $self->eepromDecode("$address");
+         my ($ADD3,$ADD4) = $self->eepromDoubledecode("$address");
         my $binvalue = join("","$ADD1","$ADD2","$ADD3","$ADD4");
         my $decvalue = oct("0b".$binvalue);
 	substr($decvalue, -2, 0) = '.';
@@ -2788,10 +2859,7 @@ return $decvalue;
 if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
         $offset=0x0F;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD1 = $self->eepromDecode("$address");
-        $offset=0x10;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD2 = $self->eepromDecode("$address");
+        my ($ADD1,$ADD2) = $self->eepromDoubledecode("$address");
         $offset=0x11;
         my $address = $self->hexAdder("$offset","$base");
         my $ADD3 = $self->eepromDecode("$address");
@@ -3228,10 +3296,7 @@ return $clarifier;
 if ($value eq 'CLAROFFSET' || $value eq 'ALL'){
         $offset=0x08;
         $address = $self->hexAdder("$offset","$base");
-        my $MSB = $self->eepromDecode("$address");
-        $offset=0x09;
-        $address = $self->hexAdder("$offset","$base");
-        my $LSB = $self->eepromDecode("$address");
+        my ($MSB,$LSB) = $self->eepromDoubledecode("$address");
         my $binvalue = join("","$MSB","$LSB");
         my $decvalue = oct("0b".$binvalue);
         my $newvalue;
@@ -3261,16 +3326,10 @@ return $newvalue;
 if ($value eq 'RXFREQ' || $value eq 'ALL'){
         $offset=0x0A;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD1 = $self->eepromDecode("$address");
-        $offset=0x0B;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD2 = $self->eepromDecode("$address");
+        my ($ADD1,$ADD2) = $self->eepromDoubledecode("$address");
         $offset=0x0C;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD3 = $self->eepromDecode("$address");
-        $offset=0x0D;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD4 = $self->eepromDecode("$address");
+        my ($ADD3,$ADD4) = $self->eepromDoubledecode("$address");
         my $binvalue = join("","$ADD1","$ADD2","$ADD3","$ADD4");
         my $decvalue = oct("0b".$binvalue);
         substr($decvalue, -2, 0) = '.';
@@ -3285,10 +3344,7 @@ return $decvalue;
 if ($value eq 'RPTOFFSETFREQ' || $value eq 'ALL'){
         $offset=0x0F;
         $address = $self->hexAdder("$offset","$base");
-        my $ADD1 = $self->eepromDecode("$address");
-        $offset=0x10;
-        $address = $self->hexAdder("$offset","$base");
-        my $ADD2 = $self->eepromDecode("$address");
+        my ($ADD1,$ADD2) = $self->eepromDoubledecode("$address");
         $offset=0x11;
         my $address = $self->hexAdder("$offset","$base");
         my $ADD3 = $self->eepromDecode("$address");
@@ -3310,14 +3366,16 @@ if ($value eq 'LABEL' || $value eq 'ALL'){
         $address = $self->hexAdder("$offset","$base");
     do {
         $newaddress = $self->hexAdder("$cycles","$address");
-        my $ADD = $self->eepromDecode("$newaddress");
+        my ($ADD,$ADD2) = $self->eepromDoubledecode("$newaddress");
         my $decvalue = oct("0b".$ADD);
+	my $decvalue2 = oct("0b".$ADD2);
 	my $letter = chr($decvalue);
-	$cycles ++;
-	$label .= "$letter";
+	my $letter2 = chr($decvalue2);
+	$cycles = $cycles + 2;
+	$label .= "$letter"."$letter2";
         }
     while ($cycles < 8);
-	if ($label eq '????????'){$label = '\-BLANK\-';} 
+	if (!$label){$label = '\-BLANK\-';} 
         if($verbose){print "MEMORY $type\[$subtype\] - LABEL is $label\n";}
         if ($value eq 'ALL'){$memoryhash{'LABEL'} = "$label";}
         else {
@@ -3335,19 +3393,28 @@ sub getId {
         my $self=shift;
 	my $address = 1922; 
 	my $cycles = 0x00;
+	my $cycles2;
 	my $id;
 	my $letter;
+	my $letter2;
 	my $hexvalue;
+	my $hexvalue2;
+	my %newhash = reverse %CWID;
     do {
         my $newaddress = $self->hexAdder("$cycles","$address");
-        my $ADD = $self->eepromDecode("$newaddress");
+        my ($ADD,$ADD2) = $self->eepromDoubledecode("$newaddress");
         my $hexvalue = sprintf("%X", oct( "0b$ADD" ) );
-	my %newhash = reverse %CWID;
+        my $hexvalue2 = sprintf("%X", oct( "0b$ADD2" ) );
         ($letter) = grep { $newhash{$_} eq $hexvalue } keys %newhash;
-        $cycles ++;
-        $id .= "$letter";
+        ($letter2) = grep { $newhash{$_} eq $hexvalue2 } keys %newhash;
+        $cycles = $cycles + 2;
+        $id .= "$letter"."$letter2";
         }
     while ($cycles < 6);
+        my ($ADD,$ADD2) = $self->eepromDoubledecode('1927');		
+        $hexvalue2 = sprintf("%X", oct( "0b$ADD2" ) );
+        ($letter2) = grep { $newhash{$_} eq $hexvalue2 } keys %newhash;
+        $id .= "$letter2";
         if($verbose){print "CW ID is $id\n";}
 return $id;
           }
@@ -3400,17 +3467,21 @@ return 1;
 return 1;
 		   }
 	else {
+		my $skip = 0;
+		my @line1;
+		my @line2;
 		if($verbose){print "---> [OK]\n\n";}
 		$linecount = 1;
 		$error = undef;
-		if($verbose){print "Writing out 76 bytes to the radio. Do not power the unit off!!!!\n";}
+		if($verbose){print "Writing out 38 blocks to the radio. Do not power the unit off!!!!\n";}
         	foreach $cal_line (@caldata) {
         	my $test = substr($cal_line,0,2);
                 if ($test ne '00'){next;}
-                @ln=split(" ",$cal_line);
-		if($verbose){printf "%-2s %-8s %-5s", "$linecount",'of 76  WRITING',"\[$ln[3]\] TO ----> $ln[0] ";
+                if ($skip == 0){@line1=split(" ",$cal_line);$skip = 1; next;}
+		if ($skip == 1){@line2=split(" ",$cal_line);$skip = 0;}
+		if($verbose){printf "%-2s %-8s %-5s %-5s", "$linecount",'of 38  WRITING',"\[$line1[3]\] --> $line1[0] \&","\[$line2[3]\] --> $line2[0] ";
 		print " [OK]\n";}
-        	$writestatus = $self->writeBlock("$ln[0]","$ln[3]");
+                $writestatus = $self->writeDoubleblock("$line1[0]","$line1[3]","$line2[3]");		
 		if ($writestatus ne 'OK'){$error = 1;}
                 $linecount++;
                                              }
@@ -3522,7 +3593,7 @@ sub saveMemory {
 	       if ($currentmem > 1) {
                $multiple = ($currentmem - 1) * 26;
                $base = $self->hexAdder("$multiple","$base");
-               		            }
+              		            }
 		my $cycles = 0x00;
 		my $offset = 0x00;
         	my $address = $self->hexAdder("$offset","$base");
@@ -3532,12 +3603,15 @@ sub saveMemory {
         	my $HEXVALUE = $NEWMEM["$cycles"];
         	if($verbose){print $cycles + 1;print " of 26 BYTES READ\n";}
         	$newaddress = $self->hexAdder("$cycles","$address");
-        	my $val = $self->eepromDecode("$newaddress");
+                my ($val,$val2) = $self->eepromDoubledecode("$newaddress");
 		my $valuehex = sprintf("%X", oct( "0b$val" ) );
+                my $valuehex2 = sprintf("%X", oct( "0b$val2" ) );
                 my $size = length($valuehex);
                 if ($size < 2){$valuehex = join("",'0',"$valuehex");}
-                printf FILE "%-2s", "$valuehex:";
-        	$cycles ++;
+                $size = length($valuehex2);
+                if ($size < 2){$valuehex2 = join("",'0',"$valuehex2");}
+                printf FILE "%-2s", "$valuehex:$valuehex2:";
+        	$cycles = $cycles + 2;
       } while ($cycles < 26);
 		print FILE "\n";
 					    }	
@@ -3605,27 +3679,30 @@ return 1;
 		my $base;
                 %baseaddress = reverse %MEMORYBASE;
                 ($base) = grep { $baseaddress{$_} eq 'MEM' } keys %baseaddress;
+			my $newbase = $base;
         		foreach $mem_line (@memdata) {
                 	my $test = substr($mem_line,0,3);
                 	if ($test < 1){next;}
                 	@ln=split(" ",$mem_line);
                 	if ($ln[0] > 1) {
                 		$multiple = ($ln[0] - 1) * 26;
-                		$base = $self->hexAdder("$multiple","$base");
+                		$newbase = $self->hexAdder("$multiple","$base");
                                 	}
 		my $cycles = 0x00;
+		my $cycles2 = $cycles + 1;
                 my $offset = 0x00;
 		my $data_line;
 		my $error = undef;
-                my $address = $self->hexAdder("$offset","$base");
+                my $address = $self->hexAdder("$offset","$newbase");
 		if($verbose){print "Writing memory area \[$ln[0]\]  ";}
 		my @memorydata = split(':',$ln[1]);
    do {
 			my $newaddress;
 			$newaddress = $self->hexAdder("$cycles","$address");
-			$writestatus = $self->writeBlock("$newaddress","$memorydata[$cycles]");			     
+			$writestatus = $self->writeDoubleblock("$newaddress","$memorydata[$cycles]","$memorydata[$cycles2]");			     
 			if ($writestatus ne 'OK'){if($verbose){print "---> FAILED"; $error = 1;}}
-		$cycles++;
+		$cycles = $cycles + 2;
+		$cycles2 = $cycles + 1;
       } while ($cycles < 26);
 		if (!$error) {if($verbose){print "---> \[OK\]";}}
 		print "\n";
@@ -3642,7 +3719,7 @@ return 1;
 
 return 0;
 	       }
-##########################################################TEMPORARY LOCATION SAVEMEMORY
+##########################################################TEMPORARY LOCATION SAVECONFIG
 
 sub saveConfig {
         my $self=shift;
@@ -5543,11 +5620,8 @@ return 1;
 	$bin2 = substr $binvalue, 8,8;
         my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
-        my $writestatus1 = $self->writeBlock('006D',"$NEWHEX1");
-        my $writestatus2 = $self->writeBlock('006E',"$NEWHEX2");
-	if ($writestatus1 eq $writestatus2) {
+        my $writestatus1 = $self->writeDoubleblock('006D',"$NEWHEX1","$NEWHEX2");
 		if ($writestatus1 eq 'OK'){if($verbose){print"DIG SHIFT set to $value sucessfull!\n";}}
-					    }
                 else {if($verbose){print"DIG SHIFT set to $value failed!!!\n";}}
 return $writestatus;
                 } 
@@ -5585,11 +5659,8 @@ return 1;
         $bin2 = substr $binvalue, 8,8;
         my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
-        my $writestatus1 = $self->writeBlock('006F',"$NEWHEX1");
-        my $writestatus2 = $self->writeBlock('0070',"$NEWHEX2");
-        if ($writestatus1 eq $writestatus2) {
+        my $writestatus1 = $self->writeDoubleblock('006F',"$NEWHEX1","$NEWHEX2");
                 if ($writestatus1 eq 'OK'){if($verbose){print"DIG DISP set to $value sucessfull!\n";}}
-                                            }
                 else {if($verbose){print"DIG DISP set to $value failed!!!\n";}}
 return $writestatus;
                 }
@@ -6493,8 +6564,6 @@ return 1;
                                      }
 	$offset=0x08;
         $address = $self->hexAdder("$offset","$base");
-	$offset=0x09;
-	$address2 = $self->hexAdder("$offset","$base");
 	$newvalue =~ tr/.//d;
         if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
         $binvalue = unpack("B32", pack("N", $newvalue));
@@ -6503,11 +6572,8 @@ return 1;
         $bin2 = substr $binvalue, 8,8;
         my $NEWHEX1 = sprintf("%X", oct( "0b$bin1" ) );
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
-        if ($writestatus1 eq $writestatus2) {
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
                 if ($writestatus1 eq 'OK'){if($verbose){print"Clarifier offset set to $value sucessfull!\n";}}
-                                            }
                 else {if($verbose){print"Clarifier offset set to $value failed!!!\n";}}
 return $writestatus;
                 }
@@ -6531,12 +6597,8 @@ return 1;
                           }
         $offset=0x0A;
         $address = $self->hexAdder("$offset","$base");
-        $offset=0x0B;
-        $address2 = $self->hexAdder("$offset","$base");
         $offset=0x0C;
         $address3 = $self->hexAdder("$offset","$base");
-        $offset=0x0D;
-        $address4 = $self->hexAdder("$offset","$base");
 	my $valuelabel = $value;
         $value =~ tr/.//d;
         $binvalue = unpack("B32", pack("N", $value));
@@ -6549,10 +6611,8 @@ return 1;
         my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
         my $NEWHEX4 = sprintf("%X", oct( "0b$bin4" ) );
         if ($musttoggle) {$self->quietToggle();}
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
-        my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
-        my $writestatus4 = $self->writeBlock("$address4","$NEWHEX4");
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
+        my $writestatus2 = $self->writeDoubleblock("$address3","$NEWHEX3","$NEWHEX4");
         if ($musttoggle) {$self->quietToggle();}
         if ($writestatus1 eq $writestatus2) {
                 if ($writestatus1 eq 'OK'){if($verbose){print"RX Frequency set to $valuelabel sucessfull!\n";}}
@@ -6578,8 +6638,6 @@ return 1;
                                      }
         $offset=0x0F;
         $address = $self->hexAdder("$offset","$base");
-        $offset=0x10;
-        $address2 = $self->hexAdder("$offset","$base");
         $offset=0x11;
         $address3 = $self->hexAdder("$offset","$base");
         $value =~ tr/.//d;
@@ -6592,11 +6650,10 @@ return 1;
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
         my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
         if ($musttoggle) {$self->quietToggle();}
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
         my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
         if ($musttoggle) {$self->quietToggle();}
-        if ($writestatus1 eq $writestatus2) {
+        if ($writestatus1 eq $writestatus3) {
                 if ($writestatus1 eq 'OK'){if($verbose){print"Repeater offset set to $value sucessfull!\n"}}
                                             }
                 else {if($verbose){print"Repeater offset set to $value failed!!!\n";}}
@@ -6770,19 +6827,23 @@ return 1;
          		if ($hometoggle) {$self->quietHometoggle();}
         		if ($musttoggle) {$self->quietTunetoggle();}
         my $cycles = 0x00;
+	my $cycles2 = $cycles + 1;
         $offset = 0x00;
         my $address = $self->hexAdder("$offset","$base");
         my $newaddress;
 	my $HEXVALUE;
+	my $HEXVALUE2;
         if ($verbose){print "Writing: Please Wait....\n";}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
 do {
         $HEXVALUE = $NEWMEM["$cycles"];
-	if($verbose){print $cycles + 1;print " of 18 BYTES Written\n";}
+	$HEXVALUE2 = $NEWMEM["$cycles2"];
+	if($verbose){print $cycles2 + 1;print " of 18 BYTES Written\n";}
         $newaddress = $self->hexAdder("$cycles","$address");
-	$self->writeBlock("$newaddress","$HEXVALUE");
-        $cycles ++;
+        $self->writeDoubleblock("$newaddress","$HEXVALUE","$HEXVALUE2");
+        $cycles = $cycles + 2;
+	$cycles2 = $cycles +1;
    }
 while ($cycles < 18);
 	if($verbose){print "\nWriting label $newlabel\n";}
@@ -6790,7 +6851,6 @@ while ($cycles < 18);
 	if ($hometoggle) {$self->quietHometoggle();}
  	if ($musttoggle) {$self->quietTunetoggle();}
                              }
-
 
 ############## MODE
        if ($option eq 'MODE') {
@@ -7276,8 +7336,6 @@ return 1;
                                      }
         $offset=0x08;
         $address = $self->hexAdder("$offset","$base");
-        $offset=0x09;
-        $address2 = $self->hexAdder("$offset","$base");
         $newvalue =~ tr/.//d;
         if ($polarity eq '-'){$newvalue = 65536 - $newvalue;}
         $binvalue = unpack("B32", pack("N", $newvalue));
@@ -7288,13 +7346,10 @@ return 1;
         my $NEWHEX2 = sprintf("%X", oct( "0b$bin2" ) );
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-        if ($writestatus1 eq $writestatus2) {
                 if ($writestatus1 eq 'OK'){if($verbose){print"Clarifier offset set to $value sucessfull!\n";}}
-                                            }
                 else {if($verbose){print"Clarifier offset set to $value failed!!!\n";}}
 return $writestatus;
 	   }
@@ -7393,12 +7448,8 @@ return 1;
 			    }
         $offset=0x0A;
         $address = $self->hexAdder("$offset","$base");
-        $offset=0x0B;
-        $address2 = $self->hexAdder("$offset","$base");
         $offset=0x0C;
         $address3 = $self->hexAdder("$offset","$base");
-        $offset=0x0D;
-        $address4 = $self->hexAdder("$offset","$base");
         my $valuelabel = $value;
         $value =~ tr/.//d;
         $binvalue = unpack("B32", pack("N", $value));
@@ -7455,13 +7506,11 @@ return 1;
         	$writestatus = $self->writeBlock("$tempaddress","$NEWHEX");
 				       }	
 	        $self->setVerbose(1);
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
-        my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
-        my $writestatus4 = $self->writeBlock("$address4","$NEWHEX4");
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
+        my $writestatus3 = $self->writeDoubleblock("$address3","$NEWHEX3","$NEWHEX4");
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-        if ($writestatus1 eq $writestatus2) {
+        if ($writestatus1 eq $writestatus3) {
                 if ($writestatus1 eq 'OK'){if($verbose){print"RX Frequency set to $valuelabel sucessfull!\n";}}
                                             }
                 else {if($verbose){print"RX Frequency set to $valuelabel failed!!!\n";}}
@@ -7485,8 +7534,6 @@ return 1;
                                      }
         $offset=0x0F;
         $address = $self->hexAdder("$offset","$base");
-        $offset=0x10;
-        $address2 = $self->hexAdder("$offset","$base");
         $offset=0x11;
         $address3 = $self->hexAdder("$offset","$base");
         $value =~ tr/.//d;
@@ -7500,12 +7547,11 @@ return 1;
         my $NEWHEX3 = sprintf("%X", oct( "0b$bin3" ) );
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-        my $writestatus1 = $self->writeBlock("$address","$NEWHEX1");
-        my $writestatus2 = $self->writeBlock("$address2","$NEWHEX2");
+        my $writestatus1 = $self->writeDoubleblock("$address","$NEWHEX1","$NEWHEX2");
         my $writestatus3 = $self->writeBlock("$address3","$NEWHEX3");
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
-        if ($writestatus1 eq $writestatus2) {
+        if ($writestatus1 eq $writestatus3) {
                 if ($writestatus1 eq 'OK'){
 			if ($verbose){print"Repeater offset set to $value sucessfull!\n";}
 					  }
@@ -7534,21 +7580,28 @@ return 1;
 				 }
 	my @labelarray = split //, $value;
         my $cycles = 0x00;
+	my $cycles2 = $cycles + 1;
         my $offset = 0x12;
         my $address = $self->hexAdder("$offset","$base");
 	my $newaddress;
 	my $letter;
+	my $letter2;
 	if ($verbose){print "Writing: Please Wait....\n";}
         if ($hometoggle) {$self->quietHometoggle();}
         if ($musttoggle) {$self->quietTunetoggle();}
 do {
 	$letter = ord($labelarray["$cycles"]);
+	$letter2 = ord($labelarray["$cycles2"]);
         if ($letter == '0') {$letter = '32';}
+        if ($letter2 == '0') {$letter2 = '32';}
         my $letter = dec2bin("$letter");
+        my $letter2 = dec2bin("$letter2");
 	$letter = sprintf("%X", oct( "0b$letter" ) );
+        $letter2 = sprintf("%X", oct( "0b$letter2" ) );
 	$newaddress = $self->hexAdder("$cycles","$address");
-        my $writestatus1 = $self->writeBlock("$newaddress","$letter");
-	$cycles ++;
+        my $writestatus1 = $self->writeDoubleblock("$newaddress","$letter","$letter2");
+	$cycles = $cycles +2;
+	$cycles2 = $cycles + 1;
    }
 while ($cycles < 8);
         if ($hometoggle) {$self->quietHometoggle();}
@@ -7557,15 +7610,15 @@ while ($cycles < 8);
                 }
          }
 
-# 1922 - 1927 ################################# SET ID for CWID ######
+# 1922 - 1928 ################################# SET ID for CWID ######
 ###################################### 
 
 sub setId {
         my $self=shift;
         my $value=shift;
         $value = uc($value);
-        if (length($value) > 9){
-                if($verbose){print "Limited to 6 Characters 0-9 A-Z\n\n";}
+        if (length($value) > 10){
+                if($verbose){print "Limited to 7 Characters 0-9 A-Z\n\n";}
 return 1;
                                }
         $self->setVerbose(0);
@@ -7578,16 +7631,32 @@ return 1;
         my @labelarray = split //, $value;
         my $address = 1922;
         my $cycles = 0x00;
+	my $cycles2 = $cycles + 1;
         my $newaddress;
         my $letter;
+	my $letter2;
 do {
         $letter = $labelarray["$cycles"];
+        $letter2 = $labelarray["$cycles2"];
         ($letter) = grep { $CWID{$_} eq $letter } keys %CWID;
+        ($letter2) = grep { $CWID{$_} eq $letter2 } keys %CWID;
         $newaddress = $self->hexAdder("$cycles","$address");
-        my $writestatus1 = $self->writeBlock("$newaddress","$letter");
-        $cycles ++;
+        my $writestatus1 = $self->writeDoubleblock("$newaddress","$letter","$letter2");
+        $cycles = $cycles +2;
+	$cycles2 = $cycles + 1;
    }
 while ($cycles < 6);
+
+#this writes the last two bits again for address 1928
+        $letter = $labelarray[5];
+        $letter2 = $labelarray[6];
+        ($letter) = grep { $CWID{$_} eq $letter } keys %CWID;
+        ($letter2) = grep { $CWID{$_} eq $letter2 } keys %CWID;
+        my $writestatus1 = $self->writeDoubleblock('1927',"$letter","$letter2");
+print "$writestatus1\n";
+
+
+
         if ($verbose){print "DONE!\n";}
 return 0;
           }
@@ -7601,7 +7670,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.6
+Version 0.9.7
 
 =head1 SYNOPSIS
 
@@ -8064,6 +8133,12 @@ The output shows all of the transactions and modifications conducted by the syst
 
         An internal function to retrieve code from an address of the eeprom  returning hex value of the next
 	memory address up.
+
+
+=item eepromDoubledecode()
+
+        An internal function to retrieve code from an address of the eeprom AND the next memory address up 
+        memory address up.
 
 
 =item get9600mic()
@@ -10213,6 +10288,12 @@ With two arguments it will display information on a range of addresses
 =item writeBlock()
 
 	Internal function, if you try to call it, you may very well end up with a broken radio.
+        You have been warned.
+
+
+=item writeDoubleblock()
+
+        Internal function, if you try to call it, you may very well end up with a broken radio.
         You have been warned.
 
 
