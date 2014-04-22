@@ -10,10 +10,10 @@
 package Ham::Device::FT817COMM;
 
 use strict;
-use 5.14.0;
+use 5.12.0;
 use Digest::MD5 qw(md5);
-use Data::Dumper;
-our $VERSION = '0.9.7';
+#use Data::Dumper;
+our $VERSION = '0.9.8';
 
 BEGIN {
 	use Exporter ();
@@ -22,7 +22,7 @@ BEGIN {
 		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS %RESTOREAREAS 
 		%BITWATCHER %BOUNDRIES %MEMORYBASE %MEMORYOPTS %FREQRANGE %CWID @NEWMEM $catoutput $output $squelch
 		$currentmode $out $vfo $home $tuneselect $nb $bitwatch $bitcheck $lock $txpow
-		$toggled $writestatus $testbyte $dsp $fasttuning $charger);
+		$toggled $writestatus $testbyte $dsp $fasttuning $charger $radioname);
 
 my $ft817;
 my $catoutput;
@@ -350,13 +350,14 @@ sub new {
 	$ob->{'port'}->handshake("none");
 	$ob->{'port'}->read_char_time(0);
 	$ob->{'port'}->read_const_time(1000);
+        $ob->{'port'}->alias ($options{'name'});
 return $ob;
 	}
 
 #### Closes the port and deconstructs method
 
 sub moduleVersion {
-        my $self  = shift;
+        my $self = shift;
 return $VERSION;
                   }
 
@@ -7670,7 +7671,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.7
+Version 0.9.8
 
 =head1 SYNOPSIS
 
