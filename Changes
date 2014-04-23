@@ -330,3 +330,9 @@ Revision history for Ham-Device-FT817COMM
 
 0.9.8      17 APR2014/2200
 	   Pushed minimum perl release down to 5.12 from 5.14
+
+
+0.9.9      22 APR2014/2200
+           Pushed minimum perl release up to 5.14 from 5.12
+	   Added README
+	   Removed unused variable declarations

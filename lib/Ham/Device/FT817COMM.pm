@@ -1,8 +1,8 @@
 # This is the Yaesu FT-817 Command Library Module
-# Written by Jordan Rubin 
+# Written by Jordan Rubin (KJ4TLB)
 # For use with the FT-817 Serial Interface
 #
-# $Id: FT817COMM.pm 2014-19-4 12:00:00Z JRUBIN $
+# $Id: FT817COMM.pm 2014-23-4 12:00:00Z JRUBIN $
 #
 # Copyright (C) 2014, Jordan Rubin
 # jrubin@cpan.org 
@@ -10,27 +10,20 @@
 package Ham::Device::FT817COMM;
 
 use strict;
-use 5.12.0;
+use 5.14.0;
 use Digest::MD5 qw(md5);
-#use Data::Dumper;
-our $VERSION = '0.9.8';
+our $VERSION = '0.9.9';
 
 BEGIN {
 	use Exporter ();
-	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow $syntaxerr 
+	use vars qw($OS_win $VERSION $debug $verbose $agreewithwarning $writeallow  
 		%SMETER %SMETERLIN %PMETER %AGCMODES %TXPWR %OPMODES %VFOBANDS %VFOABASE %VFOBBASE 
 		%HOMEBASE %MEMMODES %FMSTEP %AMSTEP %CTCSSTONES %DCSCODES %VFOMEMOPTS %RESTOREAREAS 
-		%BITWATCHER %BOUNDRIES %MEMORYBASE %MEMORYOPTS %FREQRANGE %CWID @NEWMEM $catoutput $output $squelch
-		$currentmode $out $vfo $home $tuneselect $nb $bitwatch $bitcheck $lock $txpow
-		$toggled $writestatus $testbyte $dsp $fasttuning $charger $radioname);
+		%BITWATCHER %BOUNDRIES %MEMORYBASE %MEMORYOPTS %FREQRANGE %CWID @NEWMEM $output
+		$vfo $bitwatch $bitcheck $txpow $toggled $writestatus $charger);
 
 my $ft817;
-my $catoutput;
-my $currentmode;
 my $output;
-
-our $superverbose;
-our $syntaxerr = "SYNTAX ERROR, CHECK WITH VERBOSE('1')\n";
 
 our %RESTOREAREAS = ('0055' => '00', '0057' => '00', '0058' => '00', '0059' => '45', '005B' => '86', '005C' => 'B2', 
 		     '005D' => '42', '005E' => '08', '005F' => 'E5', '0060' => '19', '0061' => '32', '0062' => '48', 
@@ -274,7 +267,6 @@ our %FREQRANGE = (
 		 );
 
 our %TXPWR = (HIGH => '00', LOW3 => '01', LOW2 => '10', LOW1 => '11');
-
 
 our @NEWMEM = ('A0','0','3F','48','FF','FF','CD','82','0','0','0','A','AE','60','FF','0','0','0');
 
@@ -623,11 +615,11 @@ sub sendCat {
 	if ($debug){print "\n(sendCat:DEBUG) - BUILT PACKET --> $data\n";}
 	$data = pack( 'H[10]', "$data" );
 	$self->{'port'}->write($data);
-	$catoutput = $self->{'port'}->read($outputsize);
-	$catoutput = unpack("H*", $catoutput);
-	if ($debug) {print "\n(sendCat:DEBUG) - DATA IN <------- $catoutput\n\n";}
+	$output = $self->{'port'}->read($outputsize);
+	$output = unpack("H*", $output);
+	if ($debug) {print "\n(sendCat:DEBUG) - DATA IN <------- $output\n\n";}
 	if ($bitwatch){$self->bitCheck("$lastaction");}
-return $catoutput;
+return $output;
             }
 
 #### Decodes eeprom values from a given address and stips off second byte
@@ -959,13 +951,12 @@ return 1;
                                              }
 	if ($lock eq 'ON') {$data = "00";}
 	if ($lock eq 'OFF') {$data = "80";}
-	if ($data){$catoutput = $self->sendCat('00','00','00','00',"$data",1);}
-	else {$catoutput = "$syntaxerr";}
+	$output = $self->sendCat('00','00','00','00',"$data",1);
 	if ($verbose){
-		print "Set Lock ($lock) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set Lock ($lock) Failed.\n" if ($catoutput eq 'f0');
+		print "Set Lock ($lock) Sucessfull.\n" if ($output eq '00');
+		print "Set Lock ($lock) Failed.\n" if ($output eq 'f0');
            	     }
-return $catoutput;
+return $output;
             }
 
 #### ENABLE/DISABLE PTT VIA CAT
@@ -982,13 +973,12 @@ return 1;
 
 	if ($ptt eq 'ON') {$data = "08";}
 	if ($ptt eq 'OFF') {$data = "88";}
-	if ($data){$catoutput = $self->sendCat('00','00','00','00',"$data",1);}
-	else {$catoutput = "$syntaxerr";}
+	$output = $self->sendCat('00','00','00','00',"$data",1);
 	if ($verbose){
-		print "Set PTT ($ptt) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set PTT ($ptt) Failed. Already set to $ptt\?\n" if ($catoutput eq 'f0');
+		print "Set PTT ($ptt) Sucessfull.\n" if ($output eq '00');
+		print "Set PTT ($ptt) Failed. Already set to $ptt\?\n" if ($output eq 'f0');
             	     }
-return $catoutput;
+return $output;
            }
 
 #### SET CURRENT FREQ USING CAT
@@ -1016,12 +1006,12 @@ return 1;
 		$newfrequency = undef;
 return 1;
 	     }
-	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'01',1);
+	$output = $self->sendCat("$f1","$f2","$f3","$f4",'01',1);
 	if ($verbose){
-		print "Set Frequency ($newfrequency) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set Frequency ($newfrequency) Failed. $newfrequency invalid or out of range\?\n" if ($catoutput eq 'f0');
+		print "Set Frequency ($newfrequency) Sucessfull.\n" if ($output eq '00');
+		print "Set Frequency ($newfrequency) Failed. $newfrequency invalid or out of range\?\n" if ($output eq 'f0');
             	     }
-return $catoutput;
+return $output;
                  }
 
 #### SET MODE VIA CAT
@@ -1042,12 +1032,12 @@ return 1;
                 if($verbose){print "\nChoose valid mode: USB/LSB/FM etc etc\n\n"; }
 return 1;
                         }
-	$catoutput = $self->sendCat("$mode","00","00","00",'07',1);
+	$output = $self->sendCat("$mode","00","00","00",'07',1);
 	if ($verbose){
-		print "Set Mode ($newmode) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set Mode ($newmode) Failed.\n" if (! $mode || $catoutput ne '00');
+		print "Set Mode ($newmode) Sucessfull.\n" if ($output eq '00');
+		print "Set Mode ($newmode) Failed.\n" if (! $mode || $output ne '00');
             	     }
-return $catoutput;
+return $output;
          }
 
 #### ENABLE/DISABLE CLARIFIER VIA CAT
@@ -1064,12 +1054,12 @@ return 1;
 
 	if ($clarifier eq 'ON') {$data = "05";}
 	if ($clarifier eq 'OFF') {$data = "85";}
-        $catoutput = $self->sendCat('00','00','00','00',"$data",1);
+        $output = $self->sendCat('00','00','00','00',"$data",1);
         if ($verbose){
-                print "Set Clarifier ($clarifier) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set Clarifier ($clarifier) Failed. Already set to $clarifier\?\n" if ($catoutput eq 'f0');
+                print "Set Clarifier ($clarifier) Sucessfull.\n" if ($output eq '00');
+                print "Set Clarifier ($clarifier) Failed. Already set to $clarifier\?\n" if ($output eq 'f0');
                      }
-return $catoutput;
+return $output;
                  }
 
 #### SET CLARIFIER FREQ AND POLARITY USING CAT
@@ -1095,25 +1085,25 @@ return 1;
 	if ($polarity eq 'POS') {$p = '00';}
 	if ($polarity eq 'NEG') {$p = '11';}
 	if($frequency){if($p){
-			$catoutput = $self->sendCat("$p",'00',"$f1","$f2",'f5',1)}};
+			$output = $self->sendCat("$p",'00',"$f1","$f2",'f5',1)}};
 
         if ($verbose){
                 print "Set Clarifier Frequency ($polarity:$badf) Failed. Must contain 4 digits 0000-0999.\n" if (! $frequency);
-		print "Set Clarifier Frequency ($polarity:$frequency) Sucessfull.\n" if ($catoutput eq '00');
-		print "Set Clarifier Frequency ($polarity:$frequency) Failed. $frequency out of range? POS / NEG 0000 to 0999\n" if ($catoutput eq 'f0');
+		print "Set Clarifier Frequency ($polarity:$frequency) Sucessfull.\n" if ($output eq '00');
+		print "Set Clarifier Frequency ($polarity:$frequency) Failed. $frequency out of range? POS / NEG 0000 to 0999\n" if ($output eq 'f0');
                      }
-return $catoutput;
+return $output;
                      }
 
 #### TOGGLE VFO A/B VIA CAT
 sub catvfoToggle {
 	my $self=shift;
-	$catoutput = $self->sendCat('00','00','00','00','81',1);
+	$output = $self->sendCat('00','00','00','00','81',1);
         if ($verbose){
-                print "VFO toggle Sucessfull.\n" if ($catoutput eq '00');
-                print "VFO toggle Failed\n" if ($catoutput eq 'f0');
+                print "VFO toggle Sucessfull.\n" if ($output eq '00');
+                print "VFO toggle Failed\n" if ($output eq 'f0');
                      }
-return $catoutput;
+return $output;
               }
 
 #### ENABLE/DISABLE SPLIT FREQUENCY VIA CAT
@@ -1131,12 +1121,12 @@ return 1;
 	if ($split eq 'OFF') {$data = "82";}
 
 
-	$catoutput = $self->sendCat('00','00','00','00',"$data",1);
+	$output = $self->sendCat('00','00','00','00',"$data",1);
         if ($verbose){
-                print "Set Split Frequency ($split) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set Split Frequency ($split) Failed. Already set to $split\?\n" if ($catoutput eq 'f0');
+                print "Set Split Frequency ($split) Sucessfull.\n" if ($output eq '00');
+                print "Set Split Frequency ($split) Failed. Already set to $split\?\n" if ($output eq 'f0');
                      }
-return $catoutput;
+return $output;
               }
 
 #### POS/NEG/SIMPLEX REPEATER OFFSET MODE VIA CAT
@@ -1154,12 +1144,12 @@ return 1;
 	if ($offsetmode eq 'POS'){$datablock = '49';}
 	if ($offsetmode eq 'NEG') {$datablock = '09';}
 	if ($offsetmode eq 'SIMPLEX') {$datablock = '89';}
-	$catoutput = $self->sendCat("$datablock",'00','00','00','09',1);
+	$output = $self->sendCat("$datablock",'00','00','00','09',1);
         if ($verbose){
                 print "Set Offset Mode ($offsetmode) Sucessfull.\n" if ($datablock);
                 print "Set Offset Mode ($offsetmode) Failed. Option:$offsetmode invalid\.\n" if (! $datablock);
                      }
-return $catoutput;
+return $output;
                 }
 
 #### SET REPEATER OFFSET FREQ USING CAT
@@ -1177,13 +1167,13 @@ sub catOffsetfreq {
                 $badf = $frequency;
                 $frequency = undef;
              }
-	$catoutput = $self->sendCat("$f1","$f2","$f3","$f4",'F9',1);
+	$output = $self->sendCat("$f1","$f2","$f3","$f4",'F9',1);
         if($verbose){
                 print "Set Offset Frequency ($badf) Failed. Must contain 8 digits 0000-9999.\n" if (! $frequency);
-                print "Set Offset Frequency ($frequency) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set Offset Frequency ($frequency) Failed. $frequency invalid or out of range or split frequency on\?\n" if ($catoutput eq 'f0');
+                print "Set Offset Frequency ($frequency) Sucessfull.\n" if ($output eq '00');
+                print "Set Offset Frequency ($frequency) Failed. $frequency invalid or out of range or split frequency on\?\n" if ($output eq 'f0');
                     }
-return $catoutput;
+return $output;
                  }
 
 #### SETS CTCSS/DCS MODE VIA CAT
@@ -1202,12 +1192,12 @@ return 1;
 	if ($ctcssdcs eq 'CTCSS'){$data = "2A";}
 	if ($ctcssdcs eq 'ON'){$data = "4A";}
 	if ($ctcssdcs eq 'OFF'){$data = "8A";}
-        $catoutput = $self->sendCat("$data",'00','00','00','0A',1);
+        $output = $self->sendCat("$data",'00','00','00','0A',1);
         if ($verbose){
                 print "Set Encoder Type ($ctcssdcs) Sucessfull.\n" if ($data);
                 print "Set Encoder Type ($ctcssdcs) Failed. Option:$ctcssdcs invalid\.\n" if (! $data);
                      }
-return $catoutput;
+return $output;
                 }
 
 #### SETS CTCSS TONE FREQUENCY
@@ -1225,12 +1215,12 @@ sub catCtcsstone {
                 print "Set CTCSS Tone ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $tonefreq);
 return 1;
 	      }
-	if($tonefreq){$catoutput = $self->sendCat("$f1","$f2",'00','00','0B',1);}
+	if($tonefreq){$output = $self->sendCat("$f1","$f2",'00','00','0B',1);}
         if ($verbose){
                 print "Set CTCSS Tone ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $tonefreq);
-                print "Set CTCSS Tone ($tonefreq) Sucessfull.\n" if ($catoutput eq '00');
+                print "Set CTCSS Tone ($tonefreq) Sucessfull.\n" if ($output eq '00');
 
-	if ($catoutput eq 'f0'){
+	if ($output eq 'f0'){
 		print "Set CTCSS ($tonefreq) Failed. $tonefreq is not a valid tone frequency. Leading zero if necessary\n\n";
 		my $columns = 1;
 		foreach my $tones (sort keys %CTCSSTONES) {
@@ -1241,7 +1231,7 @@ return 1;
 		print "\n\n";	       
 				}
                      }
-return $catoutput;
+return $output;
                  }
 
 #### SET DCS CODE USING CAT######
@@ -1259,11 +1249,11 @@ sub catDcscode {
                 if (!$code && $verbose){print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9. Leading zero if necessary\n";}
 return 1;
               }
-	if($code){$catoutput = $self->sendCat("$f1","$f2",'00','00','0C',1);}
+	if($code){$output = $self->sendCat("$f1","$f2",'00','00','0C',1);}
         if ($verbose){
                 print "Set DCS Code ($badf) Failed. Must contain 4 digits 0-9.\n" if (! $code);
-                print "Set DCS Code ($code) Sucessfull.\n" if ($catoutput eq '00');
-	if ($catoutput eq 'f0') {
+                print "Set DCS Code ($code) Sucessfull.\n" if ($output eq '00');
+	if ($output eq 'f0') {
                 print "Set DCS Code ($code) Failed. $code is not a valid DCS Code\.\n\n";
 		my $columns = 1;
                 foreach my $codes (sort keys %DCSCODES) {
@@ -1275,17 +1265,17 @@ return 1;
 
 				}
                      }
-return $catoutput;
+return $output;
                  }
 
 #### GET MULTIPLE VALUES OF RX STATUS RETURN AS variables OR hash
 sub catRxstatus {
-        my ($match,$desc) = @_;
+        my ($match,$desc,$squelch) = @_;
         my $self=shift;
         my $option = shift;
 	if (!$option){$option = 'HASH';} 
-        $catoutput = $self->sendCat('00','00','00','00','E7',1);
-	my $values = hex2bin($catoutput);
+        $output = $self->sendCat('00','00','00','00','E7',1);
+	my $values = hex2bin($output);
 	my $sq = substr($values,0,1);
 	my $smeter = substr($values,4,4);
 	my $smeterlin = substr($values,4,4);
@@ -1321,8 +1311,8 @@ sub catTxstatus {
         my $self=shift;
         my $option = shift;
         if (!$option){$option = 'HASH';}
-        $catoutput = $self->sendCat('00','00','00','00','F7',1);
-        my $values = hex2bin($catoutput);
+        $output = $self->sendCat('00','00','00','00','F7',1);
+        my $values = hex2bin($output);
         my $pttvalue = substr($values,0,1);
         my $pometer = substr($values,4,4);
         my $pometerlin = substr($values,4,4);
@@ -1356,8 +1346,8 @@ sub catgetFrequency {
 	my ($freq) = @_;
 	my $self=shift;
 	my $formatted = shift;
-	$catoutput = $self->sendCat('00','00','00','00','03',5);
-	$freq = substr($catoutput,0,8);
+	$output = $self->sendCat('00','00','00','00','03',5);
+	$freq = substr($output,0,8);
 	$freq =~ s/^0+//;
 	if ($formatted == 1)    {
 		substr($freq,-2,0) = '.';
@@ -1371,9 +1361,10 @@ return $freq;
 #### GET CURRENT MODE USING CAT######
 sub catgetMode {
 	my $self=shift;
+	my $currentmode;
 	my $formatted = shift;
-	$catoutput = $self->sendCat('00','00','00','00','03',5);
-	$currentmode = substr($catoutput,8,2);
+	$output = $self->sendCat('00','00','00','00','03',5);
+	$currentmode = substr($output,8,2);
 	my ($mode) = grep { $OPMODES{$_} eq $currentmode } keys %OPMODES;
         if ($verbose){print "Mode is $mode\n";}
 return $mode;
@@ -1394,13 +1385,13 @@ return 1;
 	if ($powerset eq 'ON'){$data = "0F";}
 	if ($powerset eq 'OFF') {$data = "8F";}
 	$self->sendCat('00','00','00','00','00',1);
-	$catoutput = $self->sendCat('00','00','00','00',"$data",1);
+	$output = $self->sendCat('00','00','00','00',"$data",1);
 	if($verbose){
-                print "Set Power ($powerset) Sucessfull.\n" if ($catoutput eq '00');
-                print "Set Power ($powerset) Failed. Already $powerset\?\n" if (!$catoutput);
+                print "Set Power ($powerset) Sucessfull.\n" if ($output eq '00');
+                print "Set Power ($powerset) Failed. Already $powerset\?\n" if (!$output);
 		    }
 
-return $catoutput;
+return $output;
 	     }
 
 ###############################
@@ -1494,7 +1485,6 @@ sub getConfig {
 	$confighex4 = sprintf("%x", oct( "0b$output4" ) );
         $confighex5 = sprintf("%x", oct( "0b$output5" ) );
 	my $configoutput = "[$confighex4][$confighex5]";
-        $out = "\nHardware Jumpers created value of\n0x04[$output4]($confighex4)\n0x05[$output5]($confighex5)\n\n";
         if($verbose){
                 print "\nHardware Jumpers created value of\n\n";
 		printf "%-11s %-11s %-15s\n", 'ADDRESS','BINARY','HEX';
@@ -1641,6 +1631,7 @@ return $vfo;
 
 sub getHome {
         my $self=shift;
+	my $home;
         $output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
 	if ($block55[3] == '1') {$home = "Y";}
@@ -1654,6 +1645,7 @@ return $home;
 
 sub getTuner {
 	my $self=shift;
+	my $tuneselect;
 	$output = $self->eepromDecode('0055');
 	my @block55 = split("",$output);
 	if ($block55[1] == '0') {$tuneselect = "VFO";}
@@ -1676,6 +1668,7 @@ return $agc;
 
 sub getDsp {
         my $self=shift;
+	my $dsp;
         $output = $self->eepromDecode('0057');
         my @block55 = split("",$output);
         if ($block55[5] == '0') {$dsp = "OFF";}
@@ -1697,6 +1690,7 @@ return $pbt;
 
 sub getNb {
 	my $self=shift;
+	my $nb;
 	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[2] == '0') {$nb = "OFF";}
@@ -1707,6 +1701,7 @@ return $nb;
 
 sub getLock {
 	my $self=shift;
+	my $lock;
 	$output = $self->eepromDecode('0057');
 	my @block55 = split("",$output);
 	if ($block55[1] == '1') {$lock = "OFF";}
@@ -1717,6 +1712,7 @@ return $lock;
 
 sub getFasttuning {
         my $self=shift;
+	my $fasttuning;
         $output = $self->eepromDecode('0057');
         my @block55 = split("",$output);
         if ($block55[0] == '1') {$fasttuning = "OFF";}
@@ -7671,7 +7667,7 @@ Ham::Device::FT817COMM - Library to control the Yaesu FT817 Ham Radio
 
 =head1 VERSION
 
-Version 0.9.8
+Version 0.9.9
 
 =head1 SYNOPSIS
 
